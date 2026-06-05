@@ -1,0 +1,58 @@
+name: CI
+
+# 这个 workflow 用于在主分支和 Pull Request 上验证项目质量。
+# 当前项目是 pnpm workspace，所以统一在仓库根目录安装依赖并执行根脚本。
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# 同一个分支反复推送时自动取消旧任务，避免排队消耗 Actions 时间。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # 拉取仓库源码，后续所有命令都基于当前提交执行。
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 安装和 package.json 中声明一致的 pnpm 版本，保证本地与 CI 的依赖解析一致。
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      # 使用 Node.js 22，并开启 pnpm 缓存，加快后续 workflow 执行速度。
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # 按锁文件安装依赖，锁文件不匹配时直接失败，避免 CI 悄悄更新依赖版本。
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 先执行类型检查，尽早发现跨包类型、路径引用和声明文件问题。
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      # 运行 Vitest 测试；测试应只依赖合成数据、fixtures 和 Mock Provider。
+      - name: Run tests
+        run: pnpm test
+
+      # 最后执行构建，确认 API、Core、Shared 和 Demo Web 都可以产出构建结果。
+      - name: Build packages
+        run: pnpm build
