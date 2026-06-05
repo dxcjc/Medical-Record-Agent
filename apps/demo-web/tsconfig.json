@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "rootDir": ".",
+    "outDir": "dist",
+    "composite": true,
+    "allowImportingTsExtensions": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../../packages/shared"
+    }
+  ],
+  "include": ["vite.config.ts", "src/**/*.ts", "src/**/*.tsx"]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "medical-record-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "test": "vitest run",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "dev:api": "pnpm --filter @medical-record-agent/api dev",
+    "dev:web": "pnpm --filter @medical-record-agent/demo-web dev",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prisma": "^6.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  }
+}

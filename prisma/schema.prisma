@@ -1,0 +1,446 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum ApiTokenStatus {
+  active
+  revoked
+}
+
+enum AuditResult {
+  success
+  failure
+}
+
+enum FileVisibility {
+  private
+  shared
+}
+
+enum RecognitionJobStatus {
+  queued
+  running
+  completed
+  partial_completed
+  needs_review
+  writeback_pending
+  writeback_completed
+  writeback_failed
+  failed
+}
+
+enum SchemaDraftStatus {
+  draft
+  validating
+  invalid
+  ready
+  published
+  archived
+}
+
+enum SchemaVersionStatus {
+  active
+  inactive
+  deprecated
+}
+
+enum FeedbackStatus {
+  open
+  reviewed
+  accepted
+  rejected
+}
+
+enum RuleCandidateStatus {
+  proposed
+  accepted
+  rejected
+}
+
+enum ProviderKind {
+  ocr
+  llm
+  storage
+  lims
+}
+
+enum ProviderConfigStatus {
+  active
+  disabled
+}
+
+enum WritebackStatus {
+  pending
+  running
+  succeeded
+  failed
+  skipped
+}
+
+enum EvaluationDatasetStatus {
+  draft
+  ready
+  archived
+}
+
+enum EvaluationRunStatus {
+  queued
+  running
+  completed
+  failed
+}
+
+model User {
+  id             String               @id @default(cuid())
+  email          String               @unique
+  displayName    String
+  passwordHash   String
+  status         UserStatus           @default(active)
+  metadata       Json                 @default("{}")
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  roles          Role[]               @relation("RoleUsers")
+  apiTokens      ApiToken[]
+  auditLogs      AuditLog[]           @relation("AuditActor")
+  storedFiles    StoredFile[]         @relation("FileUploader")
+  recognitionJobs RecognitionJob[]    @relation("JobCreator")
+  schemaDrafts   SchemaDraft[]        @relation("SchemaDraftCreator")
+  schemaVersions SchemaVersion[]      @relation("SchemaVersionPublisher")
+  feedback       FeedbackSubmission[] @relation("FeedbackSubmitter")
+  providerConfigs ProviderConfig[]    @relation("ProviderConfigUpdater")
+  evaluationRuns EvaluationRun[]      @relation("EvaluationRunCreator")
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  permissions Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]   @relation("RoleUsers")
+
+  @@index([createdAt])
+}
+
+model ApiToken {
+  id             String         @id @default(cuid())
+  name           String
+  tokenHash      String
+  status         ApiTokenStatus @default(active)
+  scopes         Json
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  revokedAt      DateTime?
+  ownerId        String
+  owner          User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  auditLogs      AuditLog[]     @relation("AuditApiToken")
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+model AuditLog {
+  id             String      @id @default(cuid())
+  actorUserId    String?
+  actorApiTokenId String?
+  action         String
+  objectType     String
+  objectId       String?
+  result         AuditResult
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json        @default("{}")
+  createdAt      DateTime    @default(now())
+  actorUser      User?       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorApiToken  ApiToken?   @relation("AuditApiToken", fields: [actorApiTokenId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([actorApiTokenId])
+  @@index([action])
+  @@index([objectType, objectId])
+  @@index([createdAt])
+}
+
+model StoredFile {
+  id             String            @id @default(cuid())
+  storageKey     String            @unique
+  originalName   String
+  mimeType       String
+  byteSize       BigInt
+  checksumSha256 String
+  visibility     FileVisibility    @default(private)
+  metadata       Json              @default("{}")
+  uploadedById   String?
+  createdAt      DateTime          @default(now())
+  deletedAt      DateTime?
+  uploadedBy     User?             @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  jobs           RecognitionJob[]
+  samples        EvaluationSample[]
+
+  @@index([uploadedById])
+  @@index([checksumSha256])
+  @@index([createdAt])
+}
+
+model RecognitionJob {
+  id              String               @id @default(cuid())
+  status          RecognitionJobStatus @default(queued)
+  schemaKey       String
+  schemaVersionId String?
+  sourceFileId    String?
+  createdById     String?
+  providerConfig  Json                 @default("{}")
+  options         Json                 @default("{}")
+  trace           Json                 @default("[]")
+  warnings        Json                 @default("[]")
+  error           Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  schemaVersion   SchemaVersion?       @relation(fields: [schemaVersionId], references: [id], onDelete: SetNull)
+  sourceFile      StoredFile?          @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
+  createdBy       User?                @relation("JobCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  result          RecognitionResult?
+  feedback        FeedbackSubmission[]
+  writebacks      WritebackAttempt[]
+  evaluationSamples EvaluationSample[]
+
+  @@index([status])
+  @@index([schemaKey])
+  @@index([schemaVersionId])
+  @@index([sourceFileId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model RecognitionResult {
+  id              String         @id @default(cuid())
+  jobId           String         @unique
+  fields          Json
+  normalizedFields Json          @default("{}")
+  evidence        Json           @default("[]")
+  payload         Json           @default("{}")
+  confidence      Decimal?       @db.Decimal(5, 4)
+  reviewRequired  Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  job             RecognitionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([reviewRequired])
+  @@index([createdAt])
+}
+
+model SchemaDraft {
+  id              String            @id @default(cuid())
+  schemaKey       String
+  displayName     String
+  status          SchemaDraftStatus @default(draft)
+  definition      Json
+  validationReport Json             @default("{}")
+  createdById     String?
+  publishedVersionId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       User?             @relation("SchemaDraftCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedVersion SchemaVersion?   @relation("DraftPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: SetNull)
+
+  @@index([schemaKey])
+  @@index([status])
+  @@index([createdById])
+}
+
+model SchemaVersion {
+  id              String              @id @default(cuid())
+  schemaKey       String
+  version         Int
+  displayName     String
+  status          SchemaVersionStatus @default(active)
+  definition      Json
+  changelog       String
+  publishedById   String?
+  publishedAt     DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+  publishedBy     User?               @relation("SchemaVersionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  jobs            RecognitionJob[]
+  drafts          SchemaDraft[]        @relation("DraftPublishedVersion")
+  feedback        FeedbackSubmission[]
+  evaluationRuns  EvaluationRun[]
+
+  @@unique([schemaKey, version])
+  @@index([schemaKey, status])
+  @@index([publishedById])
+}
+
+model FeedbackSubmission {
+  id              String         @id @default(cuid())
+  jobId           String
+  schemaVersionId String?
+  submittedById   String?
+  status          FeedbackStatus @default(open)
+  fieldKey        String?
+  originalValue   Json?
+  correctedValue  Json?
+  comment         String?
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  reviewedAt      DateTime?
+  job             RecognitionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  schemaVersion   SchemaVersion? @relation(fields: [schemaVersionId], references: [id], onDelete: SetNull)
+  submittedBy     User?          @relation("FeedbackSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  ruleCandidates  RuleCandidate[]
+
+  @@index([jobId])
+  @@index([schemaVersionId])
+  @@index([status])
+  @@index([fieldKey])
+}
+
+model RuleCandidate {
+  id            String              @id @default(cuid())
+  feedbackId    String?
+  schemaKey     String
+  fieldKey      String
+  status        RuleCandidateStatus @default(proposed)
+  ruleType      String
+  proposal      Json
+  evidence      Json                @default("[]")
+  createdAt     DateTime            @default(now())
+  decidedAt     DateTime?
+  feedback      FeedbackSubmission? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
+
+  @@index([feedbackId])
+  @@index([schemaKey, fieldKey])
+  @@index([status])
+}
+
+model ProviderConfig {
+  id            String               @id @default(cuid())
+  key           String               @unique
+  kind          ProviderKind
+  displayName   String
+  status        ProviderConfigStatus @default(active)
+  isDefault     Boolean              @default(false)
+  config        Json
+  secretRefs    Json                 @default("{}")
+  updatedById   String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  updatedBy     User?                @relation("ProviderConfigUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([kind, status])
+  @@index([isDefault])
+  @@index([updatedById])
+}
+
+model WritebackAttempt {
+  id            String           @id @default(cuid())
+  jobId         String
+  status        WritebackStatus  @default(pending)
+  targetSystem  String
+  endpoint      String
+  idempotencyKey String           @unique
+  requestPayload Json
+  responsePayload Json?
+  error         Json?
+  retryable     Boolean          @default(false)
+  attemptedAt   DateTime         @default(now())
+  completedAt   DateTime?
+  job           RecognitionJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
+  @@index([targetSystem])
+  @@index([attemptedAt])
+}
+
+model EvaluationDataset {
+  id            String                  @id @default(cuid())
+  key           String                  @unique
+  displayName   String
+  description   String?
+  status        EvaluationDatasetStatus @default(draft)
+  deidentified  Boolean                 @default(false)
+  metadata      Json                    @default("{}")
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  samples       EvaluationSample[]
+  runs          EvaluationRun[]
+
+  @@index([status])
+  @@index([deidentified])
+}
+
+model EvaluationSample {
+  id            String            @id @default(cuid())
+  datasetId     String
+  fileId        String?
+  recognitionJobId String?
+  externalId    String?
+  groundTruth   Json
+  metadata      Json              @default("{}")
+  createdAt     DateTime          @default(now())
+  dataset       EvaluationDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  file          StoredFile?       @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  recognitionJob RecognitionJob?  @relation(fields: [recognitionJobId], references: [id], onDelete: SetNull)
+
+  @@index([datasetId])
+  @@index([fileId])
+  @@index([recognitionJobId])
+  @@index([externalId])
+  @@unique([datasetId, externalId])
+}
+
+model EvaluationRun {
+  id              String              @id @default(cuid())
+  datasetId       String
+  schemaVersionId String?
+  createdById     String?
+  status          EvaluationRunStatus @default(queued)
+  providerConfig  Json                @default("{}")
+  summary         Json                @default("{}")
+  error           Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  dataset         EvaluationDataset   @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  schemaVersion   SchemaVersion?      @relation(fields: [schemaVersionId], references: [id], onDelete: SetNull)
+  createdBy       User?               @relation("EvaluationRunCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  metrics         EvaluationMetric[]
+
+  @@index([datasetId])
+  @@index([schemaVersionId])
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EvaluationMetric {
+  id          String        @id @default(cuid())
+  runId       String
+  name        String
+  value       Decimal       @db.Decimal(12, 6)
+  unit        String?
+  breakdown   Json          @default("{}")
+  createdAt   DateTime      @default(now())
+  run         EvaluationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, name])
+  @@index([runId])
+  @@index([name])
+}

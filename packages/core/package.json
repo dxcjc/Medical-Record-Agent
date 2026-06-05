@@ -1,0 +1,25 @@
+{
+  "name": "@medical-record-agent/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.29",
+    "@langchain/langgraph": "^0.2.40",
+    "@medical-record-agent/shared": "workspace:*",
+    "langchain": "^0.3.11",
+    "openai": "^4.78.1"
+  }
+}

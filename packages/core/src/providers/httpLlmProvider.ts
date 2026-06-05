@@ -1,0 +1,119 @@
+import { parseModelExtractionOutput } from "../engine/extractionEngine";
+import {
+  ProviderError,
+  type HttpLlmProviderConfig,
+  type ModelProvider
+} from "./providerTypes";
+
+function createMalformedModelOutputError(providerName: string): ProviderError {
+  return new ProviderError(`模型结构化输出无效：${providerName} 返回内容不符合字段抽取 schema`, {
+    providerName,
+    retryable: false,
+    code: "MODEL_OUTPUT_MALFORMED"
+  });
+}
+
+function createRetryableModelError(providerName: string): ProviderError {
+  return new ProviderError(`模型调用失败：${providerName} 返回脱敏错误`, {
+    providerName,
+    retryable: true,
+    code: "MODEL_PROVIDER_RETRYABLE_FAILURE"
+  });
+}
+
+function getFirstChoiceContent(data: unknown): unknown {
+  if (data === null || typeof data !== "object") {
+    return undefined;
+  }
+
+  const choices = (data as { choices?: unknown }).choices;
+  if (!Array.isArray(choices)) {
+    return undefined;
+  }
+
+  const firstChoice = choices[0];
+  if (firstChoice === null || typeof firstChoice !== "object") {
+    return undefined;
+  }
+
+  const message = (firstChoice as { message?: unknown }).message;
+  if (message === null || typeof message !== "object") {
+    return undefined;
+  }
+
+  return (message as { content?: unknown }).content;
+}
+
+export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvider {
+  const providerName = config.providerName ?? "http-llm";
+  const fetchFn = config.fetchFn ?? fetch;
+  const timeoutMs = config.timeoutMs ?? 30_000;
+
+  return {
+    providerName,
+    async extractFields(request) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetchFn(config.endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+            ...config.headers
+          },
+          body: JSON.stringify({
+            model: config.model,
+            messages: [
+              {
+                role: "system",
+                content: "你是病历字段结构化抽取模型，只能返回 JSON 对象。"
+              },
+              {
+                role: "user",
+                content: request.prompt
+              }
+            ],
+            response_format: { type: "json_object" }
+          }),
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw createRetryableModelError(providerName);
+        }
+
+        let data: unknown;
+        try {
+          data = (await response.json()) as unknown;
+        } catch {
+          throw createMalformedModelOutputError(providerName);
+        }
+
+        const content = getFirstChoiceContent(data);
+        const candidates = parseModelExtractionOutput(content, request.schema);
+        if (!candidates) {
+          throw createMalformedModelOutputError(providerName);
+        }
+
+        return {
+          providerName,
+          candidates,
+          raw: {
+            // raw 只保留模型网关形态，不透传完整响应，避免模型复述 OCR 原文后被上层日志保存。
+            providerMode: "openai-compatible-chat"
+          }
+        };
+      } catch (error) {
+        if (error instanceof ProviderError) {
+          throw error;
+        }
+
+        throw createRetryableModelError(providerName);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+  };
+}
