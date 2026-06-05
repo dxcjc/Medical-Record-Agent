@@ -12,6 +12,9 @@ import {
   schemaVersionsById,
   validationResults,
   type FlowState,
+  type SchemaRecord,
+  type SchemaStatus,
+  type SchemaVersion,
   type SchemaFieldDraft
 } from "./components/schemaStudioData";
 
@@ -20,7 +23,7 @@ type ApiLoadState =
   | { status: "success"; count: number; statusSummary: string; error: null }
   | { status: "error"; count: number; statusSummary: string; error: string };
 
-type ActionKey = "validate" | "publish" | "compare";
+type ActionKey = "validate" | "publish" | "compare" | "deactivate" | "rollback";
 
 type ActionState = Record<
   ActionKey,
@@ -53,6 +56,107 @@ function readStringField(source: unknown, keys: string[]) {
   }
 
   return null;
+}
+
+function readNumberField(source: unknown, keys: string[]) {
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const record = source as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function normalizeSchemaStatus(value: string | null): SchemaStatus {
+  if (value === "draft" || value === "active" || value === "inactive" || value === "archived") {
+    return value;
+  }
+
+  if (value === "published" || value === "ready") {
+    return "active";
+  }
+
+  return "archived";
+}
+
+function formatSchemaVersion(value: string | number | null): string {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? `v${value}` : "未知版本";
+  }
+
+  return value && value.length > 0 ? value : "未知版本";
+}
+
+function mapApiSchemaItem(item: unknown, index: number) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return null;
+  }
+
+  const source = item as Record<string, unknown>;
+  const schemaKey = readStringField(source, ["schemaKey", "key", "id"]);
+  const versionId = readStringField(source, ["id", "versionId"]);
+  if (!schemaKey || !versionId) {
+    return null;
+  }
+
+  const fallbackSchema = schemaRecords.find((schema) => schema.id === schemaKey) ?? schemaRecords[index % schemaRecords.length];
+  const fallbackVersion = fallbackSchema ? schemaVersionsById[fallbackSchema.id]?.[0] : undefined;
+  const displayName = readStringField(source, ["displayName", "name"]) ?? fallbackSchema?.name ?? schemaKey;
+  const status = normalizeSchemaStatus(readStringField(source, ["status", "state", "lifecycleStatus"]));
+  const rawVersion = readStringField(source, ["version", "versionName", "semver"]) ?? readNumberField(source, ["version"]);
+  const versionText = formatSchemaVersion(rawVersion);
+
+  const record: SchemaRecord = {
+    id: schemaKey,
+    name: displayName,
+    domain: readStringField(source, ["domain", "schemaType"]) ?? fallbackSchema?.domain ?? "真实 API",
+    owner: readStringField(source, ["owner", "createdBy"]) ?? fallbackSchema?.owner ?? "后端返回",
+    activeVersion: status === "active" ? versionText : fallbackSchema?.activeVersion ?? versionText,
+    draftVersion: fallbackSchema?.draftVersion ?? "后端未返回草稿",
+    affectedPipelines: fallbackSchema?.affectedPipelines ?? ["真实 Schema API"],
+    deactivationRisk: fallbackSchema?.deactivationRisk ?? "中"
+  };
+
+  const version: SchemaVersion = {
+    id: versionId,
+    version: versionText,
+    status,
+    author: readStringField(source, ["author", "createdBy", "updatedBy"]) ?? fallbackVersion?.author ?? "后端返回",
+    updatedAt: readStringField(source, ["updatedAt", "createdAt"]) ?? fallbackVersion?.updatedAt ?? "后端未返回",
+    coverage: readNumberField(source, ["coverage", "fieldCoverage"]) ?? fallbackVersion?.coverage ?? 0,
+    errorRate: readNumberField(source, ["errorRate", "criticalErrorRate"]) ?? fallbackVersion?.errorRate ?? 0,
+    changeSummary: readStringField(source, ["changelog", "changeSummary", "description"]) ?? fallbackVersion?.changeSummary ?? "后端版本记录"
+  };
+
+  return { record, version };
+}
+
+function mapApiSchemas(items: unknown[]) {
+  const records = new Map<string, SchemaRecord>();
+  const versionsById: Record<string, SchemaVersion[]> = {};
+
+  items.forEach((item, index) => {
+    const mapped = mapApiSchemaItem(item, index);
+    if (!mapped) {
+      return;
+    }
+
+    const current = records.get(mapped.record.id);
+    records.set(mapped.record.id, current ? { ...current, ...mapped.record } : mapped.record);
+    versionsById[mapped.record.id] = [...(versionsById[mapped.record.id] ?? []), mapped.version];
+  });
+
+  return {
+    records: Array.from(records.values()),
+    versionsById
+  };
 }
 
 function summarizeSchemaStatuses(items: unknown[]) {
@@ -94,10 +198,9 @@ export default function SchemaStudioPage() {
     throw new Error("Schema Studio 缺少演示 Schema 数据");
   }
 
+  const fallbackSchemaId = firstSchema.id;
   const [selectedSchemaId, setSelectedSchemaId] = useState(firstSchema.id);
-  const versions = schemaVersionsById[selectedSchemaId] ?? [];
-  const firstVersion = versions[0];
-  const selectedSchema = schemaRecords.find((schema) => schema.id === selectedSchemaId) ?? firstSchema;
+  const firstVersion = schemaVersionsById[firstSchema.id]?.[0];
 
   const [selectedVersionId, setSelectedVersionId] = useState(firstVersion?.id ?? "");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -111,17 +214,45 @@ export default function SchemaStudioPage() {
   const [actionState, setActionState] = useState<ActionState>({
     validate: { isRunning: false, message: "", error: "" },
     publish: { isRunning: false, message: "", error: "" },
-    compare: { isRunning: false, message: "", error: "" }
+    compare: { isRunning: false, message: "", error: "" },
+    deactivate: { isRunning: false, message: "", error: "" },
+    rollback: { isRunning: false, message: "", error: "" }
   });
+  const [apiSchemaRecords, setApiSchemaRecords] = useState<SchemaRecord[]>([]);
+  const [apiSchemaVersionsById, setApiSchemaVersionsById] = useState<Record<string, SchemaVersion[]>>({});
   const [flowState, setFlowState] = useState<FlowState>({
     publishRequested: false,
     deactivateRequested: false,
-    rollbackTarget: selectedSchema.activeVersion,
-    compareBase: selectedSchema.activeVersion
+    rollbackTarget: firstSchema.activeVersion,
+    compareBase: firstSchema.activeVersion
   });
 
-  const selectedVersion = versions.find((version) => version.id === selectedVersionId) ?? firstVersion;
-  const selectedDraftVersion = versions.find((version) => version.status === "draft") ?? selectedVersion;
+  const displaySchemaRecords = apiSchemaRecords.length > 0 ? apiSchemaRecords : schemaRecords;
+  const displaySchemaVersionsById = apiSchemaRecords.length > 0 ? apiSchemaVersionsById : schemaVersionsById;
+  const displayFirstSchema = displaySchemaRecords[0] ?? firstSchema;
+  const displayVersions = displaySchemaVersionsById[selectedSchemaId] ?? [];
+  const selectedSchema = displaySchemaRecords.find((schema) => schema.id === selectedSchemaId) ?? displayFirstSchema;
+  const selectedVersion = displayVersions.find((version) => version.id === selectedVersionId) ?? displayVersions[0];
+  const selectedDraftVersion = displayVersions.find((version) => version.status === "draft") ?? selectedVersion;
+
+  async function refreshSchemas() {
+    const response = await api.listSchemas();
+    const mapped = mapApiSchemas(response.items);
+
+    setApiSchemaRecords(mapped.records);
+    setApiSchemaVersionsById(mapped.versionsById);
+    setSelectedSchemaId((currentId) => {
+      const stillExists = mapped.records.some((schema) => schema.id === currentId);
+      return stillExists ? currentId : mapped.records[0]?.id ?? fallbackSchemaId;
+    });
+    setSelectedVersionId((currentVersionId) => {
+      const allVersions = Object.values(mapped.versionsById).flat();
+      const stillExists = allVersions.some((version) => version.id === currentVersionId);
+      return stillExists ? currentVersionId : allVersions[0]?.id ?? "";
+    });
+
+    return { response, mapped };
+  }
 
   useEffect(() => {
     let shouldIgnore = false;
@@ -136,14 +267,26 @@ export default function SchemaStudioPage() {
 
       try {
         const response = await api.listSchemas();
+        const mapped = mapApiSchemas(response.items);
 
         if (shouldIgnore) {
           return;
         }
 
+        setApiSchemaRecords(mapped.records);
+        setApiSchemaVersionsById(mapped.versionsById);
+        setSelectedSchemaId((currentId) => {
+          const stillExists = mapped.records.some((schema) => schema.id === currentId);
+          return stillExists ? currentId : mapped.records[0]?.id ?? fallbackSchemaId;
+        });
+        setSelectedVersionId((currentVersionId) => {
+          const allVersions = Object.values(mapped.versionsById).flat();
+          const stillExists = allVersions.some((version) => version.id === currentVersionId);
+          return stillExists ? currentVersionId : allVersions[0]?.id ?? "";
+        });
         setApiSchemaState({
           status: "success",
-          count: response.items.length,
+          count: mapped.records.length > 0 ? mapped.records.length : response.items.length,
           statusSummary: summarizeSchemaStatuses(response.items),
           error: null
         });
@@ -169,8 +312,8 @@ export default function SchemaStudioPage() {
   }, [api]);
 
   const compareRows = useMemo(() => {
-    const draftVersion = versions.find((version) => version.status === "draft") ?? selectedVersion;
-    const compareBase = versions.find((version) => version.version === flowState.compareBase) ?? selectedVersion;
+    const draftVersion = displayVersions.find((version) => version.status === "draft") ?? selectedVersion;
+    const compareBase = displayVersions.find((version) => version.version === flowState.compareBase) ?? selectedVersion;
 
     if (!draftVersion || !compareBase) {
       return [];
@@ -196,11 +339,11 @@ export default function SchemaStudioPage() {
         impact: "需人工确认"
       }
     ];
-  }, [flowState.compareBase, selectedVersion, versions]);
+  }, [displayVersions, flowState.compareBase, selectedVersion]);
 
   const handleSelectSchema = (schemaId: string) => {
-    const nextSchema = schemaRecords.find((schema) => schema.id === schemaId);
-    const nextVersions = schemaVersionsById[schemaId] ?? [];
+    const nextSchema = displaySchemaRecords.find((schema) => schema.id === schemaId);
+    const nextVersions = displaySchemaVersionsById[schemaId] ?? [];
     const nextVersion = nextVersions[0];
 
     setSelectedSchemaId(schemaId);
@@ -323,6 +466,48 @@ export default function SchemaStudioPage() {
     );
   };
 
+  const handleDeactivateVersion = () => {
+    if (!selectedVersion) {
+      return;
+    }
+
+    void runSchemaAction(
+      "deactivate",
+      () => api.deactivateSchemaVersion(selectedVersion.id),
+      `已提交 ${selectedVersion.version} 的真实停用请求。`,
+      "Schema 停用失败，请确认权限和版本状态。",
+      () => {
+        setFlowState((currentState) => ({
+          ...currentState,
+          deactivateRequested: true
+        }));
+        void refreshSchemas();
+      }
+    );
+  };
+
+  const handleRollbackTargetChange = (rollbackTarget: string) => {
+    setFlowState((currentState) => ({
+      ...currentState,
+      rollbackTarget
+    }));
+
+    const targetVersion = displayVersions.find((version) => version.version === rollbackTarget);
+    if (!targetVersion) {
+      return;
+    }
+
+    void runSchemaAction(
+      "rollback",
+      () => api.rollbackSchemaVersion(targetVersion.id),
+      `已提交 ${rollbackTarget} 的真实回滚请求。`,
+      "Schema 回滚失败，请确认目标版本仍存在。",
+      () => {
+        void refreshSchemas();
+      }
+    );
+  };
+
   const handleCompareVersions = () => {
     const draftVersion = selectedDraftVersion?.version ?? selectedSchema.draftVersion;
 
@@ -380,7 +565,7 @@ export default function SchemaStudioPage() {
             ) : null}
             API Schema
           </span>
-          <h2>{apiSchemaState.status === "loading" ? "读取中" : apiSchemaState.count}</h2>
+          <h2>{apiSchemaState.status === "loading" ? "读取中" : displaySchemaRecords.length}</h2>
           <p>{apiSchemaState.statusSummary}</p>
         </article>
       </div>
@@ -393,12 +578,12 @@ export default function SchemaStudioPage() {
 
       <div className="form-grid">
         <SchemaListPanel
-          schemas={schemaRecords}
+          schemas={displaySchemaRecords}
           selectedSchemaId={selectedSchemaId}
           onSelectSchema={handleSelectSchema}
         />
         <VersionListPanel
-          versions={versions}
+          versions={displayVersions}
           selectedVersionId={selectedVersionId}
           onSelectVersion={setSelectedVersionId}
         />
@@ -419,7 +604,7 @@ export default function SchemaStudioPage() {
 
       <SchemaFlowPanel
         schema={selectedSchema}
-        versions={versions}
+        versions={displayVersions}
         isAdmin={isAdmin}
         flowState={flowState}
         onToggleAdmin={() => setIsAdmin((currentValue) => !currentValue)}
@@ -428,18 +613,8 @@ export default function SchemaStudioPage() {
           compare: actionState.compare
         }}
         onPublish={handlePublishDraft}
-        onDeactivate={() =>
-          setFlowState((currentState) => ({
-            ...currentState,
-            deactivateRequested: true
-          }))
-        }
-        onRollbackTargetChange={(rollbackTarget) =>
-          setFlowState((currentState) => ({
-            ...currentState,
-            rollbackTarget
-          }))
-        }
+        onDeactivate={handleDeactivateVersion}
+        onRollbackTargetChange={handleRollbackTargetChange}
         onCompareBaseChange={(compareBase) =>
           setFlowState((currentState) => ({
             ...currentState,
@@ -448,6 +623,20 @@ export default function SchemaStudioPage() {
         }
         onCompare={handleCompareVersions}
       />
+
+      {actionState.deactivate.error || actionState.deactivate.message || actionState.rollback.error || actionState.rollback.message ? (
+        <section className="panel" aria-labelledby="schema-change-result-title">
+          <h2 id="schema-change-result-title">真实变更请求状态</h2>
+          {actionState.deactivate.error ? (
+            <p className="form-error" role="alert">停用失败：{actionState.deactivate.error}</p>
+          ) : null}
+          {actionState.deactivate.message ? <p>{actionState.deactivate.message}</p> : null}
+          {actionState.rollback.error ? (
+            <p className="form-error" role="alert">回滚失败：{actionState.rollback.error}</p>
+          ) : null}
+          {actionState.rollback.message ? <p>{actionState.rollback.message}</p> : null}
+        </section>
+      ) : null}
 
       <section className="panel" aria-labelledby="schema-compare-title">
         <div className="toolbar">

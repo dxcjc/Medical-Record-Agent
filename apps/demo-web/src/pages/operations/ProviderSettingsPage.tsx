@@ -30,6 +30,11 @@ type ProviderApiStatus =
   | { status: "success"; message: string; count: number }
   | { status: "error"; message: string; count: number };
 
+type LocalProviderActionState = {
+  message: string;
+  tone: "info" | "warning";
+};
+
 const providerKinds: ProviderKind[] = ["LangChain", "OpenAI-compatible", "OpenAI Responses", "Mock"];
 
 const providerIcons: Record<ProviderArea, ReactNode> = {
@@ -136,6 +141,10 @@ export function ProviderSettingsPage() {
     count: 0
   });
   const [settingDefaultKey, setSettingDefaultKey] = useState<string | null>(null);
+  const [localActionState, setLocalActionState] = useState<LocalProviderActionState>({
+    message: "保存配置和 Health check 当前未发现后端 route，以下表单仅执行本地草稿保存与本地预检。",
+    tone: "warning"
+  });
 
   const enabledCount = useMemo(() => configs.filter((config) => config.enabled).length, [configs]);
   const healthyCount = useMemo(
@@ -180,8 +189,12 @@ export function ProviderSettingsPage() {
 
   function runHealthCheck(area: ProviderArea) {
     setCheckingArea(area);
+    setLocalActionState({
+      message: `${area} 正在执行本地预检；当前后端没有单 provider 健康检查 route。`,
+      tone: "info"
+    });
 
-    // 这里用定时器模拟真实健康检查的等待态，便于 Demo 展示按钮 loading 与结果回写。
+    // 这里明确是本地预检，不冒充后端健康检查；用于保留 Demo 的等待态和结果回写体验。
     window.setTimeout(() => {
       setHealth((current) => ({
         ...current,
@@ -189,9 +202,16 @@ export function ProviderSettingsPage() {
           status: area === "storage" ? "degraded" : "healthy",
           latencyMs: area === "LLM" ? 438 : area === "storage" ? 1186 : 214,
           checkedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-          message: area === "storage" ? "存储可写但公网回源较慢，建议检查区域或 CDN" : `${area} provider 连通正常`
+          message:
+            area === "storage"
+              ? "本地预检：存储配置可写性待后端接入，公网回源参数建议复核"
+              : `本地预检：${area} provider 配置格式通过`
         }
       }));
+      setLocalActionState({
+        message: `${area} 本地预检完成；真实健康检查仍需后端 route 接入后才能执行。`,
+        tone: "warning"
+      });
       setCheckingArea(null);
     }, 420);
   }
@@ -199,6 +219,10 @@ export function ProviderSettingsPage() {
   function saveConfigs() {
     setSavedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
     setVisibleSecretArea(null);
+    setLocalActionState({
+      message: "已保存到当前页面本地草稿状态；后端暂无 provider 配置保存 route，刷新页面后不会持久化。",
+      tone: "warning"
+    });
   }
 
   async function setDefaultProvider(key: string) {
@@ -238,20 +262,20 @@ export function ProviderSettingsPage() {
         actions={
           <button className="action-button" type="button" onClick={saveConfigs}>
             <Save size={16} aria-hidden="true" />
-            保存配置
+            保存本地草稿
           </button>
         }
       />
 
       <section className="metric-grid" aria-label="Provider 指标">
-        <MetricCard label="启用 Provider" value={`${enabledCount}/4`} hint={`上次保存 ${savedAt}`} tone="info" />
+        <MetricCard label="启用 Provider" value={`${enabledCount}/4`} hint={`本地草稿保存 ${savedAt}`} tone="info" />
         <MetricCard label="健康实例" value={`${healthyCount}/4`} hint="按最新健康检查结果统计" tone="success" />
         <MetricCard label="密钥策略" value="保存后隐藏" hint="Secret 不在页面常驻明文展示" tone="warning" />
         <MetricCard label="API Provider" value={`${apiStatus.count}`} hint={apiStatus.message} tone={apiStatus.status === "error" ? "warning" : "info"} />
       </section>
 
-      <InlineNotice tone="info" title="配置说明">
-        Mock 适合本地演示；OpenAI-compatible 用于兼容网关；OpenAI Responses 适合结构化抽取链路；LangChain 可接入已有工具链和存储适配器。
+      <InlineNotice tone={localActionState.tone} title="本地预检说明">
+        {localActionState.message}
       </InlineNotice>
 
       <section className="panel">
@@ -269,6 +293,11 @@ export function ProviderSettingsPage() {
           {apiStatus.message}
         </InlineNotice>
         <div className="provider-list">
+          {apiStatus.status === "loading" ? (
+            <InlineNotice tone="info" title="正在读取">
+              正在读取真实 provider list/default 状态，读取完成后会优先展示后端返回。
+            </InlineNotice>
+          ) : null}
           {apiProviders.map((provider) => (
             <article key={provider.key} className="provider-row">
               <div>
@@ -290,11 +319,15 @@ export function ProviderSettingsPage() {
           ))}
           {apiProviders.length === 0 ? (
             <InlineNotice tone="warning" title="暂无真实 provider">
-              真实 API 未返回 provider 列表，下面的本地草稿配置仍可用于演示表单和密钥隐藏交互。
+              真实 API 未返回 provider 列表；下面配置只做本地草稿编辑和本地预检，不代表后端保存成功。
             </InlineNotice>
           ) : null}
         </div>
       </section>
+
+      <InlineNotice tone="info" title="本地配置区">
+        下方 OCR、LLM、storage、LIMS 表单保留原演示布局；保存和 Health check 均为本地预检，真实默认 provider 以“真实 Provider API”区域为准。
+      </InlineNotice>
 
       <section className="provider-grid">
         {configs.map((config) => {
@@ -379,7 +412,7 @@ export function ProviderSettingsPage() {
                   onClick={() => runHealthCheck(config.area)}
                 >
                   <ServerCog size={16} aria-hidden="true" />
-                  {checkingArea === config.area ? "检查中" : "Health check"}
+                  {checkingArea === config.area ? "预检中" : "本地预检"}
                 </button>
               </div>
             </article>

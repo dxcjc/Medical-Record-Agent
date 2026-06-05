@@ -35,6 +35,11 @@ type DatasetLoadState =
   | { status: "success"; error: null }
   | { status: "error"; error: string };
 
+type ApiListLoadState =
+  | { status: "loading"; message: string }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
+
 type RunMutationState =
   | { status: "idle"; message: string | null }
   | { status: "submitting"; message: string | null }
@@ -146,6 +151,81 @@ function mapApiDatasets(items: unknown[]) {
   return mapped.length > 0 ? mapped : datasets;
 }
 
+function mapApiRun(item: unknown, datasetNamesById: Map<string, string>, index: number): EvaluationRun | null {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return null;
+  }
+
+  const source = item as Record<string, unknown>;
+  const id = readStringField(source, ["id", "runId"]);
+  if (!id) {
+    return null;
+  }
+
+  const fallback = completedRuns[index % completedRuns.length] ?? completedRuns[0];
+  const datasetId = readStringField(source, ["datasetId"]);
+  const providerKey = readStringField(source, ["providerKey", "modelVersion"]) ?? fallback?.modelVersion ?? "真实 provider";
+  const schemaVersion = readStringField(source, ["schemaVersion", "schemaKey"]) ?? fallback?.schemaVersion ?? "后端未返回";
+
+  return {
+    id,
+    name: readStringField(source, ["name", "displayName"]) ?? `评测任务 ${id}`,
+    datasetName: datasetId ? datasetNamesById.get(datasetId) ?? datasetId : fallback?.datasetName ?? "后端未返回",
+    schemaVersion,
+    modelVersion: providerKey,
+    status: normalizeRunStatus(readStringField(source, ["status"])),
+    createdAt: readStringField(source, ["createdAt", "updatedAt"]) ?? fallback?.createdAt ?? "后端未返回"
+  };
+}
+
+function mapApiRuns(items: unknown[], displayDatasets: EvaluationDataset[]) {
+  const datasetNamesById = new Map(displayDatasets.map((dataset) => [dataset.id, dataset.name]));
+  const mapped = items
+    .map((item, index) => mapApiRun(item, datasetNamesById, index))
+    .filter((run): run is EvaluationRun => Boolean(run));
+
+  return mapped.length > 0 ? mapped : completedRuns;
+}
+
+function normalizeRunStatus(status: string | null): EvaluationRun["status"] {
+  if (status === "running") {
+    return "运行中";
+  }
+
+  if (status === "completed" || status === "succeeded") {
+    return "已完成";
+  }
+
+  return "排队中";
+}
+
+function mapApiMetrics(response: unknown): typeof metricCards {
+  const metrics =
+    response && typeof response === "object" && !Array.isArray(response)
+      ? (response as Record<string, unknown>).metrics
+      : null;
+
+  if (!Array.isArray(metrics) || metrics.length === 0) {
+    return metricCards;
+  }
+
+  return metrics.map((metric, index) => {
+    const source = metric && typeof metric === "object" && !Array.isArray(metric) ? (metric as Record<string, unknown>) : {};
+    const name = readStringField(source, ["name", "label"]) ?? `metric-${index + 1}`;
+    const value = readNumberField(source, ["value", "score"]) ?? 0;
+    const unit = readStringField(source, ["unit"]) ?? "";
+    const displayValue = unit === "ratio" ? `${(value * 100).toFixed(1)}%` : `${value}${unit ? ` ${unit}` : ""}`;
+
+    return {
+      id: name,
+      label: name,
+      value: displayValue,
+      delta: "API",
+      detail: "来自评估运行 metrics API。"
+    };
+  });
+}
+
 function formatApiError(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.length > 0) {
     return error.message;
@@ -185,15 +265,7 @@ function extractRunStatus(response: unknown) {
       : source;
   const status = run ? readStringField(run, ["status"]) : null;
 
-  if (status === "running") {
-    return "运行中";
-  }
-
-  if (status === "completed") {
-    return "已完成";
-  }
-
-  return fallbackStatus;
+  return status ? normalizeRunStatus(status) : fallbackStatus;
 }
 
 function parseProviderKey(modelVersion: string) {
@@ -224,7 +296,20 @@ export default function EvaluationPage() {
   const [importFlow, setImportFlow] = useState<ImportFlowState>(initialImportFlow);
   const [runDraft, setRunDraft] = useState<EvaluationRunDraft>(initialRunDraft);
   const [runs, setRuns] = useState<EvaluationRun[]>(completedRuns);
+  const [runLoadState, setRunLoadState] = useState<ApiListLoadState>({
+    status: "loading",
+    message: "正在读取真实评测运行。"
+  });
+  const [displayMetrics, setDisplayMetrics] = useState(metricCards);
+  const [metricLoadState, setMetricLoadState] = useState<ApiListLoadState>({
+    status: "loading",
+    message: "正在读取真实评测指标。"
+  });
   const [runMutationState, setRunMutationState] = useState<RunMutationState>({
+    status: "idle",
+    message: null
+  });
+  const [importMutationState, setImportMutationState] = useState<RunMutationState>({
     status: "idle",
     message: null
   });
@@ -272,6 +357,83 @@ export default function EvaluationPage() {
       shouldIgnore = true;
     };
   }, [api]);
+
+  useEffect(() => {
+    let shouldIgnore = false;
+
+    async function loadEvaluationRuns() {
+      setRunLoadState({ status: "loading", message: "正在读取真实评测运行。" });
+
+      try {
+        const response = await api.listEvaluationRuns();
+        if (shouldIgnore) {
+          return;
+        }
+
+        const nextRuns = mapApiRuns(response.items, displayDatasets);
+        setRuns(nextRuns);
+        setRunLoadState({ status: "success", message: `已读取 ${nextRuns.length} 条真实评测运行。` });
+      } catch (error) {
+        if (shouldIgnore) {
+          return;
+        }
+
+        setRuns(completedRuns);
+        setRunLoadState({
+          status: "error",
+          message: formatApiError(error, "Evaluation Run 接口暂时不可用，继续展示静态运行。")
+        });
+      }
+    }
+
+    void loadEvaluationRuns();
+
+    return () => {
+      shouldIgnore = true;
+    };
+  }, [api, displayDatasets]);
+
+  useEffect(() => {
+    let shouldIgnore = false;
+    const firstRun = runs[0];
+
+    async function loadEvaluationMetrics() {
+      if (!firstRun) {
+        setDisplayMetrics([]);
+        setMetricLoadState({ status: "success", message: "暂无评测运行，无法读取 metrics。" });
+        return;
+      }
+
+      setMetricLoadState({ status: "loading", message: `正在读取 ${firstRun.id} 的真实 metrics。` });
+
+      try {
+        const response = await api.listEvaluationRunMetrics(firstRun.id);
+        if (shouldIgnore) {
+          return;
+        }
+
+        const nextMetrics = mapApiMetrics(response);
+        setDisplayMetrics(nextMetrics);
+        setMetricLoadState({ status: "success", message: `已读取 ${firstRun.id} 的真实 metrics。` });
+      } catch (error) {
+        if (shouldIgnore) {
+          return;
+        }
+
+        setDisplayMetrics(metricCards);
+        setMetricLoadState({
+          status: "error",
+          message: formatApiError(error, "Evaluation Metrics 接口暂时不可用，继续展示静态指标。")
+        });
+      }
+    }
+
+    void loadEvaluationMetrics();
+
+    return () => {
+      shouldIgnore = true;
+    };
+  }, [api, runs]);
 
   const selectedDataset = displayDatasets.find((dataset) => dataset.id === selectedDatasetId) ?? displayDatasets[0] ?? fallbackDataset;
 
@@ -337,6 +499,55 @@ export default function EvaluationPage() {
       setRunMutationState({
         status: "error",
         message: formatApiError(error, "创建评测任务失败")
+      });
+    }
+  };
+
+  const handleValidateSamples = () => {
+    setImportFlow((currentFlow) => ({
+      ...currentFlow,
+      sampleImportStatus: "校验中",
+      groundTruthStatusText: "字段匹配中"
+    }));
+    setImportMutationState({
+      status: "idle",
+      message: "仅完成本地字段预检，提交导入时会调用后端 samples API。"
+    });
+  };
+
+  const handleCompleteImport = async () => {
+    setImportMutationState({ status: "submitting", message: "正在调用后端样本导入接口" });
+
+    try {
+      // Demo 页面没有真实文件上传流，这里用表单当前文件名构造一条最小 synthetic sample，确保导入动作走真实后端 route。
+      await api.importEvaluationSamples(selectedDataset.id, [
+        {
+          externalId: importFlow.fileName,
+          groundTruth: {},
+          metadata: {
+            sourceType: importFlow.sourceType,
+            fileName: importFlow.fileName
+          }
+        }
+      ]);
+      setImportFlow((currentFlow) => ({
+        ...currentFlow,
+        sampleImportStatus: "已导入",
+        groundTruthStatusText: "已完成"
+      }));
+      setImportMutationState({
+        status: "success",
+        message: "样本已通过后端 samples API 导入。"
+      });
+    } catch (error) {
+      setImportFlow((currentFlow) => ({
+        ...currentFlow,
+        sampleImportStatus: "校验中",
+        groundTruthStatusText: "字段匹配中"
+      }));
+      setImportMutationState({
+        status: "error",
+        message: formatApiError(error, "样本导入需后端接入或权限放行，当前未写入真实数据。")
       });
     }
   };
@@ -411,6 +622,16 @@ export default function EvaluationPage() {
         </section>
       ) : null}
 
+      {runLoadState.status === "error" || metricLoadState.status === "error" ? (
+        <section className="warning-box" role="alert">
+          <AlertTriangle aria-hidden size={18} />
+          <div>
+            <strong>Evaluation API 读取提示</strong>
+            <p>{runLoadState.status === "error" ? runLoadState.message : metricLoadState.message}</p>
+          </div>
+        </section>
+      ) : null}
+
       <DatasetListPanel
         datasets={displayDatasets}
         selectedDatasetId={selectedDatasetId}
@@ -420,21 +641,21 @@ export default function EvaluationPage() {
       <SampleImportPanel
         importFlow={importFlow}
         onChange={handleImportChange}
-        onValidateSamples={() =>
-          setImportFlow((currentFlow) => ({
-            ...currentFlow,
-            sampleImportStatus: "校验中",
-            groundTruthStatusText: "字段匹配中"
-          }))
-        }
-        onCompleteImport={() =>
-          setImportFlow((currentFlow) => ({
-            ...currentFlow,
-            sampleImportStatus: "已导入",
-            groundTruthStatusText: "已完成"
-          }))
-        }
+        onValidateSamples={handleValidateSamples}
+        onCompleteImport={handleCompleteImport}
       />
+
+      {importMutationState.message ? (
+        <section className="panel" aria-labelledby="evaluation-import-state-title">
+          <h2 id="evaluation-import-state-title">样本导入状态</h2>
+          <p
+            className={importMutationState.status === "error" ? "form-error" : undefined}
+            role={importMutationState.status === "error" ? "alert" : "status"}
+          >
+            {importMutationState.message}
+          </p>
+        </section>
+      ) : null}
 
       <EvaluationRunPanel
         draft={runDraft}
@@ -444,7 +665,13 @@ export default function EvaluationPage() {
         onCreateRun={handleCreateRun}
       />
 
-      <MetricCardsPanel metrics={metricCards} />
+      <section className="panel" aria-labelledby="evaluation-api-state-title">
+        <h2 id="evaluation-api-state-title">真实 API 状态</h2>
+        <p>{runLoadState.message}</p>
+        <p>{metricLoadState.message}</p>
+      </section>
+
+      <MetricCardsPanel metrics={displayMetrics} />
       <VersionComparisonPanel rows={versionComparisonRows} />
     </main>
   );
