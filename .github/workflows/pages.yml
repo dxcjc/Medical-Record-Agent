@@ -1,0 +1,90 @@
+name: Deploy demo web to GitHub Pages
+
+# 这个 workflow 负责把 apps/demo-web 的 Vite 构建产物发布到 GitHub Pages。
+# CI 仍然由 ci.yml 负责；这里专注于生成可访问的静态前端页面。
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+# GitHub Pages 的 Actions 部署需要读取代码、写入 Pages，并通过 OIDC 发布部署。
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只保留一个 Pages 部署，避免旧提交覆盖新提交的页面产物。
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# GitHub 正在迁移 JavaScript Action 的运行时，提前启用 Node 24，减少弃用告警。
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build demo web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # 拉取仓库源码，后续构建都基于当前提交执行。
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 安装和 package.json 中声明一致的 pnpm 版本，保持依赖解析和本地一致。
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      # 使用 Node.js 22，并开启 pnpm 缓存，加快 Pages 部署构建速度。
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # 让 GitHub Pages 在本次 workflow 中完成项目站点的部署准备。
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # 按锁文件安装依赖，锁文件不匹配时直接失败，避免部署使用未记录的依赖版本。
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 只构建 Demo Web，并通过 GITHUB_PAGES 标记启用 /Medical-Record-Agent/ 静态资源前缀。
+      - name: Build demo web
+        run: pnpm --filter @medical-record-agent/demo-web build
+        env:
+          GITHUB_PAGES: "true"
+
+      # GitHub Pages 不会天然支持 BrowserRouter 深层路径刷新；复制 404.html 作为 SPA 回退页。
+      - name: Prepare single-page app fallback
+        run: cp apps/demo-web/dist/index.html apps/demo-web/dist/404.html
+
+      # 上传 Vite 构建产物，deploy job 会从这个 artifact 发布页面。
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/demo-web/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # GitHub Pages 会把部署结果 URL 写入这个环境，方便在 Actions 页面直接打开。
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # 发布 build job 上传的 artifact，并输出最终 Pages 地址。
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

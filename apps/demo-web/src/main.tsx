@@ -21,6 +21,9 @@ import SchemaStudioPage from "./pages/schema/SchemaStudioPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
+// Vite 会根据 vite.config.ts 的 base 生成 BASE_URL。
+// GitHub Pages 项目站点部署在 /Medical-Record-Agent/ 下，basename 能让 React Router 正确匹配子路径。
+const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
 const router = createBrowserRouter([
   {
     path: "/login",
@@ -48,7 +51,9 @@ const router = createBrowserRouter([
       }
     ]
   }
-]);
+], routerBasename ? {
+  basename: routerBasename
+} : undefined);
 
 const rootElement = document.getElementById("root");
 
