@@ -16,6 +16,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# GitHub 正在迁移 JavaScript Action 的运行时，提前启用 Node 24，减少弃用告警。
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   quality:
     name: Typecheck, test and build
@@ -44,6 +48,10 @@ jobs:
       # 按锁文件安装依赖，锁文件不匹配时直接失败，避免 CI 悄悄更新依赖版本。
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # 根据 prisma/schema.prisma 生成 @prisma/client 类型，否则新 runner 上无法识别模型和枚举。
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
 
       # 先执行类型检查，尽早发现跨包类型、路径引用和声明文件问题。
       - name: Run typecheck
