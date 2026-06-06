@@ -1,4 +1,4 @@
-import { PlayCircle } from "lucide-react";
+import { AppIcon, actionIcons, navigationIcons } from "../../../icons/appIcons";
 import type { EvaluationRun, EvaluationRunDraft } from "./evaluationData";
 
 type EvaluationRunPanelProps = {
@@ -25,13 +25,13 @@ export function EvaluationRunPanel({
   const isSubmitting = mutationState.status === "submitting";
 
   return (
-    <section className="panel" aria-labelledby="evaluation-run-title">
+    <section className="panel studio-panel" aria-labelledby="evaluation-run-title">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-run-title">Evaluation Run Creation</h2>
           <p>选择 Schema、模型和样本范围后创建评测任务。</p>
         </div>
-        <PlayCircle aria-hidden size={20} />
+        <AppIcon icon={navigationIcons.evaluation} tone="green" tile />
       </div>
 
       <div className="form-grid">
@@ -67,7 +67,7 @@ export function EvaluationRunPanel({
 
       <div className="toolbar">
         <button type="button" className="action-button" onClick={onCreateRun} disabled={isSubmitting}>
-          <PlayCircle aria-hidden size={16} />
+          <AppIcon icon={actionIcons.next} size="sm" />
           {isSubmitting ? "创建中" : "创建评测"}
         </button>
         {mutationState.message ? (
@@ -80,32 +80,34 @@ export function EvaluationRunPanel({
         ) : null}
       </div>
 
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th scope="col">Run</th>
-            <th scope="col">数据集</th>
-            <th scope="col">Schema</th>
-            <th scope="col">模型</th>
-            <th scope="col">状态</th>
-            <th scope="col">创建时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          {runs.map((run) => (
-            <tr key={run.id}>
-              <td>{run.name}</td>
-              <td>{run.datasetName}</td>
-              <td>{run.schemaVersion}</td>
-              <td>{run.modelVersion}</td>
-              <td>
-                <span className="status-pill">{run.status}</span>
-              </td>
-              <td>{run.createdAt}</td>
+      <div className="table-scroll">
+        <table className="data-table arco-table">
+          <thead>
+            <tr>
+              <th scope="col">Run</th>
+              <th scope="col">数据集</th>
+              <th scope="col">Schema</th>
+              <th scope="col">模型</th>
+              <th scope="col">状态</th>
+              <th scope="col">创建时间</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {runs.map((run) => (
+              <tr key={run.id}>
+                <td>{run.name}</td>
+                <td>{run.datasetName}</td>
+                <td className="mono">{run.schemaVersion}</td>
+                <td className="mono">{run.modelVersion}</td>
+                <td>
+                  <span className="status-pill">{run.status}</span>
+                </td>
+                <td>{run.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

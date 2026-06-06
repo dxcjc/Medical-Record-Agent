@@ -1,17 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  CircleAlert,
-  Clock3,
-  DatabaseZap,
-  FileCheck2,
-  FileSearch,
-  GitBranch,
-  RotateCcw,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { actionIcons, dashboardMetricIcons } from "../../../icons/appIcons";
 
 export type RecognitionStatus = "queued" | "running" | "review" | "completed" | "failed";
 
@@ -45,6 +33,11 @@ export type ReviewSummary = {
   value: string;
   description: string;
   icon: LucideIcon;
+  tone?: "neutral" | "success" | "warning" | "danger" | "info";
+  trend?: {
+    direction: "up" | "down";
+    label: string;
+  };
 };
 
 export type FieldCandidate = {
@@ -103,25 +96,45 @@ export const dashboardMetrics: ReviewSummary[] = [
     label: "今日任务",
     value: "128",
     description: "较昨日增加 18 单",
-    icon: FileSearch,
+    icon: dashboardMetricIcons.taskVolume,
+    tone: "info",
+    trend: {
+      direction: "up",
+      label: "+16%",
+    },
   },
   {
     label: "平均置信度",
     value: "92.4%",
     description: "高风险字段单独复核",
-    icon: Sparkles,
+    icon: dashboardMetricIcons.confidence,
+    tone: "success",
+    trend: {
+      direction: "up",
+      label: "+2.1%",
+    },
   },
   {
     label: "自动写回",
     value: "76",
     description: "绿色决策直接进入 HIS 草稿",
-    icon: DatabaseZap,
+    icon: dashboardMetricIcons.writeback,
+    tone: "success",
+    trend: {
+      direction: "up",
+      label: "+9",
+    },
   },
   {
     label: "待复核",
     value: "21",
     description: "黄色决策等待人工确认",
-    icon: Clock3,
+    icon: dashboardMetricIcons.reviewQueue,
+    tone: "warning",
+    trend: {
+      direction: "down",
+      label: "-4",
+    },
   },
 ];
 
@@ -205,25 +218,41 @@ export const writeBackSummaries: ReviewSummary[] = [
     label: "绿色自动决策",
     value: "61%",
     description: "字段完整且证据一致",
-    icon: CheckCircle2,
+    icon: dashboardMetricIcons.decisionPass,
+    tone: "success",
+    trend: {
+      direction: "up",
+      label: "+5%",
+    },
   },
   {
     label: "黄色人工复核",
     value: "31%",
     description: "低置信度或字段冲突",
-    icon: AlertTriangle,
+    icon: dashboardMetricIcons.decisionReview,
+    tone: "warning",
+    trend: {
+      direction: "down",
+      label: "-3%",
+    },
   },
   {
     label: "红色阻断",
     value: "8%",
     description: "缺少关键证据或隐私策略不允许",
-    icon: CircleAlert,
+    icon: dashboardMetricIcons.decisionBlock,
+    tone: "danger",
+    trend: {
+      direction: "down",
+      label: "-1%",
+    },
   },
   {
     label: "回滚队列",
     value: "4",
     description: "等待管理员确认",
-    icon: RotateCcw,
+    icon: dashboardMetricIcons.rollback,
+    tone: "neutral",
   },
 ];
 
@@ -371,9 +400,9 @@ export const payloadPreview = {
 };
 
 export const dashboardActions = [
-  { label: "新建识别", icon: FileCheck2 },
-  { label: "查看流程", icon: GitBranch },
-  { label: "隐私策略", icon: ShieldCheck },
+  { label: "新建识别", icon: actionIcons.createRecognition },
+  { label: "查看流程", icon: actionIcons.viewFlow },
+  { label: "隐私策略", icon: actionIcons.privacyPolicy },
 ] as const;
 
 export function formatPercent(value: number): string {

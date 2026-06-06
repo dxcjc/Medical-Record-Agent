@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Database, FileJson2, HeartPulse, Loader2, RefreshCcw, ServerCog } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons } from "../../icons/appIcons";
 import {
   dashboardActions,
   dashboardMetrics,
@@ -11,6 +12,8 @@ import {
 } from "./components/demoData";
 import {
   JobStatusPill,
+  EmptyPanel,
+  type MetricTone,
   MetricCard,
   PageHeader,
   ProviderHealthPill,
@@ -36,6 +39,14 @@ type RuntimeLoadState =
   | { status: "loading"; data: RuntimeStatus | null; error: null }
   | { status: "success"; data: RuntimeStatus; error: null }
   | { status: "error"; data: RuntimeStatus | null; error: string };
+
+type RuntimeMetric = {
+  label: string;
+  value: string;
+  description: string;
+  icon: LucideIcon;
+  tone: MetricTone;
+};
 
 function countItems(response: { items: unknown[] }) {
   return response.items.length;
@@ -116,7 +127,7 @@ export default function RecognitionDashboardPage({
     };
   }, [api, refreshToken]);
 
-  const runtimeMetrics = useMemo(
+  const runtimeMetrics = useMemo<RuntimeMetric[]>(
     () => [
       {
         label: "API 健康状态",
@@ -124,27 +135,31 @@ export default function RecognitionDashboardPage({
         description: runtimeState.data
           ? `${runtimeState.data.service} · ${runtimeState.data.checkedAt}`
           : "等待健康检查返回",
-        icon: HeartPulse,
+        icon: dashboardMetricIcons.apiHealth,
+        tone: runtimeState.status === "error" ? "danger" : runtimeState.status === "loading" ? "warning" : "success",
       },
       {
         label: "Provider",
         value: runtimeState.data ? `${runtimeState.data.providerCount}` : "-",
         description: "来自 /providers 实时返回",
-        icon: ServerCog,
+        icon: dashboardMetricIcons.provider,
+        tone: runtimeState.status === "error" ? "warning" : "info",
       },
       {
         label: "Schema",
         value: runtimeState.data ? `${runtimeState.data.schemaCount}` : "-",
         description: "来自 /schemas 实时返回",
-        icon: FileJson2,
+        icon: dashboardMetricIcons.schema,
+        tone: "success",
       },
       {
         label: "Evaluation Dataset",
         value: runtimeState.data ? `${runtimeState.data.evaluationDatasetCount}` : "-",
         description: "来自 /evaluations/datasets 实时返回",
-        icon: Database,
+        icon: dashboardMetricIcons.dataset,
+        tone: "neutral",
       },
-    ],
+    ] satisfies RuntimeMetric[],
     [runtimeState]
   );
 
@@ -160,7 +175,7 @@ export default function RecognitionDashboardPage({
           <>
             {dashboardActions.map(({ label, icon: Icon }) => (
               <button key={label} className="secondary-button" type="button" aria-label={label}>
-                <Icon size={16} aria-hidden="true" />
+                <AppIcon icon={Icon} size="sm" />
                 {label}
               </button>
             ))}
@@ -171,11 +186,11 @@ export default function RecognitionDashboardPage({
               disabled={runtimeState.status === "loading"}
               onClick={() => setRefreshToken((current) => current + 1)}
             >
-              {runtimeState.status === "loading" ? (
-                <Loader2 size={16} aria-hidden="true" />
-              ) : (
-                <RefreshCcw size={16} aria-hidden="true" />
-              )}
+              <AppIcon
+                icon={runtimeState.status === "loading" ? commonUiIcons.loading : actionIcons.refresh}
+                size="sm"
+                className={runtimeState.status === "loading" ? "is-spinning" : undefined}
+              />
               {runtimeState.status === "loading" ? "刷新中" : "刷新"}
             </button>
           </>
@@ -208,56 +223,66 @@ export default function RecognitionDashboardPage({
 
       <section className="panel">
         <SectionTitle title="最近任务" actionLabel="查看全部任务" />
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>任务</th>
-              <th>模板</th>
-              <th>Provider</th>
-              <th>状态</th>
-              <th>置信度</th>
-              <th>写回</th>
-              <th>负责人</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <tr key={job.id}>
-                <td>
-                  <strong>{job.title}</strong>
-                  <span>{job.id} · {job.createdAt}</span>
-                </td>
-                <td>{job.schemaName}</td>
-                <td>{job.provider}</td>
-                <td>
-                  <JobStatusPill status={job.status} />
-                </td>
-                <td>{formatPercent(job.confidence)}</td>
-                <td>{job.autoWriteBack ? "自动写回" : "等待确认"}</td>
-                <td>{job.owner}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {jobs.length > 0 ? (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>任务</th>
+                  <th>模板</th>
+                  <th>Provider</th>
+                  <th>状态</th>
+                  <th>置信度</th>
+                  <th>写回</th>
+                  <th>负责人</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job) => (
+                  <tr key={job.id}>
+                    <td>
+                      <strong>{job.title}</strong>
+                      <span>{job.id} · {job.createdAt}</span>
+                    </td>
+                    <td>{job.schemaName}</td>
+                    <td>{job.provider}</td>
+                    <td>
+                      <JobStatusPill status={job.status} />
+                    </td>
+                    <td>{formatPercent(job.confidence)}</td>
+                    <td>{job.autoWriteBack ? "自动写回" : "等待确认"}</td>
+                    <td>{job.owner}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyPanel icon={dashboardMetricIcons.taskVolume} title="暂无识别任务" description="新建任务后，最近任务会显示在这里。" />
+        )}
       </section>
 
       <div className="dashboard-grid">
         <section className="panel">
           <SectionTitle title="Provider 状态" />
-          <div className="provider-list">
-            {providers.map((provider) => (
-              <article key={provider.name} className="provider-row">
-                <div>
-                  <h3>{provider.name}</h3>
-                  <p>
-                    延迟 {provider.latencyMs}ms · 成功率 {formatPercent(provider.successRate)} ·
-                    活跃 {provider.activeJobs}
-                  </p>
-                </div>
-                <ProviderHealthPill health={provider.health} />
-              </article>
-            ))}
-          </div>
+          {providers.length > 0 ? (
+            <div className="provider-list">
+              {providers.map((provider) => (
+                <article key={provider.name} className="provider-row">
+                  <div>
+                    <h3>{provider.name}</h3>
+                    <p>
+                      延迟 {provider.latencyMs}ms · 成功率 {formatPercent(provider.successRate)} ·
+                      活跃 {provider.activeJobs}
+                    </p>
+                  </div>
+                  <ProviderHealthPill health={provider.health} />
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyPanel icon={dashboardMetricIcons.provider} title="暂无 Provider" description="Provider 接入后会显示健康状态与调用概览。" />
+          )}
         </section>
 
         <section className="panel">
@@ -269,7 +294,7 @@ export default function RecognitionDashboardPage({
           </div>
           <button className="secondary-button" type="button" aria-label="打开复核队列">
             打开复核队列
-            <ArrowRight size={16} aria-hidden="true" />
+            <AppIcon icon={actionIcons.next} size="sm" />
           </button>
         </section>
       </div>

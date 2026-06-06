@@ -1,15 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  Eye,
-  EyeOff,
-  Info,
-  ShieldAlert,
-  X
-} from "lucide-react";
+import { AppIcon, actionIcons, commonUiIcons, statusIcons } from "../../../icons/appIcons";
 
 export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral";
 
@@ -56,11 +46,11 @@ type StatusPillProps = {
 };
 
 const statusIconMap: Record<StatusTone, ReactNode> = {
-  success: <CheckCircle2 size={14} aria-hidden="true" />,
-  warning: <AlertTriangle size={14} aria-hidden="true" />,
-  danger: <ShieldAlert size={14} aria-hidden="true" />,
-  info: <Info size={14} aria-hidden="true" />,
-  neutral: <Clock3 size={14} aria-hidden="true" />
+  success: <AppIcon icon={statusIcons.success} size="xs" />,
+  warning: <AppIcon icon={statusIcons.warning} size="xs" />,
+  danger: <AppIcon icon={statusIcons.danger} size="xs" />,
+  info: <AppIcon icon={statusIcons.info} size="xs" />,
+  neutral: <AppIcon icon={statusIcons.neutral} size="xs" />
 };
 
 export function StatusPill({ tone, children }: StatusPillProps) {
@@ -101,7 +91,7 @@ export function ConfirmDialog({
         <div className="confirm-dialog__header">
           <h2 id="confirm-title">{title}</h2>
           <button className="icon-button" type="button" aria-label="关闭确认弹窗" onClick={onCancel}>
-            <X size={18} aria-hidden="true" />
+            <AppIcon icon={commonUiIcons.close} size="md" />
           </button>
         </div>
         <p>{description}</p>
@@ -154,7 +144,7 @@ export function SecretField({ label, value, visible, onToggle, onChange }: Secre
           onChange={(event) => onChange(event.target.value)}
         />
         <button className="icon-button" type="button" aria-label={visible ? "隐藏密钥" : "显示密钥"} onClick={onToggle}>
-          {visible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+          <AppIcon icon={visible ? statusIcons.neutral : actionIcons.privacyPolicy} size="sm" />
         </button>
       </div>
     </label>
@@ -220,7 +210,7 @@ export function RowActionButton({ disabled = false, title, children, onClick }: 
       onClick={onClick}
     >
       {children}
-      <ChevronRight size={15} aria-hidden="true" />
+      <AppIcon icon={commonUiIcons.arrowRight} size="sm" />
     </button>
   );
 }

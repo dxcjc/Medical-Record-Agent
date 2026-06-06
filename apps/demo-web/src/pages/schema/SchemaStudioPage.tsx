@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Database, GitCompare, Loader2 } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AppIcon, commonUiIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { DraftEditorPanel } from "./components/DraftEditorPanel";
 import { SchemaFlowPanel } from "./components/SchemaFlowPanel";
 import { SchemaListPanel } from "./components/SchemaListPanel";
@@ -531,13 +531,13 @@ export default function SchemaStudioPage() {
           <p>面向医疗结构化抽取的 Schema 版本、草稿、验证与生产变更控制台。</p>
         </div>
         <span className="status-pill">
-          <Database aria-hidden size={16} />
+          <AppIcon icon={dashboardMetricIcons.dataset} size="sm" />
           {selectedSchema.domain}
         </span>
       </header>
 
       <section className="warning-box" role="alert">
-        <AlertTriangle aria-hidden size={18} />
+        <AppIcon icon={statusIcons.warning} tone="orange" />
         <div>
           <strong>生产影响提示</strong>
           <p>
@@ -561,7 +561,7 @@ export default function SchemaStudioPage() {
         <article className="metric-card">
           <span className="status-pill">
             {apiSchemaState.status === "loading" ? (
-              <Loader2 aria-hidden size={14} />
+              <AppIcon icon={commonUiIcons.loading} size="xs" />
             ) : null}
             API Schema
           </span>
@@ -644,7 +644,7 @@ export default function SchemaStudioPage() {
             <h2 id="schema-compare-title">版本比较</h2>
             <p>展示草稿与基线版本的关键生产指标差异。</p>
           </div>
-          <GitCompare aria-hidden size={20} />
+          <AppIcon icon={navigationIcons.schemaStudio} tone="purple" tile />
         </div>
 
         <table className="comparison-table">

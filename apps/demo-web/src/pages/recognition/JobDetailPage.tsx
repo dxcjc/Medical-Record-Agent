@@ -1,12 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  ClipboardCheck,
-  FileText,
-  MessageSquarePlus,
-  PanelRightOpen,
-  Send,
-} from "lucide-react";
+import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
 import {
   decisionCards,
   demoOcrText,
@@ -398,32 +392,50 @@ export default function JobDetailPage() {
         actions={
           <>
             <button className="secondary-button" type="button" aria-label="打开原始文档">
-              <FileText size={16} aria-hidden="true" />
+              <AppIcon icon={actionIcons.createRecognition} size="sm" />
               原始文档
             </button>
             <button className="action-button" type="button" aria-label="确认绿色字段写回" onClick={handleGoWriteback}>
-              <ClipboardCheck size={16} aria-hidden="true" />
+              <AppIcon icon={dashboardMetricIcons.writeback} size="sm" />
               确认写回
             </button>
           </>
         }
       />
 
-      <p role="status" className="page-subtle-note">
-        {routeJobId === "demo"
-          ? "当前为 demo 任务，展示静态识别样例。"
-          : loadState === "loading"
-            ? `正在加载任务 ${routeJobId} 的真实识别数据，静态样例会作为兜底保留。`
-            : loadState === "error"
-              ? `真实接口读取失败：${loadError} 当前继续展示 demo 兜底数据。`
-              : `已尝试加载任务 ${displayJobId} 的真实数据，缺失部分继续使用 demo 兜底。`}
-      </p>
+      <div
+        role={loadState === "error" ? "alert" : "status"}
+        className={`inline-notice recognition-state-note ${loadState === "error" ? "is-danger" : loadState === "loading" ? "is-loading" : ""}`}
+      >
+        <AppIcon
+          icon={
+            routeJobId === "demo"
+              ? statusIcons.info
+              : loadState === "loading"
+                ? commonUiIcons.loading
+                : loadState === "error"
+                  ? statusIcons.danger
+                  : statusIcons.success
+          }
+          size="sm"
+          className={loadState === "loading" ? "is-spinning" : undefined}
+        />
+        <span>
+          {routeJobId === "demo"
+            ? "当前为 demo 任务，展示静态识别样例。"
+            : loadState === "loading"
+              ? `正在加载任务 ${routeJobId} 的真实识别数据，静态样例会作为兜底保留。`
+              : loadState === "error"
+                ? `真实接口读取失败：${loadError} 当前继续展示 demo 兜底数据。`
+                : `已尝试加载任务 ${displayJobId} 的真实数据，缺失部分继续使用 demo 兜底。`}
+        </span>
+      </div>
 
       <div className="detail-grid">
         <section className="panel document-preview" aria-label="文档预览占位">
           <SectionTitle title="文档预览" />
           <div className="preview-placeholder">
-            <PanelRightOpen size={40} aria-hidden="true" />
+            <AppIcon icon={actionIcons.createRecognition} size="lg" tone="blue" tile />
             <strong>PDF / 图片预览区域</strong>
             <span>主线程接入文件渲染器后，这里展示页码、缩放、框选证据坐标。</span>
           </div>
@@ -437,59 +449,69 @@ export default function JobDetailPage() {
 
       <section className="panel">
         <SectionTitle title="字段候选表" />
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>字段</th>
-              <th>候选值</th>
-              <th>置信度</th>
-              <th>来源</th>
-              <th>自动决策</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayFields.map((candidate) => (
-              <tr key={candidate.field}>
-                <td>{candidate.field}</td>
-                <td>{candidate.value}</td>
-                <td>{formatPercent(candidate.confidence)}</td>
-                <td>{candidate.source}</td>
-                <td>
-                  <DecisionPill decision={candidate.decision} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {displayFields.length > 0 ? (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>候选值</th>
+                  <th>置信度</th>
+                  <th>来源</th>
+                  <th>自动决策</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayFields.map((candidate) => (
+                  <tr key={candidate.field}>
+                    <td>{candidate.field}</td>
+                    <td>{candidate.value}</td>
+                    <td>{formatPercent(candidate.confidence)}</td>
+                    <td>{candidate.source}</td>
+                    <td>
+                      <DecisionPill decision={candidate.decision} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyPanel icon={statusIcons.neutral} title="暂无字段候选" description="当前任务还没有返回可复核的字段结果。" />
+        )}
       </section>
 
       <div className="detail-grid">
-        <section className="evidence-panel">
+        <section className="evidence-panel u-surface">
           <SectionTitle title="证据面板" />
-          <div className="trace-list" role="list" aria-label="证据列表">
-            {displayEvidenceItems.map((item) => (
-              <button
-                key={item.id}
-                className="secondary-button"
-                type="button"
-                aria-label={`查看 ${item.field} 的证据`}
-                aria-pressed={item.id === selectedEvidenceId}
-                onClick={() => setSelectedEvidenceId(item.id)}
-              >
-                {item.field}
-              </button>
-            ))}
-          </div>
-          {selectedEvidence ? (
-            <article className="evidence-card">
-              <h3>{selectedEvidence.field}</h3>
-              <p>{selectedEvidence.quote}</p>
-              <span>
-                第 {selectedEvidence.page} 页 · 置信度 {formatPercent(selectedEvidence.confidence)}
-              </span>
-            </article>
+          {displayEvidenceItems.length > 0 ? (
+            <>
+              <div className="trace-list evidence-tabs" role="list" aria-label="证据列表">
+                {displayEvidenceItems.map((item) => (
+                  <button
+                    key={item.id}
+                    className="secondary-button"
+                    type="button"
+                    aria-label={`查看 ${item.field} 的证据`}
+                    aria-pressed={item.id === selectedEvidenceId}
+                    onClick={() => setSelectedEvidenceId(item.id)}
+                  >
+                    {item.field}
+                  </button>
+                ))}
+              </div>
+              {selectedEvidence ? (
+                <article className="evidence-card">
+                  <h3>{selectedEvidence.field}</h3>
+                  <p>{selectedEvidence.quote}</p>
+                  <span>
+                    第 {selectedEvidence.page} 页 · 置信度 {formatPercent(selectedEvidence.confidence)}
+                  </span>
+                </article>
+              ) : null}
+            </>
           ) : (
-            <EmptyPanel icon={FileText} title="暂无证据" description="当前任务没有可展示证据。" />
+            <EmptyPanel icon={actionIcons.createRecognition} title="暂无证据" description="当前任务没有可展示证据。" />
           )}
         </section>
 
@@ -502,21 +524,25 @@ export default function JobDetailPage() {
       <div className="detail-grid">
         <section className="panel">
           <SectionTitle title="LangGraph Trace" />
-          <ol className="trace-list">
-            {displayTraceSteps.map((step) => (
-              <li key={step.id}>
-                <div>
-                  <strong>{step.node}</strong>
-                  <span>{step.durationMs}ms</span>
-                </div>
-                <StatusPill
-                  label={step.status === "done" ? "完成" : step.status === "active" ? "运行中" : "阻塞"}
-                  tone={step.status === "done" ? "completed" : step.status === "active" ? "running" : "failed"}
-                />
-                <p>{step.detail}</p>
-              </li>
-            ))}
-          </ol>
+          {displayTraceSteps.length > 0 ? (
+            <ol className="trace-list">
+              {displayTraceSteps.map((step) => (
+                <li key={step.id}>
+                  <div>
+                    <strong>{step.node}</strong>
+                    <span>{step.durationMs}ms</span>
+                  </div>
+                  <StatusPill
+                    label={step.status === "done" ? "完成" : step.status === "active" ? "运行中" : "阻塞"}
+                    tone={step.status === "done" ? "completed" : step.status === "active" ? "running" : "failed"}
+                  />
+                  <p>{step.detail}</p>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <EmptyPanel icon={statusIcons.neutral} title="暂无 Trace" description="当前任务还没有返回流程节点。" />
+          )}
         </section>
 
         <section className="panel">
@@ -601,7 +627,11 @@ export default function JobDetailPage() {
 
         <div className="toolbar">
           <button className="action-button" type="submit" aria-label="提交复核反馈" disabled={submitState === "loading"}>
-            <Send size={16} aria-hidden="true" />
+            <AppIcon
+              icon={submitState === "loading" ? commonUiIcons.loading : actionIcons.next}
+              size="sm"
+              className={submitState === "loading" ? "is-spinning" : undefined}
+            />
             {submitState === "loading" ? "提交中" : "提交反馈"}
           </button>
           <button
@@ -615,13 +645,23 @@ export default function JobDetailPage() {
               })
             }
           >
-            <MessageSquarePlus size={16} aria-hidden="true" />
+            <AppIcon icon={dashboardMetricIcons.reviewQueue} size="sm" />
             引用证据
           </button>
         </div>
 
-        {submittedMessage ? <p role="status">{submittedMessage}</p> : null}
-        {submitState === "error" ? <p role="alert">反馈提交失败：{submitError}</p> : null}
+        {submittedMessage ? (
+          <div className="inline-notice recognition-state-note is-success" role="status">
+            <AppIcon icon={statusIcons.success} size="sm" />
+            <span>{submittedMessage}</span>
+          </div>
+        ) : null}
+        {submitState === "error" ? (
+          <div className="form-error recognition-state-note" role="alert">
+            <AppIcon icon={statusIcons.danger} size="sm" />
+            <span>反馈提交失败：{submitError}</span>
+          </div>
+        ) : null}
       </form>
     </main>
   );

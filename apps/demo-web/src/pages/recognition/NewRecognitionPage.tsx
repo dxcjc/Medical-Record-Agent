@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileUp, Loader2, Play, ShieldCheck, Sparkles, UploadCloud, XCircle } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
 import {
   adapterOptions,
   providerOptions,
@@ -158,12 +158,12 @@ export default function NewRecognitionPage() {
         description="上传病历图片或 PDF，选择模板、Adapter、Provider 与隐私策略后创建识别任务。"
       />
 
-      <form className="panel" onSubmit={handleSubmit}>
+      <form className="panel recognition-form-panel" onSubmit={handleSubmit}>
         <SectionTitle title="文件与识别配置" />
 
-        <label className="upload-zone">
-          <UploadCloud size={32} aria-hidden="true" />
-          <strong>上传图片或 PDF</strong>
+        <label className={`upload-zone ${selectedFile ? "is-ready" : ""}`}>
+          <AppIcon icon={actionIcons.createRecognition} size="lg" tone={selectedFile ? "green" : "blue"} tile />
+          <strong>{selectedFile ? "文件已选择" : "上传图片或 PDF"}</strong>
           <span>{fileSummary}</span>
           <input
             aria-label="上传识别文件"
@@ -222,10 +222,10 @@ export default function NewRecognitionPage() {
 
         <section className="evidence-panel" aria-labelledby="privacy-title">
           <h2 id="privacy-title">
-            <ShieldCheck size={18} aria-hidden="true" />
+            <AppIcon icon={actionIcons.privacyPolicy} size="md" />
             隐私选项
           </h2>
-          <label className="field-row">
+          <label className="field-row checkbox-row">
             <input
               aria-label="开启患者信息脱敏"
               checked={privacy.deidentify}
@@ -234,7 +234,7 @@ export default function NewRecognitionPage() {
             />
             <span>开启患者信息脱敏</span>
           </label>
-          <label className="field-row">
+          <label className="field-row checkbox-row">
             <input
               aria-label="保留字段证据链"
               checked={privacy.keepEvidence}
@@ -243,7 +243,7 @@ export default function NewRecognitionPage() {
             />
             <span>保留字段证据链</span>
           </label>
-          <label className="field-row">
+          <label className="field-row checkbox-row">
             <input
               aria-label="允许绿色决策自动写回"
               checked={privacy.allowWriteBack}
@@ -256,7 +256,11 @@ export default function NewRecognitionPage() {
 
         <div className="toolbar">
           <button className="action-button" type="submit" aria-label="开始识别" disabled={isLoading}>
-            {isLoading ? <Loader2 size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+            <AppIcon
+              icon={isLoading ? commonUiIcons.loading : actionIcons.createRecognition}
+              size="sm"
+              className={isLoading ? "is-spinning" : undefined}
+            />
             {isLoading ? "创建中" : "开始识别"}
           </button>
           <button
@@ -266,7 +270,7 @@ export default function NewRecognitionPage() {
             disabled={isLoading}
             onClick={handleSyntheticSubmit}
           >
-            <Sparkles size={16} aria-hidden="true" />
+            <AppIcon icon={dashboardMetricIcons.confidence} size="sm" />
             合成样本
           </button>
           <button
@@ -279,7 +283,7 @@ export default function NewRecognitionPage() {
               setSubmitState({ status: "idle" });
             }}
           >
-            <XCircle size={16} aria-hidden="true" />
+            <AppIcon icon={commonUiIcons.close} size="sm" />
             清空
           </button>
         </div>
@@ -287,7 +291,7 @@ export default function NewRecognitionPage() {
 
       {submitState.status === "success" ? (
         <EmptyPanel
-          icon={FileUp}
+          icon={actionIcons.createRecognition}
           title="任务已创建"
           description={`任务 ${submitState.jobId} 已进入识别队列，可在任务详情页查看进度。`}
           action={
@@ -299,7 +303,7 @@ export default function NewRecognitionPage() {
       ) : null}
 
       {submitState.status === "error" ? (
-        <EmptyPanel icon={XCircle} title="创建失败" description={submitState.message} />
+        <EmptyPanel icon={statusIcons.danger} title="创建失败" description={submitState.message} />
       ) : null}
     </main>
   );

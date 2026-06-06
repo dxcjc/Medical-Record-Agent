@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Activity, GitBranch, RefreshCw, Search, TimerReset } from "lucide-react";
+import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons } from "../../icons/appIcons";
 import { MetricCard, PayloadPreview, SectionHeader, StatusPill, Timeline } from "./components";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -269,17 +269,17 @@ export function AgentTracePage() {
           <>
             <form className="toolbar" onSubmit={handleTraceSearch}>
               <label className="toolbar-control">
-                <GitBranch size={15} aria-hidden="true" />
+                <AppIcon icon={navigationIcons.agentTrace} size="sm" />
                 <span>Job</span>
                 <input value={jobIdInput} onChange={(event) => setJobIdInput(event.target.value)} />
               </label>
               <button className="secondary-button" type="submit" disabled={loadState.status === "loading"}>
-                <RefreshCw size={16} aria-hidden="true" />
+                <AppIcon icon={actionIcons.refresh} size="sm" className={loadState.status === "loading" ? "is-spinning" : undefined} />
                 {loadState.status === "loading" ? "读取中" : "读取 Trace"}
               </button>
             </form>
             <label className="toolbar-control">
-              <Search size={15} aria-hidden="true" />
+              <AppIcon icon={navigationIcons.agentTrace} size="sm" />
               <span>搜索</span>
               <input value={query} placeholder="Trace ID 或样本" onChange={(event) => setQuery(event.target.value)} />
             </label>
@@ -303,7 +303,7 @@ export function AgentTracePage() {
         <section className="panel">
           <div className="panel-header">
             <h2>
-              <Activity size={18} aria-hidden="true" />
+              <AppIcon icon={dashboardMetricIcons.apiHealth} size="md" />
               Trace Runs
             </h2>
             <StatusPill tone="info">{filteredRuns.length} 条</StatusPill>
@@ -352,7 +352,7 @@ export function AgentTracePage() {
               <section className="panel">
                 <div className="panel-header">
                   <h2>
-                    <GitBranch size={18} aria-hidden="true" />
+                    <AppIcon icon={actionIcons.viewFlow} size="md" />
                     Span Timeline
                   </h2>
                   <StatusPill tone={statusToneMap[selectedTrace.status]}>{selectedTrace.id}</StatusPill>
@@ -369,7 +369,7 @@ export function AgentTracePage() {
               <section className="panel">
                 <div className="panel-header">
                   <h2>
-                    <TimerReset size={18} aria-hidden="true" />
+                    <AppIcon icon={dashboardMetricIcons.reviewQueue} size="md" />
                     耗时分布
                   </h2>
                 </div>
@@ -392,7 +392,7 @@ export function AgentTracePage() {
               <section className="panel">
                 <div className="panel-header">
                   <h2>
-                    <GitBranch size={18} aria-hidden="true" />
+                    <AppIcon icon={actionIcons.viewFlow} size="md" />
                     Span Timeline
                   </h2>
                   <StatusPill tone="neutral">无真实 Trace</StatusPill>
