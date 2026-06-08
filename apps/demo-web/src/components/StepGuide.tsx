@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { HelpCircle } from "lucide-react";
 import { driver, type DriveStep } from "driver.js";
+import { selectGuideTarget } from "./StepGuideTargets";
 import "driver.js/dist/driver.css";
 
 type GuideStepConfig = {
@@ -68,16 +69,27 @@ const guideSteps: GuideStepConfig[] = [
 ];
 
 function resolveAvailableSteps(steps: GuideStepConfig[]): DriveStep[] {
-  // 引导优先匹配页面主体控件；导航只保留独立的 navigation 锚点，避免重复 selector 命中侧边栏链接。
-  return steps
-    .filter((step) => document.querySelector(step.selector))
-    .map((step) => ({
-      element: step.selector,
+  // driver.js 如果收到 selector 字符串，会自行选择页面上的第一个命中元素。
+  // 这里先解析成真实 Element，确保同名 data-guide 优先高亮页面主体控件，而不是侧边栏入口。
+  return steps.flatMap((step): DriveStep[] => {
+    const candidates = Array.from(document.querySelectorAll(step.selector)).map((element) => ({
+      element,
+      isInsideNavigation: Boolean(element.closest("[data-guide='navigation']"))
+    }));
+    const target = selectGuideTarget(candidates);
+
+    if (!target) {
+      return [];
+    }
+
+    return [{
+      element: target,
       popover: {
         title: step.title,
         description: step.description
       }
-    }));
+    }];
+  });
 }
 
 export function StepGuide() {
