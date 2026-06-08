@@ -436,6 +436,10 @@ async function enrichDocumentFromStoredFile(input: {
   storageProvider?: StorageProvider;
 }): Promise<ApiRecognitionDocumentInput> {
   const file = await input.fileRepository.findById(input.sourceFileId);
+  if (!file) {
+    throw createApiServiceError("SOURCE_FILE_NOT_FOUND", 404);
+  }
+
   const storageKey = readFileStorageKey(file);
   const document: ApiRecognitionDocumentInput = {
     ...input.document,
