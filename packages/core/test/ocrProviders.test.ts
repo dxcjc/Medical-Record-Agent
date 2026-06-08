@@ -150,6 +150,38 @@ describe("ocr providers", () => {
     expect(result.raw).toEqual({ responseStatus: 200 });
   });
 
+  it("HTTP OCR provider rejects documents without content or storage key before remote call", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ pages: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    const provider = createHttpOcrProvider({
+      endpoint: "https://ocr.example.test/recognize",
+      timeoutMs: 1000,
+      maxRetries: 3,
+      retryDelayMs: 0,
+      fetchFn: fetchMock
+    });
+
+    // 真实 OCR provider 必须拿到文件字节或受控存储键，缺少材料时应在本地失败，避免把无效任务打到远端服务。
+    await expect(
+      provider.recognize({
+        documentId: "doc-empty",
+        fileName: "empty-record.pdf",
+        mimeType: "application/pdf"
+      })
+    ).rejects.toMatchObject({
+      name: "ProviderError",
+      providerName: "http-ocr",
+      retryable: false,
+      code: "HTTP_OCR_DOCUMENT_CONTENT_MISSING"
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("HTTP OCR provider adds quality warnings when page or block fields are missing", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(

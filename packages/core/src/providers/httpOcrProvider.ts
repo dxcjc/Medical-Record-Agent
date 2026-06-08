@@ -98,6 +98,21 @@ function createWarning(
   return warning;
 }
 
+function hasRecognizableDocumentContent(input: OcrDocumentInput): boolean {
+  const hasStorageKey = typeof input.storageKey === "string" && input.storageKey.trim().length > 0;
+  const hasBinaryContent = input.content !== undefined && input.content.byteLength > 0;
+
+  return hasStorageKey || hasBinaryContent;
+}
+
+function createMissingDocumentContentFailure(providerName: string): ProviderError {
+  return new ProviderError(`HTTP OCR 请求缺少可识别文件内容：${providerName} 需要文件字节或受控存储键`, {
+    providerName,
+    retryable: false,
+    code: "HTTP_OCR_DOCUMENT_CONTENT_MISSING"
+  });
+}
+
 function mapCoordinates(
   value: unknown,
   mapping: NormalizedOcrResponseMapping,
@@ -224,9 +239,14 @@ function mapResponse(
   };
 }
 
-function buildRequestBody(input: OcrDocumentInput): Record<string, unknown> {
+function buildRequestBody(input: OcrDocumentInput, providerName: string): Record<string, unknown> {
   // HTTP provider 的请求体只表达 provider 边界需要的材料：文档标识、文件元信息、存储键或二进制内容。
   // 这里不做文件系统读取，调用方可以传 Uint8Array 或 storageKey，便于后续接入对象存储/任务队列。
+  // 如果两者都缺失，说明上游没有把病历材料真正交给 OCR 层，应在本地失败，避免制造一次无效的远端调用。
+  if (!hasRecognizableDocumentContent(input)) {
+    throw createMissingDocumentContentFailure(providerName);
+  }
+
   return {
     documentId: input.documentId,
     fileName: input.fileName,
@@ -290,7 +310,7 @@ export function createHttpOcrProvider(config: HttpOcrProviderConfig): OcrProvide
               "content-type": "application/json",
               ...config.headers
             },
-            body: JSON.stringify(buildRequestBody(input)),
+            body: JSON.stringify(buildRequestBody(input, providerName)),
             signal: controller.signal
           });
 
