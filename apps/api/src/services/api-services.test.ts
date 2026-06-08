@@ -696,6 +696,46 @@ describe("api service composition", () => {
     );
   });
 
+  it("上传文件字节时如果没有配置 storageProvider 会拒绝创建文件记录", async () => {
+    const repositories = createRepositories();
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator: {
+        start: vi.fn()
+      },
+      providerRegistry: {
+        list: vi.fn(),
+        setDefault: vi.fn()
+      },
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.fileService.createUpload({
+        originalName: "record.pdf",
+        mimeType: "application/pdf",
+        checksumSha256: "sha-demo",
+        contentBase64: Buffer.from("DEMO_PDF_BYTES").toString("base64")
+      })
+    ).rejects.toMatchObject({
+      code: "FILE_STORAGE_PROVIDER_NOT_CONFIGURED",
+      statusCode: 503
+    });
+
+    expect(repositories.fileRepository.create).not.toHaveBeenCalled();
+  });
+
   it("上传文件字节写入存储，并在创建识别任务时把字节交给 OCR 编排", async () => {
     const repositories = createRepositories();
     const storageProvider = {

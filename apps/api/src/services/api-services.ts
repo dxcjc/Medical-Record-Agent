@@ -840,6 +840,12 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         const originalName = body.originalName ?? "medical-record-upload";
         const storageKey = toStorageKey(originalName, now());
         const content = decodeBase64Content(body.contentBase64);
+        if (content !== undefined && !options.storageProvider) {
+          // 调用方已经上传了真实文件字节时，必须把字节落到受控存储。
+          // 没有 storageProvider 仍创建文件记录会制造“上传成功但后续无法 OCR”的假文件。
+          throw createApiServiceError("FILE_STORAGE_PROVIDER_NOT_CONFIGURED", 503);
+        }
+
         const storedFile = content
           ? await options.storageProvider?.put({
               key: storageKey,
