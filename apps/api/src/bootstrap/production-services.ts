@@ -19,10 +19,14 @@ import {
   type JobOrchestrator,
   type JobOrchestratorResult,
   type RecognitionRuntimeStatus,
+  type ModelFieldCandidate,
   type OcrDocumentInput,
+  type OcrTextBlock,
   type LimsWritebackAdapter,
   type LangChainModelLike,
   type OpenAiResponsesClientLike,
+  type ModelProvider,
+  type OcrProvider,
   type WritebackExecutionResult
 } from "@medical-record-agent/core";
 
@@ -97,6 +101,49 @@ function isInputJsonObject(value: unknown): value is Prisma.InputJsonObject {
 
 function readPayloadRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function readStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  // Provider 配置来自 JSON 字段，HTTP headers 只接受字符串键值，避免把嵌套对象或数字透传到真实服务。
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+}
+
+function readModelCandidates(value: unknown): ModelFieldCandidate[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  // Mock LLM 候选主要用于演示和自动化测试；这里做最小结构校验，避免保存的脏 JSON 直接进入抽取结果。
+  const candidates = value.filter((item): item is ModelFieldCandidate => {
+    const candidate = readPayloadRecord(item);
+    return typeof candidate.fieldKey === "string" && typeof candidate.rawValue === "string" && Array.isArray(candidate.evidence);
+  });
+
+  return candidates.length > 0 ? candidates : undefined;
+}
+
+function readOcrBlocks(value: unknown): OcrTextBlock[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  // Mock OCR blocks 同样来自在线配置，必须至少具备页码、块 ID 和文本，后续坐标等字段由核心 provider 自己兜底。
+  const blocks = value.filter((item): item is OcrTextBlock => {
+    const block = readPayloadRecord(item);
+    return typeof block.page === "number" && typeof block.blockId === "string" && typeof block.text === "string";
+  });
+
+  return blocks.length > 0 ? blocks : undefined;
 }
 
 function isWritebackValue(value: unknown): value is string | number | boolean | string[] | null {
@@ -248,6 +295,148 @@ function buildModelProviderOptions(options: CreateProductionApiServicesOptions) 
   return modelProviderOptions;
 }
 
+type ProviderRuntimeOptions = {
+  langChainModel?: LangChainModelLike;
+  openAiResponsesClient?: OpenAiResponsesClientLike;
+};
+
+function readSavedProviderMode(config: Record<string, unknown>) {
+  return readString(config.providerKind, readString(config.provider, readString(config.kind, "Mock"))).toLowerCase();
+}
+
+function buildSavedOcrProvider(input: {
+  key: string;
+  config: Record<string, unknown>;
+  secretRefs: Record<string, unknown>;
+}): OcrProvider | null {
+  const mode = readSavedProviderMode(input.config);
+
+  // 保存的 Mock provider 是 demo 和评估回放的核心能力，可在不接真实外部服务时验证整条 Agent 流程。
+  if (mode === "mock") {
+    const mockConfig: Parameters<typeof createOcrProvider>[0] = {
+      kind: "mock",
+      mock: {
+        providerName: input.key
+      }
+    };
+    const blocks = readOcrBlocks(input.config.blocks);
+    if (blocks) {
+      mockConfig.mock = {
+        ...mockConfig.mock,
+        blocks
+      };
+    }
+
+    return createOcrProvider(mockConfig);
+  }
+
+  // HTTP OCR provider 只在 endpoint 完整时实例化；缺配置返回 null，由上层转成显式 provider 不可用结果。
+  if (mode === "http" || mode === "openai-compatible") {
+    const endpoint = readOptionalString(input.config.endpoint);
+    if (!endpoint) {
+      return null;
+    }
+
+    return createOcrProvider({
+      kind: "http",
+      http: {
+        providerName: input.key,
+        endpoint,
+        headers: readStringRecord(input.config.headers),
+        timeoutMs: readNumber(input.config.timeoutMs, 30_000)
+      }
+    });
+  }
+
+  return null;
+}
+
+function buildSavedModelProvider(input: {
+  key: string;
+  config: Record<string, unknown>;
+  secretRefs: Record<string, unknown>;
+  runtimeOptions: ProviderRuntimeOptions;
+}): ModelProvider | null {
+  const mode = readSavedProviderMode(input.config);
+  const model = readString(input.config.modelOrBucket, readString(input.config.model, "mock-medical-record-extractor"));
+
+  // Mock LLM 允许测试 demo 页面保存后的配置能真实驱动抽取候选，而不是静默回退到 env 默认模型。
+  if (mode === "mock") {
+    const mockConfig: {
+      providerName: string;
+      candidates?: ModelFieldCandidate[];
+    } = {
+      providerName: input.key
+    };
+    const candidates = readModelCandidates(input.config.candidates);
+    if (candidates) {
+      mockConfig.candidates = candidates;
+    }
+
+    return createModelProvider({
+      kind: "mock",
+      mock: mockConfig
+    });
+  }
+
+  // 在线保存的 HTTP / OpenAI-compatible 配置当前只从非敏感 JSON 字段读取 endpoint、model 和 headers。
+  // 密钥引用 secretRefs 暂不直接解密，后续接入生产密钥库时在这里补齐 Authorization。
+  if (mode === "http" || mode === "openai-compatible") {
+    const endpoint = readOptionalString(input.config.endpoint);
+    if (!endpoint) {
+      return null;
+    }
+
+    return createModelProvider({
+      kind: "http",
+      http: {
+        providerName: input.key,
+        endpoint,
+        model,
+        headers: readStringRecord(input.config.headers),
+        timeoutMs: readNumber(input.config.timeoutMs, 30_000)
+      }
+    });
+  }
+
+  if (mode === "openai responses" || mode === "openai-responses") {
+    const client = input.runtimeOptions.openAiResponsesClient;
+    if (!client) {
+      return null;
+    }
+
+    return createModelProvider({
+      kind: "openai-responses",
+      openAiResponses: {
+        providerName: input.key,
+        model,
+        experimental: {
+          enabled: true
+        },
+        client
+      }
+    });
+  }
+
+  // LangChain provider 必须由启动层注入真实模型实例；没有注入时拒绝实例化，避免空模型伪成功。
+  if (mode === "langchain") {
+    const langChainModel = input.runtimeOptions.langChainModel;
+    if (!langChainModel) {
+      return null;
+    }
+
+    return createModelProvider({
+      kind: "langchain",
+      langchain: {
+        providerName: input.key,
+        model: langChainModel
+      }
+    });
+  }
+
+  return null;
+}
+
 function buildStorageProvider(env: ProductionEnv): StorageProvider {
   if (env.storage.driver === "s3") {
     const s3 = env.storage.s3;
@@ -274,17 +463,6 @@ function getConfiguredOcrProviderKey(env: ProductionEnv) {
 
 function getConfiguredModelProviderKey(env: ProductionEnv) {
   return env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`;
-}
-
-function hasProviderSelectionMismatch(env: ProductionEnv, providerConfig: unknown) {
-  const config = readPayloadRecord(providerConfig);
-  const ocrProviderKey = readOptionalString(config.ocrProviderKey);
-  const modelProviderKey = readOptionalString(config.providerKey);
-
-  return (
-    (ocrProviderKey !== undefined && ocrProviderKey !== getConfiguredOcrProviderKey(env)) ||
-    (modelProviderKey !== undefined && modelProviderKey !== getConfiguredModelProviderKey(env))
-  );
 }
 
 function createConfigurationFailureResult(jobId: string, error: JobOrchestratorResult["error"]): JobOrchestratorResult {
@@ -370,7 +548,15 @@ type ProductionSchemaResolution =
     }
   | null;
 
-type ProductionRecognitionOrchestratorFactory = (schema: CoreSchemaDraft) => JobOrchestrator;
+type ProductionProviderRuntimeSelection = {
+  ocrProvider?: OcrProvider;
+  modelProvider?: ModelProvider;
+};
+
+type ProductionRecognitionOrchestratorFactory = (
+  schema: CoreSchemaDraft,
+  providers?: ProductionProviderRuntimeSelection
+) => JobOrchestrator;
 
 function isUsableCoreSchemaDraft(value: unknown): value is CoreSchemaDraft {
   return validateCoreSchemaDraftInput(value).valid;
@@ -409,18 +595,111 @@ async function resolveProductionRecognitionSchema(input: {
   return null;
 }
 
+async function resolveSavedProviderRuntime(input: {
+  key: string;
+  expectedKind: "ocr" | "llm";
+  providerRepository: ProductionProviderRepository;
+  runtimeOptions: ProviderRuntimeOptions;
+}): Promise<OcrProvider | ModelProvider | null> {
+  // 运行时只接受已启用且 kind 匹配的 provider，避免调用方把 LLM key 填到 OCR 字段后误用默认服务。
+  const provider = await input.providerRepository.findByKey(input.key);
+  if (!provider || provider.status !== "active" || provider.kind !== input.expectedKind) {
+    return null;
+  }
+
+  const config = isInputJsonObject(provider.config) ? provider.config : {};
+  const secretRefs = isInputJsonObject(provider.secretRefs) ? provider.secretRefs : {};
+
+  if (input.expectedKind === "ocr") {
+    return buildSavedOcrProvider({
+      key: provider.key,
+      config,
+      secretRefs
+    });
+  }
+
+  return buildSavedModelProvider({
+    key: provider.key,
+    config,
+    secretRefs,
+    runtimeOptions: input.runtimeOptions
+  });
+}
+
+async function resolveProductionProviderRuntime(input: {
+  env: ProductionEnv;
+  providerRepository: ProductionProviderRepository;
+  runtimeOptions: ProviderRuntimeOptions;
+  providerConfig: unknown;
+}): Promise<{
+  available: boolean;
+  providers?: ProductionProviderRuntimeSelection;
+}> {
+  const config = readPayloadRecord(input.providerConfig);
+  const ocrProviderKey = readOptionalString(config.ocrProviderKey);
+  const modelProviderKey = readOptionalString(config.providerKey);
+  const providers: ProductionProviderRuntimeSelection = {};
+
+  // 调用方选择 env 默认 key 时无需重新实例化；只有选择在线保存的非默认 key 时才读取数据库配置。
+  if (ocrProviderKey !== undefined && ocrProviderKey !== getConfiguredOcrProviderKey(input.env)) {
+    const provider = await resolveSavedProviderRuntime({
+      key: ocrProviderKey,
+      expectedKind: "ocr",
+      providerRepository: input.providerRepository,
+      runtimeOptions: input.runtimeOptions
+    });
+    if (!provider) {
+      return { available: false };
+    }
+    providers.ocrProvider = provider as OcrProvider;
+  }
+
+  if (modelProviderKey !== undefined && modelProviderKey !== getConfiguredModelProviderKey(input.env)) {
+    const provider = await resolveSavedProviderRuntime({
+      key: modelProviderKey,
+      expectedKind: "llm",
+      providerRepository: input.providerRepository,
+      runtimeOptions: input.runtimeOptions
+    });
+    if (!provider) {
+      return { available: false };
+    }
+    providers.modelProvider = provider as ModelProvider;
+  }
+
+  if (Object.keys(providers).length > 0) {
+    return {
+      available: true,
+      providers
+    };
+  }
+
+  return {
+    available: true
+  };
+}
+
 function createProviderConfigAwareOrchestrator(input: {
   env: ProductionEnv;
   schemaRepository: ProductionSchemaRepository;
+  providerRepository: ProductionProviderRepository;
+  runtimeOptions: ProviderRuntimeOptions;
   builtinOrchestrator: JobOrchestrator;
   createOrchestrator: ProductionRecognitionOrchestratorFactory;
 }): JobOrchestrator {
   return {
     workflow: input.builtinOrchestrator.workflow,
     async start(jobInput: ProviderConfigOrchestratorInput) {
-      // 生产模式第一版只启用环境变量中声明的单个 OCR/LLM provider。
-      // 如果调用方选择了当前部署未暴露的 provider key，必须显式失败，避免把病历文本悄悄发给默认 provider。
-      if (hasProviderSelectionMismatch(input.env, jobInput.providerConfig)) {
+      const providerSelection = await resolveProductionProviderRuntime({
+        env: input.env,
+        providerRepository: input.providerRepository,
+        runtimeOptions: input.runtimeOptions,
+        providerConfig: jobInput.providerConfig
+      });
+
+      // 生产模式允许调用方选择环境内置 provider，或 Provider Settings 中保存并启用的 provider。
+      // 未启用、kind 不匹配或缺少必要 endpoint/client 的配置必须显式失败，避免病历文本静默落回默认 provider。
+      if (!providerSelection.available) {
         return createProviderConfigFailureResult(jobInput.jobId);
       }
 
@@ -437,9 +716,9 @@ function createProviderConfigAwareOrchestrator(input: {
       }
 
       const orchestrator =
-        schemaResolution.source === "builtin"
+        schemaResolution.source === "builtin" && !providerSelection.providers
           ? input.builtinOrchestrator
-          : input.createOrchestrator(createProductionRecognitionSchema(schemaResolution.schema));
+          : input.createOrchestrator(createProductionRecognitionSchema(schemaResolution.schema), providerSelection.providers);
 
       return orchestrator.start(jobInput);
     }
@@ -1121,12 +1400,12 @@ export function createProductionApiServices(options: CreateProductionApiServices
   };
   const productionWritebackExecutor = createProductionWritebackExecutor(options.env, writebackRepository, limsWritebackAdapter, now);
   const modelProviderOptions = buildModelProviderOptions(options);
-  const createProductionRecognitionOrchestrator = (schema: CoreSchemaDraft) =>
+  const createProductionRecognitionOrchestrator = (schema: CoreSchemaDraft, providers: ProductionProviderRuntimeSelection = {}) =>
     createJobOrchestrator({
       repository: createPrismaJobTransitionRepository(jobsRepository, now),
       schema,
-      ocrProvider: buildOcrProvider(options.env),
-      modelProvider: buildModelProvider(options.env, modelProviderOptions),
+      ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env),
+      modelProvider: providers.modelProvider ?? buildModelProvider(options.env, modelProviderOptions),
       knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: true,
@@ -1139,6 +1418,8 @@ export function createProductionApiServices(options: CreateProductionApiServices
   const recognitionOrchestrator = createProviderConfigAwareOrchestrator({
     env: options.env,
     schemaRepository,
+    providerRepository,
+    runtimeOptions: modelProviderOptions,
     builtinOrchestrator: builtinRecognitionOrchestrator,
     createOrchestrator: createProductionRecognitionOrchestrator
   });

@@ -4,6 +4,11 @@ import { createProductionApiServices } from "./production-services";
 
 type ProductionApiServicesOptions = Parameters<typeof createProductionApiServices>[0];
 type ProductionEnvStub = ProductionApiServicesOptions["env"];
+type ProviderConfigFindUniqueInputStub = {
+  where: {
+    key: string;
+  };
+};
 
 function createPrismaClientStub() {
   return {
@@ -19,7 +24,7 @@ function createPrismaClientStub() {
     },
     providerConfig: {
       findMany: vi.fn(async () => []),
-      findUnique: vi.fn(async () => null),
+      findUnique: vi.fn(async (_input: ProviderConfigFindUniqueInputStub): Promise<Record<string, unknown> | null> => null),
       updateMany: vi.fn(async () => ({ count: 0 })),
       upsert: vi.fn(async (input) => ({
         id: "provider-config-001",
@@ -453,6 +458,121 @@ describe("production api services bootstrap", () => {
             error: expect.objectContaining({
               code: "PROVIDER_CONFIG_NOT_AVAILABLE",
               message: "识别任务选择的 provider 未在当前生产环境启用。"
+            })
+          })
+        })
+      })
+    );
+  });
+
+  it("生产识别任务会使用数据库中已启用的 providerConfig 运行 OCR 和 LLM", async () => {
+    const prisma = createPrismaClientStub();
+    const limsAdapter = {
+      execute: vi.fn(async () => ({
+        id: "lims-saved-provider-result-001",
+        requestId: "writeback-001",
+        status: "success" as const,
+        externalReceiptId: "LIMS-SAVED-PROVIDER-OK-001",
+        retryable: false,
+        completedAt: "2026-06-05T09:00:00.000Z"
+      }))
+    };
+    vi.mocked(prisma.providerConfig.findUnique).mockImplementation(async (input) => {
+      const key = input.where.key;
+      if (key === "saved-mock-ocr") {
+        return {
+          id: "provider-ocr-001",
+          key,
+          kind: "ocr",
+          displayName: "保存的 Mock OCR",
+          status: "active",
+          isDefault: false,
+          config: {
+            providerKind: "Mock",
+            blocks: [
+              {
+                page: 1,
+                blockId: "saved-ocr-block-1",
+                text: "在线配置 OCR 文本：诊断：在线配置诊断。",
+                confidence: 0.99,
+                coordinates: { x: 0, y: 0, width: 100, height: 20 }
+              }
+            ]
+          },
+          secretRefs: {},
+          updatedById: "user-001",
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        };
+      }
+      if (key === "saved-mock-model") {
+        return {
+          id: "provider-llm-001",
+          key,
+          kind: "llm",
+          displayName: "保存的 Mock LLM",
+          status: "active",
+          isDefault: false,
+          config: {
+            providerKind: "Mock",
+            candidates: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                value: "在线配置诊断",
+                rawValue: "诊断：在线配置诊断",
+                confidence: 0.97,
+                evidence: [
+                  {
+                    snippet: "诊断：在线配置诊断",
+                    startOffset: 8,
+                    endOffset: 18,
+                    pageNumber: 1
+                  }
+                ]
+              }
+            ]
+          },
+          secretRefs: {},
+          updatedById: "user-001",
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        };
+      }
+
+      return null;
+    });
+    const services = createProductionApiServices({
+      env: createProductionEnvStub(),
+      prisma: prisma as never,
+      limsWritebackAdapter: limsAdapter,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await services.jobService.create({
+      schemaKey: "lims-clinical-info",
+      document: {
+        documentId: "demo-document-saved-provider",
+        fileName: "demo-record.pdf",
+        mimeType: "application/pdf"
+      },
+      providerConfig: {
+        ocrProviderKey: "saved-mock-ocr",
+        providerKey: "saved-mock-model"
+      }
+    });
+
+    expect(prisma.recognitionResult.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          payload: expect.objectContaining({
+            status: "writeback_completed",
+            extraction: expect.objectContaining({
+              candidates: [
+                expect.objectContaining({
+                  fieldKey: "clinicalDiagnosis",
+                  value: "在线配置诊断"
+                })
+              ]
             })
           })
         })
