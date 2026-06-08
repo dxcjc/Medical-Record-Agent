@@ -59,7 +59,7 @@ const initialConfigs: ProviderConfig[] = [
     kind: "OpenAI Responses",
     endpoint: "https://api.openai.com/v1/responses",
     modelOrBucket: "gpt-4.1",
-    secret: "sk-proj-********",
+    secret: "openai_api_key_configured",
     timeoutMs: 45000,
     enabled: true
   },

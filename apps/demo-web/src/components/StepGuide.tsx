@@ -16,11 +16,6 @@ const guideSteps: GuideStepConfig[] = [
     description: "查看 API、Provider、评估集和写回通道是否处于可演示状态。"
   },
   {
-    selector: "[data-guide='navigation']",
-    title: "主导航",
-    description: "在识别、Schema、Provider、写回、评估和审计页面之间切换。"
-  },
-  {
     selector: "[data-guide='new-recognition']",
     title: "新建识别",
     description: "上传病历图片或 PDF，并选择 schema、adapter、provider 和隐私策略。"
@@ -28,12 +23,17 @@ const guideSteps: GuideStepConfig[] = [
   {
     selector: "[data-guide='schema-selection']",
     title: "Schema 选择",
-    description: "字段配置决定抽取哪些临床信息，以及证据和置信度阈值。"
+    description: "选择抽取模板，决定字段、证据、归一化和置信度阈值。"
   },
   {
     selector: "[data-guide='field-evidence']",
     title: "字段证据",
     description: "字段候选值必须能回到 OCR 文本、页码或定位证据。"
+  },
+  {
+    selector: "[data-guide='langgraph-workflow']",
+    title: "LangGraph 工作流",
+    description: "跟踪 OCR、抽取、校验、复核和写回准备等节点状态。"
   },
   {
     selector: "[data-guide='auto-decision']",
@@ -59,10 +59,16 @@ const guideSteps: GuideStepConfig[] = [
     selector: "[data-guide='evaluation']",
     title: "评估运行",
     description: "用合成或真实脱敏样本评估字段准确率、证据覆盖和复核召回。"
+  },
+  {
+    selector: "[data-guide='navigation']",
+    title: "主导航",
+    description: "在识别、Schema、Provider、写回、评估和审计页面之间切换。"
   }
 ];
 
 function resolveAvailableSteps(steps: GuideStepConfig[]): DriveStep[] {
+  // 引导优先匹配页面主体控件；导航只保留独立的 navigation 锚点，避免重复 selector 命中侧边栏链接。
   return steps
     .filter((step) => document.querySelector(step.selector))
     .map((step) => ({

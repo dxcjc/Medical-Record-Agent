@@ -1,0 +1,1553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>病历识别 Agent 架构教学课件</title>
+  <style>
+    /*
+      这个 HTML 是一个独立教学课件，不依赖任何外部 CDN。
+      设计目标：
+      1. 让刚接触项目的人先理解整体架构，再逐步理解每一项技术。
+      2. 用动画和互动示例解释“为什么这样设计”，而不是只给静态文档。
+      3. 保持所有中文直接写在 UTF-8 文件中，避免 Unicode 转义。
+    */
+
+    :root {
+      --page-bg: #f7f8fb;
+      --surface: #ffffff;
+      --surface-soft: #f0f6f4;
+      --ink: #16211f;
+      --muted: #60706c;
+      --line: #d9e2df;
+      --primary: #087f6f;
+      --primary-strong: #075e54;
+      --secondary: #3157a4;
+      --accent: #d88718;
+      --danger: #b83b3b;
+      --success: #16844a;
+      --shadow: 0 18px 45px rgba(21, 34, 31, 0.12);
+      --radius: 8px;
+      --max: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(8, 127, 111, 0.08), transparent 310px),
+        var(--page-bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .top-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 50;
+      width: 100%;
+      height: 4px;
+      background: rgba(8, 127, 111, 0.14);
+    }
+
+    .top-progress__bar {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      transition: width 120ms ease-out;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 28px;
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 28px 22px 72px;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 12px 30px rgba(21, 34, 31, 0.08);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+
+    .side-nav__title {
+      padding: 18px 18px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary-strong);
+    }
+
+    .side-nav a {
+      display: block;
+      padding: 11px 18px;
+      color: var(--muted);
+      text-decoration: none;
+      border-top: 1px solid rgba(217, 226, 223, 0.72);
+      transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+
+    .side-nav a:hover,
+    .side-nav a:focus-visible {
+      color: var(--ink);
+      background: var(--surface-soft);
+      outline: none;
+      transform: translateX(3px);
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .hero {
+      min-height: 430px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+      gap: 28px;
+      align-items: center;
+      padding: 44px 0 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--primary-strong);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(216, 135, 24, 0.16);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 720px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 10px 16px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: var(--primary);
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      background: var(--primary-strong);
+      box-shadow: 0 12px 24px rgba(8, 127, 111, 0.25);
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .button--ghost {
+      background: #ffffff;
+      color: var(--primary-strong);
+      border-color: var(--line);
+    }
+
+    .button--ghost:hover,
+    .button--ghost:focus-visible {
+      background: var(--surface-soft);
+      box-shadow: 0 12px 24px rgba(21, 34, 31, 0.1);
+    }
+
+    .hero-visual {
+      min-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(8, 127, 111, 0.14), transparent 34%),
+        radial-gradient(circle at 80% 10%, rgba(216, 135, 24, 0.16), transparent 30%),
+        #ffffff;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      overflow: hidden;
+    }
+
+    .hero-visual__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      height: 100%;
+    }
+
+    .mini-panel {
+      position: relative;
+      min-height: 126px;
+      padding: 16px;
+      border: 1px solid rgba(217, 226, 223, 0.9);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.86);
+      overflow: hidden;
+    }
+
+    .mini-panel strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+    }
+
+    .mini-panel span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .mini-panel::after {
+      content: "";
+      position: absolute;
+      right: -16px;
+      bottom: -16px;
+      width: 64px;
+      height: 64px;
+      border: 12px solid rgba(8, 127, 111, 0.12);
+      border-radius: 50%;
+      animation: pulse-ring 2200ms ease-in-out infinite;
+    }
+
+    .section {
+      margin-top: 28px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 12px 30px rgba(21, 34, 31, 0.06);
+    }
+
+    .section h2 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: 0;
+    }
+
+    .section-lead {
+      max-width: 860px;
+      margin: 10px 0 22px;
+      color: var(--muted);
+    }
+
+    .learning-map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .map-item {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfdfc;
+    }
+
+    .map-item b {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--primary-strong);
+    }
+
+    .architecture-stage {
+      position: relative;
+      min-height: 500px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #fbfdfc, #f5f8fa);
+      overflow: hidden;
+      padding: 22px;
+    }
+
+    .layer-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 170px minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+      margin-bottom: 14px;
+      z-index: 2;
+    }
+
+    .layer-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 74px;
+      border-radius: 7px;
+      background: #e8f3f0;
+      color: var(--primary-strong);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .layer-cells {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .node {
+      min-height: 74px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 12px;
+      border: 1px solid #dbe5e2;
+      border-radius: 7px;
+      background: #ffffff;
+      transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+    }
+
+    .node b {
+      font-size: 14px;
+    }
+
+    .node small {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .node.is-lit {
+      border-color: rgba(8, 127, 111, 0.65);
+      box-shadow: 0 12px 24px rgba(8, 127, 111, 0.16);
+      transform: translateY(-2px);
+    }
+
+    .data-line {
+      position: absolute;
+      left: 15%;
+      right: 6%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(8, 127, 111, 0.2), transparent);
+      overflow: hidden;
+    }
+
+    .data-line--one {
+      top: 142px;
+    }
+
+    .data-line--two {
+      top: 256px;
+    }
+
+    .data-line--three {
+      top: 370px;
+    }
+
+    .data-line::after {
+      content: "";
+      position: absolute;
+      width: 80px;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      animation: line-travel 2200ms linear infinite;
+    }
+
+    .tech-toolbar,
+    .flow-toolbar,
+    .mode-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .chip-button {
+      min-height: 42px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+    }
+
+    .chip-button:hover,
+    .chip-button:focus-visible,
+    .chip-button.is-active {
+      border-color: var(--primary);
+      background: var(--surface-soft);
+      color: var(--primary-strong);
+      outline: none;
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .tech-card {
+      position: relative;
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfdfc;
+      overflow: hidden;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .tech-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(21, 34, 31, 0.1);
+      border-color: rgba(8, 127, 111, 0.42);
+    }
+
+    .tech-card__tag {
+      width: fit-content;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e8f3f0;
+      color: var(--primary-strong);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tech-card h3 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .tech-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tech-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .flow-stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(8, minmax(100px, 1fr));
+      gap: 10px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfdfc;
+      overflow-x: auto;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 130px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 13px;
+      border: 1px solid #dbe5e2;
+      border-radius: 7px;
+      background: #ffffff;
+      transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -11px;
+      width: 11px;
+      height: 2px;
+      background: #b6c8c2;
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .flow-step b {
+      color: var(--ink);
+    }
+
+    .flow-step small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .flow-step.is-current {
+      border-color: var(--primary);
+      box-shadow: 0 12px 25px rgba(8, 127, 111, 0.18);
+      transform: translateY(-4px);
+    }
+
+    .flow-step.is-done {
+      background: #f0f8f5;
+      border-color: rgba(22, 132, 74, 0.45);
+    }
+
+    .flow-explain {
+      margin-top: 16px;
+      padding: 16px;
+      border-left: 4px solid var(--primary);
+      background: var(--surface-soft);
+      border-radius: 0 7px 7px 0;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+      gap: 18px;
+    }
+
+    .mode-panel,
+    .decision-panel,
+    .quiz-panel {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfdfc;
+    }
+
+    .mode-diagram {
+      min-height: 230px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed #c9d9d4;
+      border-radius: 7px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .mode-diagram__inner {
+      display: grid;
+      grid-template-columns: 120px 120px 120px;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .mode-box {
+      min-height: 86px;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      border-radius: 7px;
+      background: #e8f3f0;
+      color: var(--primary-strong);
+      text-align: center;
+      font-weight: 800;
+      animation: float-node 2300ms ease-in-out infinite;
+    }
+
+    .mode-box:nth-child(2) {
+      background: #eef1fa;
+      color: var(--secondary);
+      animation-delay: 180ms;
+    }
+
+    .mode-box:nth-child(3) {
+      background: #fff5e4;
+      color: #89540e;
+      animation-delay: 360ms;
+    }
+
+    .decision-controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 74px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .control-row label {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .control-row output {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+
+    .decision-result {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 7px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+    }
+
+    .decision-result[data-level="green"] {
+      border-color: rgba(22, 132, 74, 0.55);
+      background: #eef8f2;
+    }
+
+    .decision-result[data-level="yellow"] {
+      border-color: rgba(216, 135, 24, 0.6);
+      background: #fff7e8;
+    }
+
+    .decision-result[data-level="red"] {
+      border-color: rgba(184, 59, 59, 0.55);
+      background: #fff0f0;
+    }
+
+    .decision-result b {
+      display: block;
+      font-size: 24px;
+    }
+
+    .quiz-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .quiz-options button {
+      min-height: 48px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #ffffff;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+
+    .quiz-options button:hover,
+    .quiz-options button:focus-visible {
+      border-color: var(--primary);
+      background: var(--surface-soft);
+      outline: none;
+    }
+
+    .quiz-feedback {
+      min-height: 58px;
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 7px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .footer {
+      margin-top: 28px;
+      padding: 22px;
+      border-radius: var(--radius);
+      background: #14211f;
+      color: #eef8f5;
+    }
+
+    .footer a {
+      color: #bde9de;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% {
+        transform: scale(0.88);
+        opacity: 0.7;
+      }
+      50% {
+        transform: scale(1.08);
+        opacity: 0.35;
+      }
+    }
+
+    @keyframes line-travel {
+      from {
+        left: -90px;
+      }
+      to {
+        left: 100%;
+      }
+    }
+
+    @keyframes float-node {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-8px);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .side-nav {
+        position: static;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .side-nav__title {
+        grid-column: 1 / -1;
+      }
+
+      .hero,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .learning-map,
+      .tech-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .layer-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        padding: 18px 12px 48px;
+      }
+
+      .side-nav {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding: 18px;
+      }
+
+      .learning-map,
+      .tech-grid,
+      .layer-cells {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-visual__grid,
+      .mode-diagram__inner {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-stage {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-progress" aria-hidden="true">
+    <div class="top-progress__bar" id="readProgress"></div>
+  </div>
+
+  <div class="shell">
+    <nav class="side-nav" aria-label="课程章节导航">
+      <div class="side-nav__title">课程导航</div>
+      <a href="#overview">课程总览</a>
+      <a href="#architecture">分层架构</a>
+      <a href="#tech-stack">技术基础</a>
+      <a href="#workflow">流程动画</a>
+      <a href="#providers">Provider 模式</a>
+      <a href="#decision">写回决策</a>
+      <a href="#quiz">课堂检查</a>
+    </nav>
+
+    <main>
+      <header class="hero" id="overview">
+        <div>
+          <div class="eyebrow">基于系统架构文档的交互式教学</div>
+          <h1>病历识别 Agent 架构教学课件</h1>
+          <p>
+            这份单文件 HTML 用动画、卡片和互动示例，把 TypeScript monorepo、Fastify API、Prisma 数据层、LangGraph 工作流、LangChain 模型编排、Provider 抽象、评估体系和写回安全边界串成一条可学习的路线。
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#architecture">开始看架构动画</a>
+            <a class="button button--ghost" href="#tech-stack">查看技术基础</a>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-label="课程主题概览图">
+          <div class="hero-visual__grid">
+            <div class="mini-panel">
+              <strong>输入</strong>
+              <span>病历图片、PDF、扫描件、OCR 文本</span>
+            </div>
+            <div class="mini-panel">
+              <strong>处理</strong>
+              <span>OCR、RAG、LLM 抽取、校验、决策</span>
+            </div>
+            <div class="mini-panel">
+              <strong>治理</strong>
+              <span>Schema、权限、审计、评估、反馈</span>
+            </div>
+            <div class="mini-panel">
+              <strong>输出</strong>
+              <span>字段候选、证据、payload、写回结果</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="section" aria-labelledby="learning-title">
+        <h2 id="learning-title">学习路线</h2>
+        <p class="section-lead">建议按下面四步理解。先看系统为什么拆层，再学每一项技术，最后用流程和决策互动把知识串起来。</p>
+        <div class="learning-map">
+          <div class="map-item">
+            <b>第一步：看边界</b>
+            <span>理解前端、API、Core、Provider、数据库和外部系统各自负责什么。</span>
+          </div>
+          <div class="map-item">
+            <b>第二步：学技术</b>
+            <span>用基础解释掌握 TypeScript、Fastify、Prisma、LangGraph 等核心技术。</span>
+          </div>
+          <div class="map-item">
+            <b>第三步：跑流程</b>
+            <span>跟随动画看一份病历如何变成结构化字段和 payload。</span>
+          </div>
+          <div class="map-item">
+            <b>第四步：控风险</b>
+            <span>理解 green、yellow、red 写回决策和医疗数据安全边界。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="architecture" aria-labelledby="architecture-title">
+        <h2 id="architecture-title">分层架构动画</h2>
+        <p class="section-lead">点击“播放分层动画”，系统会从前端到外部系统依次点亮。这个动画强调一个原则：模型能力要被放进受控流程，外部能力要通过 Provider 接入，高风险动作要经过权限和审计。</p>
+        <div class="tech-toolbar">
+          <button class="chip-button" type="button" id="playArchitecture">播放分层动画</button>
+          <button class="chip-button" type="button" id="resetArchitecture">重置</button>
+        </div>
+        <div class="architecture-stage" aria-label="病历识别 Agent 分层架构图">
+          <div class="data-line data-line--one" aria-hidden="true"></div>
+          <div class="data-line data-line--two" aria-hidden="true"></div>
+          <div class="data-line data-line--three" aria-hidden="true"></div>
+
+          <div class="layer-row">
+            <div class="layer-label">操作层</div>
+            <div class="layer-cells">
+              <div class="node" data-arch-node><b>Demo/Admin 前端</b><small>React、Vite、Router、Query</small></div>
+              <div class="node" data-arch-node><b>调用方系统</b><small>LIMS 或其他业务页面</small></div>
+              <div class="node" data-arch-node><b>引导与控制台</b><small>driver.js、写回、评估</small></div>
+              <div class="node" data-arch-node><b>人工复核</b><small>确认字段和提交反馈</small></div>
+            </div>
+          </div>
+
+          <div class="layer-row">
+            <div class="layer-label">API 层</div>
+            <div class="layer-cells">
+              <div class="node" data-arch-node><b>Fastify Routes</b><small>Auth、Schema、Job、Result</small></div>
+              <div class="node" data-arch-node><b>Auth / JWT</b><small>登录、角色、API token</small></div>
+              <div class="node" data-arch-node><b>Audit Hooks</b><small>高风险动作留痕</small></div>
+              <div class="node" data-arch-node><b>Repositories</b><small>Prisma 数据访问边界</small></div>
+            </div>
+          </div>
+
+          <div class="layer-row">
+            <div class="layer-label">Core 层</div>
+            <div class="layer-cells">
+              <div class="node" data-arch-node><b>Job Orchestrator</b><small>任务状态和工作流入口</small></div>
+              <div class="node" data-arch-node><b>LangGraph Workflow</b><small>受控状态机</small></div>
+              <div class="node" data-arch-node><b>Schema Registry</b><small>字段合同和版本治理</small></div>
+              <div class="node" data-arch-node><b>Validation / Decision</b><small>校验、归一和写回判断</small></div>
+            </div>
+          </div>
+
+          <div class="layer-row">
+            <div class="layer-label">能力层</div>
+            <div class="layer-cells">
+              <div class="node" data-arch-node><b>OCR Provider</b><small>Mock 或真实 HTTP OCR</small></div>
+              <div class="node" data-arch-node><b>Model Provider</b><small>LangChain、OpenAI-compatible</small></div>
+              <div class="node" data-arch-node><b>Storage Provider</b><small>Local、S3、MinIO</small></div>
+              <div class="node" data-arch-node><b>LIMS Adapter</b><small>payload 和受控写回</small></div>
+            </div>
+          </div>
+
+          <div class="layer-row">
+            <div class="layer-label">数据层</div>
+            <div class="layer-cells">
+              <div class="node" data-arch-node><b>PostgreSQL</b><small>任务、结果、审计、评估</small></div>
+              <div class="node" data-arch-node><b>对象存储</b><small>原始文件和中间产物</small></div>
+              <div class="node" data-arch-node><b>评估样本</b><small>合成样本和真实脱敏样本</small></div>
+              <div class="node" data-arch-node><b>外部系统</b><small>LIMS 测试或生产接口</small></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="tech-stack" aria-labelledby="tech-title">
+        <h2 id="tech-title">所有技术的基础讲解</h2>
+        <p class="section-lead">这些卡片按项目里的真实技术栈组织。每张卡片都包含“基础概念”“本项目负责什么”“为什么选择”。</p>
+        <div class="tech-toolbar" aria-label="技术分类筛选">
+          <button class="chip-button is-active" type="button" data-filter="all">全部</button>
+          <button class="chip-button" type="button" data-filter="foundation">工程基础</button>
+          <button class="chip-button" type="button" data-filter="backend">后端与数据</button>
+          <button class="chip-button" type="button" data-filter="agent">Agent 与模型</button>
+          <button class="chip-button" type="button" data-filter="frontend">前端</button>
+          <button class="chip-button" type="button" data-filter="quality">质量与安全</button>
+        </div>
+        <div class="tech-grid" id="techGrid"></div>
+      </section>
+
+      <section class="section" id="workflow" aria-labelledby="workflow-title">
+        <h2 id="workflow-title">识别任务流程动画</h2>
+        <p class="section-lead">这个例子模拟“一份病历 PDF 如何变成可审计、可复核、可写回的结构化结果”。点击播放后，节点会依次进入当前态。</p>
+        <div class="flow-toolbar">
+          <button class="chip-button" type="button" id="playFlow">播放流程</button>
+          <button class="chip-button" type="button" id="pauseFlow">暂停</button>
+          <button class="chip-button" type="button" id="stepFlow">下一步</button>
+          <button class="chip-button" type="button" id="resetFlow">重置</button>
+        </div>
+        <div class="flow-stage" id="flowStage" aria-label="识别任务流程"></div>
+        <div class="flow-explain" id="flowExplain">点击播放流程，查看第一步。</div>
+      </section>
+
+      <section class="section" id="providers" aria-labelledby="providers-title">
+        <h2 id="providers-title">Provider 模式互动示例</h2>
+        <p class="section-lead">Provider 是项目里最重要的扩展边界之一。核心流程只依赖接口，真实 OCR、真实 LLM、存储和 LIMS 写回都通过可替换实现接入。</p>
+        <div class="split">
+          <div class="mode-panel">
+            <div class="mode-toolbar" aria-label="Provider 模式切换">
+              <button class="chip-button is-active" type="button" data-mode="mock">Mock 本地模式</button>
+              <button class="chip-button" type="button" data-mode="intranet">内网私有化</button>
+              <button class="chip-button" type="button" data-mode="public">公网原型</button>
+            </div>
+            <h3 id="modeTitle">Mock 本地模式</h3>
+            <p id="modeText">使用 MockOcrProvider 和 MockModelProvider，让单元测试、集成测试和本地演示不依赖真实 OCR 或 LLM 服务。</p>
+            <ul id="modeList"></ul>
+          </div>
+          <div class="mode-diagram" aria-label="Provider 模式图">
+            <div class="mode-diagram__inner">
+              <div class="mode-box" id="modeOcr">Mock OCR</div>
+              <div class="mode-box" id="modeModel">Mock Model</div>
+              <div class="mode-box" id="modeStore">Local Store</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="decision" aria-labelledby="decision-title">
+        <h2 id="decision-title">green / yellow / red 写回决策</h2>
+        <p class="section-lead">医疗系统里，写回是高风险动作。模型只负责给候选，是否写回必须由证据、置信度、冲突、权限、payload 校验和环境开关共同决定。</p>
+        <div class="split">
+          <div class="decision-panel">
+            <div class="decision-controls">
+              <div>
+                <div class="control-row">
+                  <label for="confidenceRange">关键字段置信度</label>
+                  <output id="confidenceOutput">86%</output>
+                </div>
+                <input id="confidenceRange" type="range" min="0" max="100" value="86">
+              </div>
+              <div>
+                <div class="control-row">
+                  <label for="evidenceRange">证据完整度</label>
+                  <output id="evidenceOutput">92%</output>
+                </div>
+                <input id="evidenceRange" type="range" min="0" max="100" value="92">
+              </div>
+              <div>
+                <div class="control-row">
+                  <label for="conflictRange">字段冲突风险</label>
+                  <output id="conflictOutput">18%</output>
+                </div>
+                <input id="conflictRange" type="range" min="0" max="100" value="18">
+              </div>
+              <label>
+                <input id="permissionCheck" type="checkbox" checked>
+                当前用户或 API token 具备写回权限
+              </label>
+              <label>
+                <input id="payloadCheck" type="checkbox" checked>
+                LIMS payload 校验通过
+              </label>
+            </div>
+          </div>
+          <div class="decision-result" id="decisionResult" data-level="yellow" aria-live="polite">
+            <b id="decisionLabel">yellow</b>
+            <p id="decisionText">可以输出候选结果，但需要人工复核，不能自动写回。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="quiz" aria-labelledby="quiz-title">
+        <h2 id="quiz-title">课堂检查</h2>
+        <p class="section-lead">用几个小问题检查是否抓住了核心设计思想。</p>
+        <div class="quiz-panel">
+          <h3 id="quizQuestion">为什么项目不用自由 Agent 直接决定是否写回 LIMS？</h3>
+          <div class="quiz-options" id="quizOptions"></div>
+          <div class="quiz-feedback" id="quizFeedback">请选择一个答案。</div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <strong>继续学习</strong>
+        <p>更完整的目标架构、技术选型理由和风险约束请阅读 <a href="./system-architecture.md">系统架构文档</a>。评估样本和脱敏边界请阅读 <a href="./evaluation-datasets.md">评估数据集执行规范</a>。</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    /*
+      脚本说明：
+      1. 不使用框架，确保这个教学文件可以直接用浏览器打开。
+      2. 只操作当前页面 DOM，不访问网络，不读取本地敏感文件。
+      3. 所有数据写在前端数组中，便于后续维护或迁移到 React 组件。
+    */
+
+    const readProgress = document.getElementById("readProgress");
+
+    function updateReadProgress() {
+      const scrollTop = window.scrollY;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const percent = maxScroll <= 0 ? 0 : Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100));
+      readProgress.style.width = `${percent}%`;
+    }
+
+    window.addEventListener("scroll", updateReadProgress, { passive: true });
+    window.addEventListener("resize", updateReadProgress);
+    updateReadProgress();
+
+    const techItems = [
+      {
+        group: "foundation",
+        tag: "工程基础",
+        title: "TypeScript",
+        concept: "TypeScript 是带类型系统的 JavaScript。它让字段、状态、payload、权限等数据结构在开发期就能被检查。",
+        project: "本项目用它统一前端、API、Core 和 shared 类型，减少字段 key、状态枚举和 payload 映射漂移。",
+        reason: "医疗结构化字段很多，类型边界越清晰，后续改 schema、写 adapter、跑评估越不容易失控。"
+      },
+      {
+        group: "foundation",
+        tag: "工程基础",
+        title: "pnpm workspace",
+        concept: "pnpm workspace 是 monorepo 包管理方式，可以让多个 package 在一个仓库中协同开发。",
+        project: "仓库拆成 apps/api、apps/demo-web、packages/core、packages/shared，既共享类型又保留边界。",
+        reason: "Agent、API、前端和评估需要同步演进，单仓库降低版本协调成本。"
+      },
+      {
+        group: "backend",
+        tag: "API 服务",
+        title: "Fastify",
+        concept: "Fastify 是轻量、高性能的 Node.js Web 框架，适合模块化注册路由和 hook。",
+        project: "承载 Auth、Schema、Job、Result、Feedback、Provider、Writeback、Evaluation、Audit 等 API 分组。",
+        reason: "路由边界清晰，方便统一鉴权、审计、错误处理和依赖注入。"
+      },
+      {
+        group: "backend",
+        tag: "参数校验",
+        title: "Zod",
+        concept: "Zod 是 TypeScript 生态中的运行时数据校验库，可以校验请求体和环境变量。",
+        project: "用于约束环境变量、API 输入和配置结构，避免无效配置进入服务启动和业务流程。",
+        reason: "医疗场景不能等到写回或调用 provider 时才发现配置缺失。"
+      },
+      {
+        group: "backend",
+        tag: "数据访问",
+        title: "Prisma",
+        concept: "Prisma 用 schema 描述数据库模型，并生成类型安全的数据库 client。",
+        project: "管理用户、角色、任务、结果、Schema、反馈、Provider、写回、评估和审计数据。",
+        reason: "比散落 SQL 更容易维护数据关系、迁移和类型边界。"
+      },
+      {
+        group: "backend",
+        tag: "数据库",
+        title: "PostgreSQL",
+        concept: "PostgreSQL 是关系型数据库，适合保存结构化数据、索引、关系和事务。",
+        project: "保存识别任务、结果、Schema 版本、审计日志、评估运行和写回尝试。",
+        reason: "这些数据需要可追溯、可查询、可回放，不适合只放内存或临时文件。"
+      },
+      {
+        group: "backend",
+        tag: "对象存储",
+        title: "Local / S3 / MinIO Storage",
+        concept: "对象存储负责保存较大的文件对象，例如病历 PDF、拆页图片和 OCR 中间产物。",
+        project: "数据库只保存 storageKey、checksum、大小和权限，文件实体放本地目录或 S3/MinIO。",
+        reason: "避免数据库承载大文件，同时支持内网私有化和对象生命周期管理。"
+      },
+      {
+        group: "agent",
+        tag: "Agent 工作流",
+        title: "LangGraph.js",
+        concept: "LangGraph 用状态图表达多个节点的执行顺序、条件分支和失败路径。",
+        project: "表达 Preprocess、OCR、RAG、Extraction、Validation、Decision、Writeback、Evaluation 节点。",
+        reason: "比自由 Agent 更可控，适合医疗写回这类必须可审计的高风险流程。"
+      },
+      {
+        group: "agent",
+        tag: "模型编排",
+        title: "LangChain.js",
+        concept: "LangChain 封装 prompt、structured output、tool 和 retriever，帮助组织模型调用。",
+        project: "用于字段抽取 prompt、结构化输出、轻量 RAG 上下文和 ModelProvider 主线实现。",
+        reason: "让模型调用和工作流状态机分工清晰，后续 provider 可替换。"
+      },
+      {
+        group: "agent",
+        tag: "模型 Provider",
+        title: "OpenAI-compatible Provider",
+        concept: "OpenAI-compatible 指使用类似 OpenAI API 协议的大模型网关或厂商服务。",
+        project: "可接入内网模型网关或兼容协议的外部模型服务。",
+        reason: "生产环境通常需要私有化或企业网关，不应绑定单一公网厂商。"
+      },
+      {
+        group: "agent",
+        tag: "实验通道",
+        title: "OpenAI Responses Provider",
+        concept: "OpenAI Responses API 可用于结构化输出、工具调用和 tracing 能力实验。",
+        project: "作为真实 provider 和能力实验区，不强行成为唯一主链路。",
+        reason: "能学习新能力，同时避免生产链路过早绑定单一模式。"
+      },
+      {
+        group: "agent",
+        tag: "OCR",
+        title: "OCR Provider",
+        concept: "OCR Provider 把图片、PDF 或扫描件转换为带页码、坐标和置信度的文本块。",
+        project: "支持 Mock OCR 和 HTTP OCR，输出 OCR block、pageNumber、bbox、confidence 和质量告警。",
+        reason: "字段证据必须能回到原文位置，不能只输出一段纯文本。"
+      },
+      {
+        group: "frontend",
+        tag: "前端框架",
+        title: "React",
+        concept: "React 用组件描述界面状态和交互，适合复杂管理台。",
+        project: "构建 Dashboard、Recognition、Schema Studio、Evaluation、Provider Settings、Writeback 等页面。",
+        reason: "任务状态、表单、证据、版本对比和写回确认都需要清晰的组件化状态管理。"
+      },
+      {
+        group: "frontend",
+        tag: "构建工具",
+        title: "Vite",
+        concept: "Vite 是前端开发和构建工具，开发启动快，适合 TypeScript + React。",
+        project: "承载 demo-web 的本地开发、构建和模块加载。",
+        reason: "Demo/Admin 前端需要快速迭代和良好的开发体验。"
+      },
+      {
+        group: "frontend",
+        tag: "路由",
+        title: "React Router",
+        concept: "React Router 负责前端页面之间的导航和路由匹配。",
+        project: "管理 Dashboard、任务详情、Schema Studio、评估、写回、审计等页面路径。",
+        reason: "管理台是多页面工作流，不能只做单屏表单。"
+      },
+      {
+        group: "frontend",
+        tag: "服务端状态",
+        title: "TanStack Query",
+        concept: "TanStack Query 管理服务端数据的请求、缓存、刷新和错误状态。",
+        project: "适合任务状态轮询、Provider 健康检查、评估运行和审计列表。",
+        reason: "服务端状态和本地 UI 状态要分开，否则页面会变得难维护。"
+      },
+      {
+        group: "frontend",
+        tag: "引导",
+        title: "driver.js",
+        concept: "driver.js 用于页面元素高亮和分步骤引导。",
+        project: "用于 Demo/Admin 首次教学路线，带用户认识 provider、任务、证据、反馈和写回。",
+        reason: "这个系统模块多，交互引导能降低学习成本。"
+      },
+      {
+        group: "quality",
+        tag: "测试",
+        title: "Vitest",
+        concept: "Vitest 是 TypeScript/JavaScript 测试框架，适合单元测试和集成测试。",
+        project: "覆盖 schema 校验、normalizer、adapter、provider、workflow、API route 和评估指标。",
+        reason: "外部 OCR/LLM 不稳定，核心逻辑必须通过确定性测试保护。"
+      },
+      {
+        group: "quality",
+        tag: "数据库测试",
+        title: "pg-mem",
+        concept: "pg-mem 是内存 PostgreSQL 模拟工具，可用于部分 repository 测试。",
+        project: "帮助验证数据库访问层逻辑，而不用每次都依赖真实数据库实例。",
+        reason: "提升测试速度，减少本地环境阻塞。"
+      },
+      {
+        group: "quality",
+        tag: "安全",
+        title: "JWT / API Token / Audit",
+        concept: "JWT 用于用户登录态，API token 用于系统调用，Audit 用于记录高风险动作。",
+        project: "保护文件、结果、Schema 发布、Provider 配置、LIMS 写回和真实样本评估。",
+        reason: "医疗数据和写回操作必须可追溯、可授权、可复盘。"
+      },
+      {
+        group: "quality",
+        tag: "测试后备",
+        title: "Mock Provider",
+        concept: "Mock Provider 用确定数据模拟 OCR、LLM 或写回服务。",
+        project: "让测试和演示可以不依赖外部服务，也不会把真实病历发给公网。",
+        reason: "它是生产架构里的安全后备，不是临时凑数。"
+      }
+    ];
+
+    const techGrid = document.getElementById("techGrid");
+
+    function renderTechCards(filter) {
+      techGrid.innerHTML = "";
+      techItems
+        .filter((item) => filter === "all" || item.group === filter)
+        .forEach((item) => {
+          const card = document.createElement("article");
+          card.className = "tech-card";
+          card.innerHTML = `
+            <span class="tech-card__tag">${item.tag}</span>
+            <h3>${item.title}</h3>
+            <p><strong>基础概念：</strong>${item.concept}</p>
+            <p><strong>本项目负责：</strong>${item.project}</p>
+            <ul>
+              <li>${item.reason}</li>
+            </ul>
+          `;
+          techGrid.appendChild(card);
+        });
+    }
+
+    renderTechCards("all");
+
+    document.querySelectorAll("[data-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-filter]").forEach((item) => item.classList.remove("is-active"));
+        button.classList.add("is-active");
+        renderTechCards(button.dataset.filter);
+      });
+    });
+
+    const architectureNodes = Array.from(document.querySelectorAll("[data-arch-node]"));
+    let architectureTimer = null;
+
+    function resetArchitecture() {
+      clearInterval(architectureTimer);
+      architectureTimer = null;
+      architectureNodes.forEach((node) => node.classList.remove("is-lit"));
+    }
+
+    function playArchitecture() {
+      resetArchitecture();
+      let index = 0;
+      architectureTimer = setInterval(() => {
+        if (index >= architectureNodes.length) {
+          clearInterval(architectureTimer);
+          architectureTimer = null;
+          return;
+        }
+        architectureNodes[index].classList.add("is-lit");
+        index += 1;
+      }, 180);
+    }
+
+    document.getElementById("playArchitecture").addEventListener("click", playArchitecture);
+    document.getElementById("resetArchitecture").addEventListener("click", resetArchitecture);
+
+    const flowSteps = [
+      {
+        title: "上传文件",
+        note: "图片、PDF、扫描件",
+        explain: "调用方或 Demo/Admin 前端上传病历文件，API 保存文件元数据和 storageKey。"
+      },
+      {
+        title: "预处理",
+        note: "拆页、质量检查",
+        explain: "Document Pipeline 检查文件格式、页数、模糊、倾斜和脱敏策略。"
+      },
+      {
+        title: "OCR",
+        note: "文本块、坐标、置信度",
+        explain: "OCR Provider 返回带 pageNumber、blockId、bbox 和 confidence 的 OCR 文本块。"
+      },
+      {
+        title: "轻量 RAG",
+        note: "字段说明、术语、字典",
+        explain: "RAG 节点检索癌种别名、LIMS 字典、字段说明和反例，为抽取提供上下文。"
+      },
+      {
+        title: "LLM 抽取",
+        note: "结构化字段候选",
+        explain: "ModelProvider 根据 schema 和 OCR 文本输出字段值、证据、置信度和解释。"
+      },
+      {
+        title: "校验归一",
+        note: "冲突、枚举、证据",
+        explain: "Validation Engine 检查必填、低置信、证据缺失、枚举归一和字段冲突。"
+      },
+      {
+        title: "自动决策",
+        note: "green / yellow / red",
+        explain: "Auto Decision Policy 根据证据、置信度、权限、payload 和环境开关决定是否可写回。"
+      },
+      {
+        title: "写回或复核",
+        note: "LIMS 或人工确认",
+        explain: "green 可进入受控写回，yellow 进入人工复核，red 阻断并记录原因。"
+      }
+    ];
+
+    const flowStage = document.getElementById("flowStage");
+    const flowExplain = document.getElementById("flowExplain");
+    let flowIndex = -1;
+    let flowTimer = null;
+
+    function renderFlow() {
+      flowStage.innerHTML = "";
+      flowSteps.forEach((step, index) => {
+        const card = document.createElement("div");
+        card.className = "flow-step";
+        if (index < flowIndex) {
+          card.classList.add("is-done");
+        }
+        if (index === flowIndex) {
+          card.classList.add("is-current");
+        }
+        card.innerHTML = `
+          <b>${step.title}</b>
+          <small>${step.note}</small>
+        `;
+        flowStage.appendChild(card);
+      });
+
+      if (flowIndex >= 0 && flowSteps[flowIndex]) {
+        flowExplain.textContent = flowSteps[flowIndex].explain;
+      } else {
+        flowExplain.textContent = "点击播放流程，查看第一步。";
+      }
+    }
+
+    function stepFlow() {
+      flowIndex = flowIndex >= flowSteps.length - 1 ? 0 : flowIndex + 1;
+      renderFlow();
+    }
+
+    function playFlow() {
+      clearInterval(flowTimer);
+      if (flowIndex >= flowSteps.length - 1) {
+        flowIndex = -1;
+      }
+      stepFlow();
+      flowTimer = setInterval(stepFlow, 1400);
+    }
+
+    function pauseFlow() {
+      clearInterval(flowTimer);
+      flowTimer = null;
+    }
+
+    function resetFlow() {
+      pauseFlow();
+      flowIndex = -1;
+      renderFlow();
+    }
+
+    document.getElementById("playFlow").addEventListener("click", playFlow);
+    document.getElementById("pauseFlow").addEventListener("click", pauseFlow);
+    document.getElementById("stepFlow").addEventListener("click", stepFlow);
+    document.getElementById("resetFlow").addEventListener("click", resetFlow);
+    renderFlow();
+
+    const providerModes = {
+      mock: {
+        title: "Mock 本地模式",
+        text: "使用 MockOcrProvider 和 MockModelProvider，让单元测试、集成测试和本地演示不依赖真实 OCR 或 LLM 服务。",
+        list: ["适合 CI 和本地开发", "不会发送真实病历到外部服务", "结果稳定，便于回归测试"],
+        boxes: ["Mock OCR", "Mock Model", "Local Store"]
+      },
+      intranet: {
+        title: "内网私有化",
+        text: "病历原件、OCR、LLM、存储和审计都留在内网，通过 OpenAI-compatible 网关或内网 OCR 服务接入。",
+        list: ["适合生产环境", "默认禁止公网传输真实病历", "写回先接 LIMS 测试环境再进生产"],
+        boxes: ["内网 OCR", "内网模型网关", "MinIO / PostgreSQL"]
+      },
+      public: {
+        title: "公网原型",
+        text: "用于快速学习和演示，可接公网 OCR 或 LLM，但必须显式开启，并默认只使用合成样本或强脱敏文本。",
+        list: ["适合原型验证", "需要配置开关和审计", "禁止发送未脱敏真实病历"],
+        boxes: ["公网 OCR", "OpenAI Responses", "Demo Storage"]
+      }
+    };
+
+    const modeTitle = document.getElementById("modeTitle");
+    const modeText = document.getElementById("modeText");
+    const modeList = document.getElementById("modeList");
+    const modeOcr = document.getElementById("modeOcr");
+    const modeModel = document.getElementById("modeModel");
+    const modeStore = document.getElementById("modeStore");
+
+    function renderProviderMode(modeName) {
+      const mode = providerModes[modeName];
+      modeTitle.textContent = mode.title;
+      modeText.textContent = mode.text;
+      modeList.innerHTML = mode.list.map((item) => `<li>${item}</li>`).join("");
+      modeOcr.textContent = mode.boxes[0];
+      modeModel.textContent = mode.boxes[1];
+      modeStore.textContent = mode.boxes[2];
+    }
+
+    document.querySelectorAll("[data-mode]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-mode]").forEach((item) => item.classList.remove("is-active"));
+        button.classList.add("is-active");
+        renderProviderMode(button.dataset.mode);
+      });
+    });
+
+    renderProviderMode("mock");
+
+    const confidenceRange = document.getElementById("confidenceRange");
+    const evidenceRange = document.getElementById("evidenceRange");
+    const conflictRange = document.getElementById("conflictRange");
+    const permissionCheck = document.getElementById("permissionCheck");
+    const payloadCheck = document.getElementById("payloadCheck");
+    const confidenceOutput = document.getElementById("confidenceOutput");
+    const evidenceOutput = document.getElementById("evidenceOutput");
+    const conflictOutput = document.getElementById("conflictOutput");
+    const decisionResult = document.getElementById("decisionResult");
+    const decisionLabel = document.getElementById("decisionLabel");
+    const decisionText = document.getElementById("decisionText");
+
+    function updateDecision() {
+      const confidence = Number(confidenceRange.value);
+      const evidence = Number(evidenceRange.value);
+      const conflict = Number(conflictRange.value);
+      const hasPermission = permissionCheck.checked;
+      const payloadOk = payloadCheck.checked;
+
+      confidenceOutput.textContent = `${confidence}%`;
+      evidenceOutput.textContent = `${evidence}%`;
+      conflictOutput.textContent = `${conflict}%`;
+
+      let level = "yellow";
+      let text = "可以输出候选结果，但需要人工复核，不能自动写回。";
+
+      if (!hasPermission || !payloadOk || conflict >= 70 || confidence < 50 || evidence < 50) {
+        level = "red";
+        text = "必须阻断写回。原因可能是权限不足、payload 不合法、关键证据缺失、置信度过低或字段冲突过高。";
+      } else if (confidence >= 85 && evidence >= 85 && conflict <= 25) {
+        level = "green";
+        text = "满足自动写回候选条件。真实系统仍需要记录幂等键、审计日志，并确认环境允许自动写回。";
+      }
+
+      decisionResult.dataset.level = level;
+      decisionLabel.textContent = level;
+      decisionText.textContent = text;
+    }
+
+    [confidenceRange, evidenceRange, conflictRange, permissionCheck, payloadCheck].forEach((control) => {
+      control.addEventListener("input", updateDecision);
+      control.addEventListener("change", updateDecision);
+    });
+
+    updateDecision();
+
+    const quizOptions = document.getElementById("quizOptions");
+    const quizFeedback = document.getElementById("quizFeedback");
+    const quizAnswers = [
+      {
+        text: "因为自由 Agent 不会调用大模型。",
+        correct: false,
+        feedback: "不对。自由 Agent 也可以调用大模型，问题不在能不能调用模型，而在高风险动作是否可控。"
+      },
+      {
+        text: "因为写回 LIMS 属于高风险动作，必须由确定性策略、权限、幂等和审计共同约束。",
+        correct: true,
+        feedback: "正确。模型负责候选结果，写回必须由受控工作流和安全策略决定。"
+      },
+      {
+        text: "因为 LangGraph 只能做前端动画。",
+        correct: false,
+        feedback: "不对。LangGraph 是工作流状态图工具，不是前端动画库。"
+      }
+    ];
+
+    quizAnswers.forEach((answer) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = answer.text;
+      button.addEventListener("click", () => {
+        quizFeedback.textContent = answer.feedback;
+        quizFeedback.style.borderColor = answer.correct ? "rgba(22, 132, 74, 0.55)" : "rgba(184, 59, 59, 0.55)";
+        quizFeedback.style.background = answer.correct ? "#eef8f2" : "#fff0f0";
+      });
+      quizOptions.appendChild(button);
+    });
+  </script>
+</body>
+</html>

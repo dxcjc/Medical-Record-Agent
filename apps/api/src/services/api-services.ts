@@ -1,4 +1,12 @@
 import type { Prisma } from "@prisma/client";
+import type {
+  EvaluationDataset as CoreEvaluationDataset,
+  EvaluationDatasetSample,
+  EvaluationGroundTruth,
+  EvaluationGroundTruthField,
+  EvaluationRunResult,
+  FieldEvaluationMetrics
+} from "@medical-record-agent/core";
 
 import type { AuthLayerService } from "../middleware/auth.middleware";
 import type { AuditRecorder } from "../middleware/audit.middleware";
@@ -16,6 +24,7 @@ import type {
 } from "../routes/evaluation.routes";
 import type { SchemaRouteService } from "../routes/schemas.routes";
 import type { ApiServerServices } from "../server";
+import type { StorageProvider } from "../storage";
 
 export interface ApiRecognitionDocumentInput {
   documentId: string;
@@ -60,6 +69,7 @@ export interface ApiServiceRepositories {
       metadata?: Prisma.InputJsonValue;
       uploadedById?: string | null;
     }): Promise<unknown>;
+    findById(id: string): Promise<unknown | null>;
   };
   jobsRepository: {
     create(input: {
@@ -129,6 +139,24 @@ export interface ApiServiceRepositories {
       datasetId: string;
       createdById?: string | null;
       providerConfig?: Prisma.InputJsonValue;
+    }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
+    listSamples(datasetId: string, limit?: number): Promise<unknown[]>;
+    markRunStarted(id: string, startedAt: Date): Promise<unknown>;
+    completeRun(
+      id: string,
+      input: {
+        status: "completed" | "failed";
+        summary: Prisma.InputJsonValue;
+        error?: Prisma.InputJsonValue;
+        completedAt: Date;
+      }
+    ): Promise<unknown>;
+    upsertMetric(input: {
+      runId: string;
+      name: string;
+      value: number | string;
+      unit?: string | null;
+      breakdown?: Prisma.InputJsonValue;
     }): Promise<unknown>;
     findRunById(input: { id: string; actorUserId: string }): Promise<unknown | null>;
     listMetrics(runId: string): Promise<unknown[]>;
@@ -140,6 +168,18 @@ export interface ProviderRegistry {
   setDefault(key: string, input: SetDefaultProviderInput): Promise<unknown>;
 }
 
+export interface ApiEvaluationRunnerInput {
+  runId: string;
+  dataset: CoreEvaluationDataset;
+  schemaConfig: unknown;
+  providerConfig: Prisma.InputJsonValue;
+  actor: CreateEvaluationRunInput["actor"];
+}
+
+export interface ApiEvaluationRunner {
+  run(input: ApiEvaluationRunnerInput): Promise<EvaluationRunResult>;
+}
+
 export interface CreateApiServicesOptions {
   authService: AuthLayerService & AuthRouteService;
   auditService: AuditRouteService & {
@@ -149,6 +189,8 @@ export interface CreateApiServicesOptions {
   repositories: ApiServiceRepositories;
   recognitionOrchestrator: ApiRecognitionOrchestrator;
   providerRegistry: ProviderRegistry;
+  evaluationRunner?: ApiEvaluationRunner;
+  storageProvider?: StorageProvider;
   now?: () => Date;
 }
 
@@ -188,6 +230,25 @@ function createApiServiceError(code: string, statusCode: number) {
   });
 }
 
+function decodeBase64Content(contentBase64: unknown): Buffer | undefined {
+  if (contentBase64 === undefined || contentBase64 === null) {
+    return undefined;
+  }
+
+  if (typeof contentBase64 !== "string" || contentBase64.trim().length === 0) {
+    throw createApiServiceError("FILE_CONTENT_BASE64_INVALID", 400);
+  }
+
+  const normalized = contentBase64.trim();
+  const body = Buffer.from(normalized, "base64");
+
+  if (body.byteLength === 0) {
+    throw createApiServiceError("FILE_CONTENT_BASE64_INVALID", 400);
+  }
+
+  return body;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -207,6 +268,235 @@ function readSourceType(value: unknown) {
 function isRealSampleMetadata(metadata: unknown) {
   const sourceType = readSourceType(metadata);
   return sourceType === "real" || sourceType === "real_deidentified";
+}
+
+function readSampleMetadata(sample: unknown) {
+  return isRecord(sample) ? sample.metadata : undefined;
+}
+
+function readFileStorageKey(file: unknown) {
+  return isRecord(file) && typeof file.storageKey === "string" && file.storageKey.length > 0
+    ? file.storageKey
+    : undefined;
+}
+
+function readFileOriginalName(file: unknown) {
+  return isRecord(file) && typeof file.originalName === "string" && file.originalName.length > 0
+    ? file.originalName
+    : undefined;
+}
+
+function readFileMimeType(file: unknown) {
+  return isRecord(file) && typeof file.mimeType === "string" && file.mimeType.length > 0 ? file.mimeType : undefined;
+}
+
+async function enrichDocumentFromStoredFile(input: {
+  sourceFileId: string;
+  document: ApiRecognitionDocumentInput;
+  fileRepository: ApiServiceRepositories["fileRepository"];
+  storageProvider?: StorageProvider;
+}): Promise<ApiRecognitionDocumentInput> {
+  const file = await input.fileRepository.findById(input.sourceFileId);
+  const storageKey = readFileStorageKey(file);
+  const document: ApiRecognitionDocumentInput = {
+    ...input.document,
+    documentId: input.document.documentId || input.sourceFileId
+  };
+
+  if (document.fileName === undefined) {
+    const originalName = readFileOriginalName(file);
+    if (originalName !== undefined) {
+      document.fileName = originalName;
+    }
+  }
+  if (document.mimeType === undefined) {
+    const mimeType = readFileMimeType(file);
+    if (mimeType !== undefined) {
+      document.mimeType = mimeType;
+    }
+  }
+  if (document.storageKey === undefined && storageKey !== undefined) {
+    document.storageKey = storageKey;
+  }
+
+  if (document.content === undefined && input.storageProvider && storageKey !== undefined) {
+    const storedFile = await input.storageProvider.get(storageKey);
+    if (!storedFile) {
+      throw createApiServiceError("STORED_FILE_NOT_FOUND", 404);
+    }
+
+    document.content = storedFile.body;
+    if (document.mimeType === undefined && storedFile.contentType !== undefined) {
+      document.mimeType = storedFile.contentType;
+    }
+  }
+
+  return document;
+}
+
+function createStoredFileDocumentInput(input: {
+  sourceFileId: string;
+  document: ApiRecognitionDocumentInput;
+  fileRepository: ApiServiceRepositories["fileRepository"];
+  storageProvider?: StorageProvider | undefined;
+}) {
+  const payload: Parameters<typeof enrichDocumentFromStoredFile>[0] = {
+    sourceFileId: input.sourceFileId,
+    document: input.document,
+    fileRepository: input.fileRepository
+  };
+
+  if (input.storageProvider !== undefined) {
+    payload.storageProvider = input.storageProvider;
+  }
+
+  return enrichDocumentFromStoredFile(payload);
+}
+
+function readSampleId(sample: unknown) {
+  return isRecord(sample) && typeof sample.id === "string" && sample.id.length > 0 ? sample.id : "sample-unknown";
+}
+
+function readGroundTruthField(value: unknown): EvaluationGroundTruthField {
+  if (isRecord(value)) {
+    const field: EvaluationGroundTruthField = {};
+
+    if (value.value !== undefined) {
+      field.value = value.value as EvaluationGroundTruthField["value"];
+    }
+    if (value.normalizedValue !== undefined) {
+      field.normalizedValue = value.normalizedValue as EvaluationGroundTruthField["normalizedValue"];
+    }
+    if (typeof value.expectedNeedsReview === "boolean") {
+      field.expectedNeedsReview = value.expectedNeedsReview;
+    } else if (typeof value.needsReview === "boolean") {
+      field.expectedNeedsReview = value.needsReview;
+    }
+
+    return field;
+  }
+
+  return {
+    value: value as EvaluationGroundTruthField["value"]
+  };
+}
+
+function toEvaluationGroundTruth(value: unknown): EvaluationGroundTruth {
+  if (Array.isArray(value)) {
+    return value.reduce<EvaluationGroundTruth>((current, item) => {
+      if (isRecord(item) && typeof item.fieldKey === "string" && item.fieldKey.length > 0) {
+        current[item.fieldKey] = readGroundTruthField(item);
+      }
+
+      return current;
+    }, {});
+  }
+
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([fieldKey, fieldValue]) => [fieldKey, readGroundTruthField(fieldValue)])
+  );
+}
+
+function toEvaluationSample(sample: unknown): EvaluationDatasetSample {
+  const record = readSampleRecord(sample);
+  const metadata = readSampleMetadata(sample);
+  const input = isRecord(record.input)
+    ? record.input
+    : {
+        fileId: record.fileId,
+        recognitionJobId: record.recognitionJobId,
+        externalId: record.externalId,
+        metadata
+      };
+  const mapped: EvaluationDatasetSample = {
+    id: readSampleId(sample),
+    input,
+    groundTruth: toEvaluationGroundTruth(record.groundTruth),
+    deidentified: readDeidentifiedFlag(metadata)
+  };
+  const sourceType = readSourceType(metadata);
+
+  if (sourceType === "synthetic" || sourceType === "real" || sourceType === "real_deidentified") {
+    mapped.sensitivity = sourceType;
+  }
+
+  return mapped;
+}
+
+function toEvaluationDataset(datasetId: string, datasetRecord: unknown, samples: unknown[]): CoreEvaluationDataset {
+  const metadata = isRecord(datasetRecord) ? datasetRecord.metadata : undefined;
+  const dataset: CoreEvaluationDataset = {
+    id: datasetId,
+    samples: samples.map(toEvaluationSample),
+    deidentified: readDeidentifiedFlag(datasetRecord)
+  };
+  const sourceType = readSourceType(metadata);
+
+  if (sourceType === "synthetic" || sourceType === "real" || sourceType === "real_deidentified") {
+    dataset.sensitivity = sourceType;
+  }
+
+  return dataset;
+}
+
+function createEvaluationFailureError(error: unknown): Prisma.InputJsonValue {
+  const code = isRecord(error) && typeof error.code === "string" ? error.code : "EVALUATION_RUN_FAILED";
+
+  // 评估失败信息可能来自 provider 或样本文本处理，不能把原始病历内容写入 API 错误或审计摘要。
+  return {
+    code,
+    message: "评估运行失败，请查看服务端安全日志或供应商诊断信息。"
+  };
+}
+
+function metricEntries(metrics: FieldEvaluationMetrics) {
+  return [
+    { name: "sample_count", value: metrics.sampleCount, unit: "count" },
+    { name: "field_accuracy", value: metrics.fieldAccuracy, unit: "ratio" },
+    { name: "normalized_accuracy", value: metrics.normalizedAccuracy, unit: "ratio" },
+    { name: "evidence_coverage", value: metrics.evidenceCoverage, unit: "ratio" },
+    { name: "needs_review_recall", value: metrics.needsReviewRecall, unit: "ratio" },
+    { name: "average_latency_ms", value: metrics.averageLatencyMs, unit: "ms" }
+  ] as const;
+}
+
+async function persistEvaluationMetrics(
+  repository: ApiServiceRepositories["evaluationRepository"],
+  runId: string,
+  result: EvaluationRunResult
+) {
+  const breakdown = toInputJsonValue({
+    summary: result.summary,
+    warnings: result.warnings,
+    errors: result.errors
+  });
+
+  await Promise.all(
+    metricEntries(result.metrics)
+      .filter((metric) => typeof metric.value === "number" && Number.isFinite(metric.value))
+      .map((metric) =>
+        repository.upsertMetric({
+          runId,
+          name: metric.name,
+          value: metric.value as number,
+          unit: metric.unit,
+          breakdown
+        })
+      )
+  );
+}
+
+function toEvaluationRunSummary(result: EvaluationRunResult): Prisma.InputJsonValue {
+  return toInputJsonValue({
+    ...result.summary,
+    warnings: result.warnings,
+    errors: result.errors,
+    sampleResults: result.sampleResults
+  });
 }
 
 async function assertDatasetAllowsEvaluationSamples(
@@ -286,14 +576,48 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
 
       return Promise.resolve([]);
     },
-    createRun(input: CreateEvaluationRunInput) {
-      return repositories.evaluationRepository.createRun({
+    async createRun(input: CreateEvaluationRunInput) {
+      const providerConfig = {
+        providerKey: input.providerKey
+      };
+      const run = await repositories.evaluationRepository.createRun({
         datasetId: input.datasetId,
         createdById: input.actor.actorUserId,
-        providerConfig: {
-          providerKey: input.providerKey
-        }
+        providerConfig
       });
+
+      if (!options.evaluationRunner) {
+        return run;
+      }
+
+      await repositories.evaluationRepository.markRunStarted(run.id, now());
+
+      try {
+        const datasetRecord = await repositories.evaluationRepository.findDatasetById(input.datasetId);
+        const samples = await repositories.evaluationRepository.listSamples(input.datasetId, input.sampleLimit);
+        const result = await options.evaluationRunner.run({
+          runId: run.id,
+          dataset: toEvaluationDataset(input.datasetId, datasetRecord, samples),
+          schemaConfig: {},
+          providerConfig,
+          actor: input.actor
+        });
+
+        await persistEvaluationMetrics(repositories.evaluationRepository, run.id, result);
+
+        return repositories.evaluationRepository.completeRun(run.id, {
+          status: "completed",
+          summary: toEvaluationRunSummary(result),
+          completedAt: now()
+        });
+      } catch (error) {
+        return repositories.evaluationRepository.completeRun(run.id, {
+          status: "failed",
+          summary: toInputJsonValue({}),
+          error: createEvaluationFailureError(error),
+          completedAt: now()
+        });
+      }
     },
     getRun(input: GetEvaluationRunInput) {
       return repositories.evaluationRepository.findRunById({
@@ -311,22 +635,37 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
     auditService: options.auditService,
     schemaService: options.schemaService,
     fileService: {
-      createUpload(input) {
+      async createUpload(input) {
         const body = input as {
           originalName?: string;
           mimeType?: string;
           byteSize?: number | bigint;
           checksumSha256?: string;
+          contentBase64?: string;
           metadata?: unknown;
           uploadedById?: string;
         };
         const originalName = body.originalName ?? "medical-record-upload";
-        const byteSize = typeof body.byteSize === "bigint" ? body.byteSize : BigInt(body.byteSize ?? 0);
+        const storageKey = toStorageKey(originalName, now());
+        const content = decodeBase64Content(body.contentBase64);
+        const storedFile = content
+          ? await options.storageProvider?.put({
+              key: storageKey,
+              body: content,
+              contentType: body.mimeType ?? "application/octet-stream"
+            })
+          : undefined;
+        const byteSize =
+          storedFile !== undefined
+            ? BigInt(storedFile.size)
+            : typeof body.byteSize === "bigint"
+              ? body.byteSize
+              : BigInt(body.byteSize ?? 0);
 
         return repositories.fileRepository.create({
-          storageKey: toStorageKey(originalName, now()),
+          storageKey: storedFile?.key ?? storageKey,
           originalName,
-          mimeType: body.mimeType ?? "application/octet-stream",
+          mimeType: storedFile?.contentType ?? body.mimeType ?? "application/octet-stream",
           byteSize,
           checksumSha256: body.checksumSha256 ?? "unknown",
           metadata: toInputJsonValue(body.metadata),
@@ -353,9 +692,19 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         });
         const result = await options.recognitionOrchestrator.start({
           jobId: job.id,
-          document: body.document ?? {
-            documentId: body.sourceFileId ?? job.id
-          }
+          document:
+            body.sourceFileId !== undefined
+              ? await createStoredFileDocumentInput({
+                  sourceFileId: body.sourceFileId,
+                  document: body.document ?? {
+                    documentId: body.sourceFileId
+                  },
+                  fileRepository: repositories.fileRepository,
+                  storageProvider: options.storageProvider
+                })
+              : body.document ?? {
+                  documentId: job.id
+                }
         });
         await repositories.resultsRepository.upsertByJobId({
           jobId: job.id,

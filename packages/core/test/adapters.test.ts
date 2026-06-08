@@ -55,9 +55,9 @@ describe("payload adapters", () => {
     const payload = buildGenericJsonPayload([
       // 顶层字段不应该被强制要求写成 a.b 这种嵌套路径形式。
       {
-        fieldKey: "patientName",
-        targetPath: "patientName",
-        value: "张三"
+        fieldKey: "demoSubjectCode",
+        targetPath: "demoSubjectCode",
+        value: "DEMO_SUBJECT_A"
       },
       {
         fieldKey: "sampleType",
@@ -67,7 +67,7 @@ describe("payload adapters", () => {
     ]);
 
     expect(payload).toEqual({
-      patientName: "张三",
+      demoSubjectCode: "DEMO_SUBJECT_A",
       sampleType: "tissue"
     });
   });

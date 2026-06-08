@@ -25,7 +25,7 @@ export function EvaluationRunPanel({
   const isSubmitting = mutationState.status === "submitting";
 
   return (
-    <section className="panel" aria-labelledby="evaluation-run-title">
+    <section className="panel" aria-labelledby="evaluation-run-title" data-guide="evaluation">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-run-title">Evaluation Run Creation</h2>

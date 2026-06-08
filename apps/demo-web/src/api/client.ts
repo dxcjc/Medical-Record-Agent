@@ -21,6 +21,7 @@ export type CreateFileInput = {
   mimeType: string;
   byteSize: number;
   checksumSha256: string;
+  contentBase64?: string;
   metadata?: unknown;
 };
 

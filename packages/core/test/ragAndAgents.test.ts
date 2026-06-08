@@ -113,7 +113,7 @@ describe("light RAG and specialist agents", () => {
     const ready = writebackAgent.run({
       schema,
       validationDecision: "green",
-      permissions: ["lims.writeback"],
+      permissions: ["writeback:execute"],
       candidates: [
         {
           fieldKey: "sampleType",

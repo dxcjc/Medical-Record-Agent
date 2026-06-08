@@ -70,7 +70,7 @@ function createBaseOrchestrator(options: {
     ocrProvider: createOcrProvider(),
     modelProvider: createMockModelProvider({ candidates: options.candidates }),
     knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
-    permissions: ["lims.writeback"],
+    permissions: ["writeback:execute"],
     autoWritebackEnabled: options.autoWritebackEnabled ?? false,
     writebackExecutor: options.writebackExecutor
   });

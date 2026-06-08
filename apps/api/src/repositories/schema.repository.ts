@@ -105,6 +105,22 @@ export function createSchemaRepository(dependencies: SchemaRepositoryDependencie
       });
     },
 
+    async listActive() {
+      return dependencies.schemaVersion.findMany({
+        where: {
+          status: "active"
+        },
+        orderBy: [
+          {
+            schemaKey: "asc"
+          },
+          {
+            version: "desc"
+          }
+        ]
+      });
+    },
+
     async listVersions(schemaKey: string) {
       return dependencies.schemaVersion.findMany({
         where: { schemaKey },

@@ -49,10 +49,10 @@ export function createWritebackAgent(): WritebackAgent {
         });
       }
 
-      if (!input.permissions.includes("lims.writeback")) {
+      if (!input.permissions.includes("writeback:execute")) {
         blockers.push({
           code: "MISSING_PERMISSION",
-          message: "缺少 lims.writeback 权限。"
+          message: "缺少 writeback:execute 权限。"
         });
       }
 

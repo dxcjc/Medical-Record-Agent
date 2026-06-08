@@ -13,7 +13,7 @@ export function SchemaListPanel({
   onSelectSchema
 }: SchemaListPanelProps) {
   return (
-    <section className="panel" aria-labelledby="schema-list-title">
+    <section className="panel" aria-labelledby="schema-list-title" data-guide="schema-selection">
       <div className="toolbar">
         <div>
           <h2 id="schema-list-title">Schema 列表</h2>

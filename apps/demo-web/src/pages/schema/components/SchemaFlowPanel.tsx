@@ -41,7 +41,7 @@ export function SchemaFlowPanel({
   const rollbackOptions = archivedVersions.length > 0 ? archivedVersions : versions;
 
   return (
-    <section className="panel" aria-labelledby="schema-flow-title">
+    <section className="panel" aria-labelledby="schema-flow-title" data-guide="schema-publish">
       <div className="toolbar">
         <div>
           <h2 id="schema-flow-title">发布与变更流</h2>

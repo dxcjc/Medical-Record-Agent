@@ -464,7 +464,7 @@ export default function JobDetailPage() {
       </section>
 
       <div className="detail-grid">
-        <section className="evidence-panel">
+        <section className="evidence-panel" data-guide="field-evidence">
           <SectionTitle title="证据面板" />
           <div className="trace-list" role="list" aria-label="证据列表">
             {displayEvidenceItems.map((item) => (
@@ -500,7 +500,7 @@ export default function JobDetailPage() {
       </div>
 
       <div className="detail-grid">
-        <section className="panel">
+        <section className="panel" data-guide="langgraph-workflow">
           <SectionTitle title="LangGraph Trace" />
           <ol className="trace-list">
             {displayTraceSteps.map((step) => (
@@ -519,7 +519,7 @@ export default function JobDetailPage() {
           </ol>
         </section>
 
-        <section className="panel">
+        <section className="panel" data-guide="auto-decision">
           <SectionTitle title="自动决策" />
           <div className="decision-grid">
             {decisionCards.map((card) => (
@@ -536,7 +536,7 @@ export default function JobDetailPage() {
         </section>
       </div>
 
-      <form className="panel" onSubmit={handleFeedbackSubmit}>
+      <form className="panel" data-guide="feedback" onSubmit={handleFeedbackSubmit}>
         <SectionTitle title="反馈提交" />
         <div className="form-grid">
           <label className="field-row">

@@ -233,7 +233,7 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
       writeback,
       autoWritebackEnabled: config.autoWritebackEnabled,
       schemaActive: config.schemaActive ?? true,
-      hasWritebackPermission: config.permissions.includes("lims.writeback")
+      hasWritebackPermission: config.permissions.includes("writeback:execute")
     });
 
     return {

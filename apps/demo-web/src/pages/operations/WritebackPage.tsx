@@ -334,7 +334,7 @@ export function WritebackPage() {
       </form>
 
       <section className="operations-split">
-        <section className="panel">
+        <section className="panel" data-guide="writeback">
           <div className="panel-header">
             <h2>可写回 Job</h2>
             <StatusPill tone={apiLoadState === "success" ? "success" : "info"}>

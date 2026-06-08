@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FileUp, Loader2, Play, ShieldCheck, Sparkles, UploadCloud, XCircle } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { blobToBase64 } from "../../utils/fileContent";
 import {
   adapterOptions,
   providerOptions,
@@ -19,6 +20,10 @@ type PrivacyOptions = {
   deidentify: boolean;
   keepEvidence: boolean;
   allowWriteBack: boolean;
+};
+
+type RecognitionFileInput = Pick<File, "name" | "size" | "type"> & {
+  arrayBuffer?: File["arrayBuffer"];
 };
 
 const initialPrivacyOptions: PrivacyOptions = {
@@ -72,12 +77,14 @@ export default function NewRecognitionPage() {
     }));
   }
 
-  async function createRecognitionFromFile(file: Pick<File, "name" | "size" | "type">) {
+  async function createRecognitionFromFile(file: RecognitionFileInput) {
+    const contentBase64 = file instanceof Blob ? await blobToBase64(file) : undefined;
     const createdFile = await api.createFile({
       originalName: file.name,
       mimeType: file.type || "application/octet-stream",
       byteSize: file.size,
       checksumSha256: buildDemoChecksum(file),
+      ...(contentBase64 ? { contentBase64 } : {}),
       metadata: {
         adapter,
         provider,
@@ -158,7 +165,7 @@ export default function NewRecognitionPage() {
         description="上传病历图片或 PDF，选择模板、Adapter、Provider 与隐私策略后创建识别任务。"
       />
 
-      <form className="panel" onSubmit={handleSubmit}>
+      <form className="panel" data-guide="new-recognition" onSubmit={handleSubmit}>
         <SectionTitle title="文件与识别配置" />
 
         <label className="upload-zone">
@@ -174,7 +181,7 @@ export default function NewRecognitionPage() {
         </label>
 
         <div className="form-grid">
-          <label className="field-row">
+          <label className="field-row" data-guide="schema-selection">
             <span>Schema 模板</span>
             <select
               aria-label="选择 Schema 模板"

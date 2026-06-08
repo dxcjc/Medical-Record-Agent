@@ -35,6 +35,7 @@ describe("createApiClient", () => {
       mimeType: "application/pdf",
       byteSize: 2048,
       checksumSha256: "demo-checksum",
+      contentBase64: "REVNT19QREZfQllURVM=",
     });
 
     expect(result).toEqual({ id: "file-demo-001" });
@@ -47,6 +48,7 @@ describe("createApiClient", () => {
           mimeType: "application/pdf",
           byteSize: 2048,
           checksumSha256: "demo-checksum",
+          contentBase64: "REVNT19QREZfQllURVM=",
         }),
         headers: expect.any(Headers),
       }),

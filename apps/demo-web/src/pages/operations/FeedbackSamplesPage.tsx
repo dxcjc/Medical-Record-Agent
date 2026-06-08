@@ -179,7 +179,7 @@ export function FeedbackSamplesPage() {
       </InlineNotice>
 
       <section className="operations-split">
-        <section className="panel">
+        <section className="panel" data-guide="feedback">
           <div className="panel-header">
             <h2>
               <Tag size={18} aria-hidden="true" />

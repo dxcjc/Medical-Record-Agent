@@ -1,10 +1,14 @@
 import { createDemoApiServices } from "./demo-services";
+import { createProductionApiServices } from "./bootstrap/production-services";
+import { loadEnv } from "./config/env";
 import { createApiServer } from "./server";
 
-const port = Number.parseInt(process.env.PORT ?? "3000", 10);
-const host = process.env.HOST ?? "0.0.0.0";
+const serviceMode = process.env.API_SERVICE_MODE ?? "demo";
+const env = serviceMode === "production" ? loadEnv() : null;
+const port = env?.server.port ?? Number.parseInt(process.env.PORT ?? "3000", 10);
+const host = env?.server.host ?? process.env.HOST ?? "0.0.0.0";
 const server = await createApiServer({
-  services: createDemoApiServices(),
+  services: serviceMode === "production" && env ? createProductionApiServices({ env }) : createDemoApiServices(),
   logger: true
 });
 

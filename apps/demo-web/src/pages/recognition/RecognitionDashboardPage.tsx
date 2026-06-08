@@ -182,7 +182,7 @@ export default function RecognitionDashboardPage({
         }
       />
 
-      <section className="panel" aria-label="运行状态">
+      <section className="panel" aria-label="运行状态" data-guide="environment-status">
         <SectionTitle title="运行状态" />
         <div className="provider-health" aria-live="polite">
           <StatusPill label={runtimeState.status === "loading" ? "检查中" : runtimeState.status === "error" ? "接口异常" : "接口可用"} tone={runtimeTone} />
