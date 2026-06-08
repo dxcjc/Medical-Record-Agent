@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { blobToBase64 } from "../../utils/fileContent";
@@ -26,11 +26,96 @@ type RecognitionFileInput = Pick<File, "name" | "size" | "type"> & {
   arrayBuffer?: File["arrayBuffer"];
 };
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
+type OptionLoadState = "idle" | "loading" | "success" | "error";
+
 const initialPrivacyOptions: PrivacyOptions = {
   deidentify: true,
   keepEvidence: true,
   allowWriteBack: false,
 };
+
+const fallbackSchemaOptions: SelectOption[] = schemaOptions.map((option) => ({
+  value: option,
+  label: option,
+}));
+
+const fallbackProviderOptions: SelectOption[] = providerOptions.map((option) => ({
+  value: option,
+  label: option,
+}));
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function readStringField(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function readItems(value: unknown) {
+  return isRecord(value) && Array.isArray(value.items) ? value.items : [];
+}
+
+export function parseSchemaOptions(response: unknown): SelectOption[] {
+  return readItems(response).flatMap((item): SelectOption[] => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const value = readStringField(item, ["schemaKey", "key", "id"]);
+    if (!value) {
+      return [];
+    }
+
+    const displayName = readStringField(item, ["displayName", "label", "name"]) ?? value;
+    const version = typeof item.version === "number" || typeof item.version === "string" ? ` v${item.version}` : "";
+
+    return [
+      {
+        value,
+        label: `${displayName}${version}`
+      }
+    ];
+  });
+}
+
+export function parseProviderOptions(response: unknown, kind: "ocr" | "llm"): SelectOption[] {
+  return readItems(response).flatMap((item): SelectOption[] => {
+    if (!isRecord(item) || item.kind !== kind) {
+      return [];
+    }
+
+    const value = readStringField(item, ["key", "id"]);
+    if (!value) {
+      return [];
+    }
+
+    return [
+      {
+        value,
+        label: readStringField(item, ["displayName", "name", "label"]) ?? value
+      }
+    ];
+  });
+}
+
+export function createSyntheticRecognitionFile() {
+  return new File(["synthetic clinical record\n主诉：咳嗽三天。"], "synthetic-clinical-record.pdf", {
+    type: "application/pdf"
+  });
+}
 
 function readRecordId(value: unknown) {
   if (value && typeof value === "object" && "id" in value) {
@@ -50,9 +135,15 @@ function buildDemoChecksum(file: Pick<File, "name" | "size">) {
 export default function NewRecognitionPage() {
   const { api } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [schemaName, setSchemaName] = useState<(typeof schemaOptions)[number]>(schemaOptions[0]);
+  const [schemaChoices, setSchemaChoices] = useState<SelectOption[]>(fallbackSchemaOptions);
+  const [ocrProviderChoices, setOcrProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
+  const [llmProviderChoices, setLlmProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
+  const [optionLoadState, setOptionLoadState] = useState<OptionLoadState>("idle");
+  const [optionLoadError, setOptionLoadError] = useState("");
+  const [schemaName, setSchemaName] = useState(fallbackSchemaOptions[0]?.value ?? "lims-clinical-info");
   const [adapter, setAdapter] = useState<(typeof adapterOptions)[number]>(adapterOptions[0]);
-  const [provider, setProvider] = useState<(typeof providerOptions)[number]>(providerOptions[0]);
+  const [ocrProvider, setOcrProvider] = useState(fallbackProviderOptions[0]?.value ?? "mock-ocr");
+  const [provider, setProvider] = useState(fallbackProviderOptions[0]?.value ?? "mock-model");
   const [privacy, setPrivacy] = useState<PrivacyOptions>(initialPrivacyOptions);
   const [submitState, setSubmitState] = useState<SubmitState>({ status: "idle" });
 
@@ -63,6 +154,57 @@ export default function NewRecognitionPage() {
 
     return `${selectedFile.name} · ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB`;
   }, [selectedFile]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadOptions() {
+      setOptionLoadState("loading");
+      setOptionLoadError("");
+
+      try {
+        const [schemaResponse, providerResponse] = await Promise.all([api.listSchemas(), api.listProviders()]);
+        const nextSchemas = parseSchemaOptions(schemaResponse);
+        const nextOcrProviders = parseProviderOptions(providerResponse, "ocr");
+        const nextLlmProviders = parseProviderOptions(providerResponse, "llm");
+
+        if (!isActive) {
+          return;
+        }
+
+        if (nextSchemas.length > 0) {
+          setSchemaChoices(nextSchemas);
+          setSchemaName((current) => (nextSchemas.some((item) => item.value === current) ? current : nextSchemas[0]?.value ?? current));
+        }
+        if (nextOcrProviders.length > 0) {
+          setOcrProviderChoices(nextOcrProviders);
+          setOcrProvider((current) =>
+            nextOcrProviders.some((item) => item.value === current) ? current : nextOcrProviders[0]?.value ?? current
+          );
+        }
+        if (nextLlmProviders.length > 0) {
+          setLlmProviderChoices(nextLlmProviders);
+          setProvider((current) =>
+            nextLlmProviders.some((item) => item.value === current) ? current : nextLlmProviders[0]?.value ?? current
+          );
+        }
+        setOptionLoadState("success");
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setOptionLoadState("error");
+        setOptionLoadError(error instanceof Error ? error.message : "识别配置 API 暂不可用，继续使用 demo 选项。");
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [api]);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -87,6 +229,7 @@ export default function NewRecognitionPage() {
       ...(contentBase64 ? { contentBase64 } : {}),
       metadata: {
         adapter,
+        ocrProvider,
         provider,
         privacy,
         source: "demo-web",
@@ -111,6 +254,7 @@ export default function NewRecognitionPage() {
         privacy,
       },
       providerConfig: {
+        ocrProviderKey: ocrProvider,
         providerKey: provider,
       },
     });
@@ -148,11 +292,7 @@ export default function NewRecognitionPage() {
   function handleSyntheticSubmit() {
     setSubmitState({ status: "loading" });
 
-    void submitWithFile({
-      name: "synthetic-clinical-record.pdf",
-      size: 187_392,
-      type: "application/pdf",
-    } as File);
+    void submitWithFile(createSyntheticRecognitionFile());
   }
 
   const isLoading = submitState.status === "loading";
@@ -167,6 +307,24 @@ export default function NewRecognitionPage() {
 
       <form className="panel recognition-form-panel" data-guide="new-recognition" onSubmit={handleSubmit}>
         <SectionTitle title="文件与识别配置" />
+
+        <div
+          role={optionLoadState === "error" ? "alert" : "status"}
+          className={`inline-notice recognition-state-note ${optionLoadState === "error" ? "is-danger" : optionLoadState === "loading" ? "is-loading" : ""}`}
+        >
+          <AppIcon
+            icon={optionLoadState === "loading" ? commonUiIcons.loading : optionLoadState === "error" ? statusIcons.danger : statusIcons.success}
+            size="sm"
+            className={optionLoadState === "loading" ? "is-spinning" : undefined}
+          />
+          <span>
+            {optionLoadState === "loading"
+              ? "正在读取真实 Schema 和 Provider API。"
+              : optionLoadState === "error"
+                ? `真实配置读取失败：${optionLoadError}`
+                : "识别任务会优先使用真实 Schema/Provider key。"}
+          </span>
+        </div>
 
         <label className={`upload-zone ${selectedFile ? "is-ready" : ""}`}>
           <AppIcon icon={actionIcons.createRecognition} size="lg" tone={selectedFile ? "green" : "blue"} tile />
@@ -186,11 +344,11 @@ export default function NewRecognitionPage() {
             <select
               aria-label="选择 Schema 模板"
               value={schemaName}
-              onChange={(event) => setSchemaName(event.target.value as typeof schemaName)}
+              onChange={(event) => setSchemaName(event.target.value)}
             >
-              {schemaOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+              {schemaChoices.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -212,15 +370,30 @@ export default function NewRecognitionPage() {
           </label>
 
           <label className="field-row">
-            <span>Provider</span>
+            <span>OCR Provider</span>
             <select
-              aria-label="选择 Provider"
-              value={provider}
-              onChange={(event) => setProvider(event.target.value as typeof provider)}
+              aria-label="选择 OCR Provider"
+              value={ocrProvider}
+              onChange={(event) => setOcrProvider(event.target.value)}
             >
-              {providerOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+              {ocrProviderChoices.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field-row">
+            <span>LLM Provider</span>
+            <select
+              aria-label="选择 LLM Provider"
+              value={provider}
+              onChange={(event) => setProvider(event.target.value)}
+            >
+              {llmProviderChoices.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>

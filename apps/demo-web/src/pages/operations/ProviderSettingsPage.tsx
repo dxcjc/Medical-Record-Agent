@@ -29,6 +29,14 @@ type ProviderApiStatus =
   | { status: "success"; message: string; count: number }
   | { status: "error"; message: string; count: number };
 
+type ApiProviderItem = {
+  key: string;
+  name: string;
+  kind?: string;
+  enabled: boolean;
+  isDefault: boolean;
+};
+
 type LocalProviderActionState = {
   message: string;
   tone: "info" | "warning";
@@ -116,14 +124,56 @@ function readProviderItems(value: { items: unknown[] }) {
       }
 
       const record = item as Record<string, unknown>;
-      return {
+      const provider: ApiProviderItem = {
         key: typeof record.key === "string" ? record.key : "unknown",
         name: typeof record.name === "string" ? record.name : "未命名 provider",
         enabled: record.enabled === true,
         isDefault: record.isDefault === true
       };
+      if (typeof record.kind === "string") {
+        provider.kind = record.kind;
+      }
+
+      return provider;
     })
-    .filter((item): item is { key: string; name: string; enabled: boolean; isDefault: boolean } => Boolean(item));
+    .filter((item): item is ApiProviderItem => Boolean(item));
+}
+
+function readHealthResult(value: unknown): HealthResult {
+  const record = value && typeof value === "object" && "health" in value ? (value as { health?: unknown }).health : value;
+  const healthRecord = record && typeof record === "object" ? (record as Record<string, unknown>) : {};
+  const status = healthRecord.status === "healthy" || healthRecord.status === "degraded" ? healthRecord.status : "unchecked";
+
+  const result: HealthResult = {
+    status,
+    checkedAt:
+      typeof healthRecord.checkedAt === "string"
+        ? new Date(healthRecord.checkedAt).toLocaleTimeString("zh-CN", { hour12: false })
+        : new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+    message: typeof healthRecord.message === "string" ? healthRecord.message : "Provider 健康检查已完成。"
+  };
+  if (typeof healthRecord.latencyMs === "number") {
+    result.latencyMs = healthRecord.latencyMs;
+  }
+
+  return result;
+}
+
+function matchesProviderArea(provider: ApiProviderItem, area: ProviderArea) {
+  const kind = provider.kind?.toLowerCase();
+  const key = provider.key.toLowerCase();
+
+  if (area === "OCR") {
+    return kind === "ocr" || key.includes("ocr");
+  }
+  if (area === "LLM") {
+    return kind === "llm" || key.includes("model") || key.includes("llm") || key.includes("openai");
+  }
+  if (area === "storage") {
+    return kind === "storage" || key.includes("storage") || key.includes("s3");
+  }
+
+  return kind === "lims" || key.includes("lims") || key.includes("writeback");
 }
 
 export function ProviderSettingsPage() {
@@ -133,7 +183,7 @@ export function ProviderSettingsPage() {
   const [visibleSecretArea, setVisibleSecretArea] = useState<ProviderArea | null>(null);
   const [savedAt, setSavedAt] = useState<string>("09:40:28");
   const [checkingArea, setCheckingArea] = useState<ProviderArea | null>(null);
-  const [apiProviders, setApiProviders] = useState<Array<{ key: string; name: string; enabled: boolean; isDefault: boolean }>>([]);
+  const [apiProviders, setApiProviders] = useState<ApiProviderItem[]>([]);
   const [apiStatus, setApiStatus] = useState<ProviderApiStatus>({
     status: "loading",
     message: "正在读取真实 Provider API。",
@@ -141,8 +191,8 @@ export function ProviderSettingsPage() {
   });
   const [settingDefaultKey, setSettingDefaultKey] = useState<string | null>(null);
   const [localActionState, setLocalActionState] = useState<LocalProviderActionState>({
-    message: "保存配置和 Health check 当前未发现后端 route，以下表单仅执行本地草稿保存与本地预检。",
-    tone: "warning"
+    message: "保存配置仍是本地草稿；Health check 已优先调用真实 Provider API。",
+    tone: "info"
   });
 
   const enabledCount = useMemo(() => configs.filter((config) => config.enabled).length, [configs]);
@@ -186,33 +236,56 @@ export function ProviderSettingsPage() {
     setConfigs((current) => current.map((config) => (config.area === area ? { ...config, ...patch } : config)));
   }
 
-  function runHealthCheck(area: ProviderArea) {
-    setCheckingArea(area);
-    setLocalActionState({
-      message: `${area} 正在执行本地预检；当前后端没有单 provider 健康检查 route。`,
-      tone: "info"
-    });
-
-    // 这里明确是本地预检，不冒充后端健康检查；用于保留 Demo 的等待态和结果回写体验。
-    window.setTimeout(() => {
+  async function runHealthCheck(area: ProviderArea) {
+    const provider = apiProviders.find((item) => matchesProviderArea(item, area));
+    if (!provider) {
       setHealth((current) => ({
         ...current,
         [area]: {
-          status: area === "storage" ? "degraded" : "healthy",
-          latencyMs: area === "LLM" ? 438 : area === "storage" ? 1186 : 214,
+          status: "unchecked",
           checkedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-          message:
-            area === "storage"
-              ? "本地预检：存储配置可写性待后端接入，公网回源参数建议复核"
-              : `本地预检：${area} provider 配置格式通过`
+          message: `未找到 ${area} 对应的真实 provider，请先刷新 Provider API。`
         }
       }));
       setLocalActionState({
-        message: `${area} 本地预检完成；真实健康检查仍需后端 route 接入后才能执行。`,
+        message: `${area} 没有匹配到真实 provider key，未执行健康检查。`,
         tone: "warning"
       });
+      return;
+    }
+
+    setCheckingArea(area);
+    setLocalActionState({
+      message: `${area} 正在调用真实 Provider Health API：${provider.key}。`,
+      tone: "info"
+    });
+
+    try {
+      const response = await api.checkProviderHealth(provider.key);
+      setHealth((current) => ({
+        ...current,
+        [area]: readHealthResult(response)
+      }));
+      setLocalActionState({
+        message: `${area} 健康检查完成，来源 provider：${provider.key}。`,
+        tone: "info"
+      });
+    } catch (error) {
+      setHealth((current) => ({
+        ...current,
+        [area]: {
+          status: "degraded",
+          checkedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+          message: error instanceof Error ? error.message : `${area} 健康检查失败。`
+        }
+      }));
+      setLocalActionState({
+        message: `${area} 健康检查失败，请检查权限、后端 route 或 provider 配置。`,
+        tone: "warning"
+      });
+    } finally {
       setCheckingArea(null);
-    }, 420);
+    }
   }
 
   function saveConfigs() {
@@ -325,7 +398,7 @@ export function ProviderSettingsPage() {
       </section>
 
       <InlineNotice tone="info" title="本地配置区">
-        下方 OCR、LLM、storage、LIMS 表单保留原演示布局；保存和 Health check 均为本地预检，真实默认 provider 以“真实 Provider API”区域为准。
+        下方 OCR、LLM、storage、LIMS 表单保留原演示布局；保存仍是本地草稿，Health check 会按 provider kind/key 调用真实 API。
       </InlineNotice>
 
       <section className="provider-grid">
@@ -408,10 +481,10 @@ export function ProviderSettingsPage() {
                   className="secondary-button"
                   type="button"
                   disabled={checkingArea === config.area}
-                  onClick={() => runHealthCheck(config.area)}
+                  onClick={() => void runHealthCheck(config.area)}
                 >
                   <AppIcon icon={navigationIcons.providerSettings} size="sm" className={checkingArea === config.area ? "is-spinning" : undefined} />
-                  {checkingArea === config.area ? "预检中" : "本地预检"}
+                  {checkingArea === config.area ? "检查中" : "Health Check"}
                 </button>
               </div>
             </article>

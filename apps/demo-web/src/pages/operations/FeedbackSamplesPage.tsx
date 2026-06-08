@@ -23,6 +23,19 @@ type FeedbackApiState = {
   message: string;
 };
 
+type FeedbackApiClient = {
+  createFeedback(input: unknown): Promise<unknown>;
+  importEvaluationSamples(datasetId: string, samples: unknown[]): Promise<unknown>;
+};
+
+type FeedbackSubmitResult = {
+  status: "success" | "feedback-error" | "evaluation-import-error";
+  apiFeedbackId?: string;
+  message: string;
+};
+
+export const DEFAULT_FEEDBACK_EVALUATION_DATASET_ID = "ds-admission-0605";
+
 const initialSamples: FeedbackSample[] = [
   {
     id: "FB-1187",
@@ -96,6 +109,101 @@ function readCreatedFeedbackId(response: unknown): string | undefined {
   return readString(response, ["id", "feedbackId"]) ?? (isRecord(response.feedback) ? readString(response.feedback, ["id", "feedbackId"]) : undefined);
 }
 
+function readReviewer(payload: Record<string, unknown>) {
+  return readString(payload, ["reviewer", "approvedBy"]) ?? "unknown";
+}
+
+function getFeedbackGroundTruthField(sample: FeedbackSample) {
+  return sample.field.trim() || "feedbackValue";
+}
+
+export function buildFeedbackEvaluationSample(sample: FeedbackSample, apiFeedbackId: string | undefined) {
+  const fieldKey = getFeedbackGroundTruthField(sample);
+  const source = sample.source.trim() || "feedback";
+  const expected = sample.expected;
+
+  return {
+    externalId: `feedback-${sample.id}`,
+    input: {
+      source,
+      field: fieldKey,
+      actual: sample.actual
+    },
+    groundTruth: {
+      [fieldKey]: {
+        fieldKey,
+        value: expected,
+        normalizedValue: expected,
+        expectedNeedsReview: true
+      }
+    },
+    metadata: {
+      feedbackSampleId: sample.id,
+      source,
+      field: fieldKey,
+      reviewer: readReviewer(sample.payload),
+      ...(apiFeedbackId ? { feedbackApiId: apiFeedbackId } : {}),
+      feedbackLabel: sample.label,
+      feedbackStatus: "golden"
+    }
+  };
+}
+
+function errorToMessage(error: unknown) {
+  return error instanceof Error && error.message.length > 0 ? error.message : "UNKNOWN_ERROR";
+}
+
+export async function submitFeedbackSampleStatus(
+  api: FeedbackApiClient,
+  sample: FeedbackSample,
+  status: FeedbackStatus
+): Promise<FeedbackSubmitResult> {
+  let apiFeedbackId: string | undefined;
+
+  try {
+    const response = await api.createFeedback({
+      sampleId: sample.id,
+      source: sample.source,
+      field: sample.field,
+      expected: sample.expected,
+      actual: sample.actual,
+      label: sample.label,
+      status,
+      payload: sample.payload
+    });
+    apiFeedbackId = readCreatedFeedbackId(response);
+  } catch (error) {
+    return {
+      status: "feedback-error",
+      message: errorToMessage(error)
+    };
+  }
+
+  if (status !== "golden") {
+    return {
+      status: "success",
+      ...(apiFeedbackId ? { apiFeedbackId } : {}),
+      message: apiFeedbackId ? `已保存 feedback ${apiFeedbackId}，页面状态已同步。` : "feedback 已保存，页面状态已同步。"
+    };
+  }
+
+  try {
+    await api.importEvaluationSamples(DEFAULT_FEEDBACK_EVALUATION_DATASET_ID, [buildFeedbackEvaluationSample(sample, apiFeedbackId)]);
+
+    return {
+      status: "success",
+      ...(apiFeedbackId ? { apiFeedbackId } : {}),
+      message: apiFeedbackId ? `已入评估集，feedback ${apiFeedbackId} 已保存。` : "已入评估集，feedback 已保存。"
+    };
+  } catch (error) {
+    return {
+      status: "evaluation-import-error",
+      ...(apiFeedbackId ? { apiFeedbackId } : {}),
+      message: `feedback 已保存，但样本导入失败：${errorToMessage(error)}`
+    };
+  }
+}
+
 export function FeedbackSamplesPage() {
   const { api } = useAuth();
   const [samples, setSamples] = useState<FeedbackSample[]>(initialSamples);
@@ -120,40 +228,30 @@ export function FeedbackSamplesPage() {
 
     setApiState({ status: "submitting", message: `正在提交 ${sample.id} 的反馈状态。` });
 
-    try {
-      const response = await api.createFeedback({
-        sampleId: sample.id,
-        source: sample.source,
-        field: sample.field,
-        expected: sample.expected,
-        actual: sample.actual,
-        label: sample.label,
-        status,
-        payload: sample.payload
-      });
-      const apiFeedbackId = readCreatedFeedbackId(response);
-
+    const result = await submitFeedbackSampleStatus(api, sample, status);
+    if (result.status === "success" || result.status === "evaluation-import-error") {
       setSamples((current) =>
         current.map((item) =>
           item.id === id
             ? {
                 ...item,
                 status,
-                ...(apiFeedbackId ? { apiFeedbackId } : {})
+                ...(result.apiFeedbackId ? { apiFeedbackId: result.apiFeedbackId } : {})
               }
             : item
         )
       );
       setApiState({
-        status: "success",
-        message: apiFeedbackId ? `已提交真实反馈 ${apiFeedbackId}，页面状态同步更新。` : "反馈 API 已返回成功，页面状态同步更新。"
+        status: result.status === "success" ? "success" : "error",
+        message: result.message
       });
-    } catch (error) {
-      setApiState({
-        status: "error",
-        message: error instanceof Error ? error.message : "反馈 API 提交失败。"
-      });
+      return;
     }
+
+    setApiState({
+      status: "error",
+      message: result.message
+    });
   }
 
   return (

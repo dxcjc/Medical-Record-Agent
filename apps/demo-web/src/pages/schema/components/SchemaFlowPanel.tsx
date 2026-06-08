@@ -10,13 +10,12 @@ type ApiActionState = {
 type SchemaFlowPanelProps = {
   schema: SchemaRecord;
   versions: SchemaVersion[];
-  isAdmin: boolean;
+  canPublish: boolean;
   flowState: FlowState;
   actionState: {
     publish: ApiActionState;
     compare: ApiActionState;
   };
-  onToggleAdmin: () => void;
   onPublish: () => void;
   onDeactivate: () => void;
   onRollbackTargetChange: (version: string) => void;
@@ -27,10 +26,9 @@ type SchemaFlowPanelProps = {
 export function SchemaFlowPanel({
   schema,
   versions,
-  isAdmin,
+  canPublish,
   flowState,
   actionState,
-  onToggleAdmin,
   onPublish,
   onDeactivate,
   onRollbackTargetChange,
@@ -47,10 +45,9 @@ export function SchemaFlowPanel({
           <h2 id="schema-flow-title">发布与变更流</h2>
           <p>管理 publish、deactivate、rollback、compare 的操作状态。</p>
         </div>
-        <label className="toggle-row">
-          管理员
-          <input type="checkbox" checked={isAdmin} onChange={onToggleAdmin} />
-        </label>
+        <span className={`status-pill ${canPublish ? "status-success" : "status-warning"}`}>
+          {canPublish ? "具备发布权限" : "缺少 schema:publish"}
+        </span>
       </div>
 
       <div className="warning-box" role="note">
@@ -78,8 +75,8 @@ export function SchemaFlowPanel({
             type="button"
             className="action-button"
             onClick={onPublish}
-            disabled={!isAdmin || actionState.publish.isRunning}
-            title={isAdmin ? "发布草稿" : "非管理员不能发布"}
+            disabled={!canPublish || actionState.publish.isRunning}
+            title={canPublish ? "发布草稿" : "当前登录账号缺少 schema:publish 权限"}
           >
             {actionState.publish.isRunning ? (
               <AppIcon icon={commonUiIcons.loading} size="sm" />

@@ -1155,6 +1155,34 @@ button[aria-disabled="true"] {
   padding: var(--space-3);
 }
 
+.document-preview-frame {
+  display: grid;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.document-preview-frame img,
+.document-preview-frame object {
+  display: block;
+  width: 100%;
+  min-height: 360px;
+  border: 0;
+}
+
+.document-preview-frame img {
+  height: 100%;
+  object-fit: contain;
+  padding: var(--space-3);
+}
+
+.document-preview-frame > a {
+  align-self: center;
+  justify-self: center;
+}
+
 .provider-row {
   justify-content: space-between;
   border-left: 3px solid color-mix(in srgb, var(--primary) 40%, transparent);

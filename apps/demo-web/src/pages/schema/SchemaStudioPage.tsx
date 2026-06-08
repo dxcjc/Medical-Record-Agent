@@ -15,7 +15,8 @@ import {
   type SchemaRecord,
   type SchemaStatus,
   type SchemaVersion,
-  type SchemaFieldDraft
+  type SchemaFieldDraft,
+  type ValidationResult
 } from "./components/schemaStudioData";
 
 type ApiLoadState =
@@ -67,6 +68,38 @@ function readNumberField(source: unknown, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function readBooleanField(source: unknown, keys: string[]) {
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const record = source as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function readArrayField(source: unknown, keys: string[]) {
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const record = source as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) {
       return value;
     }
   }
@@ -191,8 +224,46 @@ function buildDraftDefinition(fields: SchemaFieldDraft[]) {
   };
 }
 
+export function canPublishSchema(hasPermission: (permission: string) => boolean) {
+  return hasPermission("schema:publish");
+}
+
+export function parseSchemaValidationResults(response: unknown): ValidationResult[] {
+  const validation = response && typeof response === "object" && "validation" in response
+    ? (response as { validation?: unknown }).validation
+    : response;
+  const valid = readBooleanField(validation, ["valid", "isValid"]);
+  const errors = readArrayField(validation, ["errors", "issues", "violations"]) ?? [];
+
+  if (valid === true && errors.length === 0) {
+    return [
+      {
+        id: "schema-validation-pass",
+        level: "success",
+        title: "Schema 校验通过",
+        target: "真实 Schema API",
+        detail: "后端 validateDraft 返回 valid=true，当前草稿满足发布前基础校验。"
+      }
+    ];
+  }
+
+  return errors.map((item, index) => {
+    const code = readStringField(item, ["code", "rule", "id"]) ?? `SCHEMA_VALIDATION_ERROR_${index + 1}`;
+    const path = readStringField(item, ["path", "target", "fieldKey"]) ?? "schema";
+    const message = readStringField(item, ["message", "detail", "description"]) ?? "后端返回了未命名的 Schema 校验问题。";
+
+    return {
+      id: code,
+      level: "error",
+      title: code,
+      target: path,
+      detail: message
+    };
+  });
+}
+
 export default function SchemaStudioPage() {
-  const { api } = useAuth();
+  const { api, hasPermission } = useAuth();
   const firstSchema = schemaRecords[0];
   if (!firstSchema) {
     throw new Error("Schema Studio 缺少演示 Schema 数据");
@@ -203,7 +274,7 @@ export default function SchemaStudioPage() {
   const firstVersion = schemaVersionsById[firstSchema.id]?.[0];
 
   const [selectedVersionId, setSelectedVersionId] = useState(firstVersion?.id ?? "");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const canPublish = canPublishSchema(hasPermission);
   const [draftFields, setDraftFields] = useState<SchemaFieldDraft[]>(initialDraftFields);
   const [apiSchemaState, setApiSchemaState] = useState<ApiLoadState>({
     status: "loading",
@@ -220,6 +291,7 @@ export default function SchemaStudioPage() {
   });
   const [apiSchemaRecords, setApiSchemaRecords] = useState<SchemaRecord[]>([]);
   const [apiSchemaVersionsById, setApiSchemaVersionsById] = useState<Record<string, SchemaVersion[]>>({});
+  const [currentValidationResults, setCurrentValidationResults] = useState<ValidationResult[]>(validationResults);
   const [flowState, setFlowState] = useState<FlowState>({
     publishRequested: false,
     deactivateRequested: false,
@@ -444,7 +516,11 @@ export default function SchemaStudioPage() {
 
     void runSchemaAction(
       "validate",
-      () => api.validateSchemaDraft(draftId, { definition: buildDraftDefinition(draftFields) }),
+      async () => {
+        const response = await api.validateSchemaDraft(draftId, { definition: buildDraftDefinition(draftFields) });
+        setCurrentValidationResults(parseSchemaValidationResults(response));
+        return response;
+      },
       `已提交 ${selectedSchema.draftVersion} 的真实验证请求。`,
       "草稿验证失败，请稍后重试。"
     );
@@ -597,7 +673,7 @@ export default function SchemaStudioPage() {
       />
 
       <ValidationResultsPanel
-        results={validationResults}
+        results={currentValidationResults}
         actionState={actionState.validate}
         onValidate={handleValidateDraft}
       />
@@ -605,9 +681,8 @@ export default function SchemaStudioPage() {
       <SchemaFlowPanel
         schema={selectedSchema}
         versions={displayVersions}
-        isAdmin={isAdmin}
+        canPublish={canPublish}
         flowState={flowState}
-        onToggleAdmin={() => setIsAdmin((currentValue) => !currentValue)}
         actionState={{
           publish: actionState.publish,
           compare: actionState.compare

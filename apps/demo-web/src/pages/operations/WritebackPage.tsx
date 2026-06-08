@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import type { ApiClient } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { ConfirmDialog, InlineNotice, MetricCard, PayloadPreview, RowActionButton, SectionHeader, StatusPill } from "./components";
@@ -7,6 +8,7 @@ import { ConfirmDialog, InlineNotice, MetricCard, PayloadPreview, RowActionButto
 type WritebackStatus = "ready" | "blocked" | "running" | "done";
 type WritebackResultTone = "success" | "warning" | "info";
 type ApiLoadState = "idle" | "loading" | "success" | "error";
+type EligibleLoadState = "idle" | "loading" | "success" | "error";
 
 type WritebackJob = {
   id: string;
@@ -18,6 +20,12 @@ type WritebackJob = {
   status: WritebackStatus;
   permission: "allowed" | "readonly";
   payload: Record<string, unknown>;
+};
+
+type WritebackReadyField = {
+  fieldKey: string;
+  targetPath: string;
+  value: string | number | boolean | string[] | null;
 };
 
 const initialJobs: WritebackJob[] = [
@@ -108,6 +116,16 @@ function readArray(value: unknown): unknown[] | undefined {
   return Array.isArray(value) ? value : undefined;
 }
 
+function isWritebackFieldValue(value: unknown): value is WritebackReadyField["value"] {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"))
+  );
+}
+
 function getPayloadObject(result: unknown) {
   if (!isRecord(result)) {
     return {};
@@ -121,23 +139,87 @@ function getPayloadObject(result: unknown) {
   return result;
 }
 
+function readNestedArray(record: Record<string, unknown>, path: string[]): unknown[] | undefined {
+  let current: unknown = record;
+  for (const key of path) {
+    if (!isRecord(current)) {
+      return undefined;
+    }
+
+    current = current[key];
+  }
+
+  return readArray(current);
+}
+
+export function readWritebackApiErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  return "写回 API 调用失败，请稍后重试或查看审计日志。";
+}
+
 function getFieldCount(result: unknown) {
   if (!isRecord(result)) {
     return 0;
   }
 
-  const fields = readArray(result.fields) ?? (isRecord(result.payload) ? readArray(result.payload.fields) : undefined);
-  const normalizedFields = readArray(result.normalizedFields);
+  const fields = readArray(result.fields) ?? readNestedArray(result, ["payload", "fields"]);
+  const normalizedFields =
+    readArray(result.normalizedFields) ??
+    readNestedArray(result, ["payload", "normalizedFields"]) ??
+    readNestedArray(result, ["payload", "validation", "normalizedCandidates"]);
 
   return fields?.length ?? normalizedFields?.length ?? 0;
 }
 
-function normalizeApiJobToWritebackJob(jobId: string, job: unknown, result: unknown): WritebackJob {
+function readReadyFields(result: unknown): WritebackReadyField[] {
+  if (!isRecord(result)) {
+    return [];
+  }
+
+  // 写回字段在不同阶段会有三种形状：
+  // 1. 后端编排 payload.writeback.readyFields，来自 core WritebackAgent；
+  // 2. 页面归一化后的 job.payload.fields，供 /writeback 顶层 fields 直接复用；
+  // 3. 兼容未来 API 直接返回 writeback.readyFields 或 readyFields 的扁平结构。
+  // 这里只接受同时具备 fieldKey、targetPath 和合法 value 的字段，避免把普通 normalizedCandidates 误当成可执行写回字段。
+  const candidates =
+    readNestedArray(result, ["payload", "writeback", "readyFields"]) ??
+    readArray(result.fields) ??
+    readNestedArray(result, ["writeback", "readyFields"]) ??
+    readArray(result.readyFields) ??
+    [];
+
+  return candidates.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const fieldKey = readString(item, ["fieldKey"]);
+    const targetPath = readString(item, ["targetPath"]);
+
+    if (!fieldKey || !targetPath || !isWritebackFieldValue(item.value)) {
+      return [];
+    }
+
+    return [
+      {
+        fieldKey,
+        targetPath,
+        value: item.value
+      }
+    ];
+  });
+}
+
+export function normalizeApiJobToWritebackJob(jobId: string, job: unknown, result: unknown): WritebackJob {
   const jobRecord = isRecord(job) ? job : undefined;
   const resultRecord = isRecord(result) ? result : undefined;
   const status = readString(jobRecord, ["status"]) ?? "completed";
   const reviewRequired = resultRecord?.reviewRequired === true;
   const blockers = reviewRequired ? ["识别结果仍标记为需人工复核"] : [];
+  const readyFields = readReadyFields(result);
 
   if (status !== "completed" && status !== "confirmed") {
     blockers.push(`任务状态为 ${status}，服务端写回要求 completed 或 confirmed`);
@@ -156,9 +238,89 @@ function normalizeApiJobToWritebackJob(jobId: string, job: unknown, result: unkn
     payload: {
       jobId,
       source: "api.getJob/getResult",
+      fields: readyFields,
       result: getPayloadObject(result),
     },
   };
+}
+
+export function createWritebackRequest(job: WritebackJob) {
+  const fields = readReadyFields(job.payload);
+
+  return {
+    jobId: job.id,
+    confirmed: true,
+    ...(fields.length > 0 ? { fields } : {}),
+    payload: job.payload
+  };
+}
+
+export function normalizeEligibleWritebackItem(item: unknown): WritebackJob {
+  const record = isRecord(item) ? item : {};
+  const id = readString(record, ["id", "jobId"]) ?? "eligible-job";
+  const schemaKey = readString(record, ["schemaKey"]) ?? "unknown-schema";
+  const sourceFileId = readString(record, ["sourceFileId"]) ?? "unknown-file";
+  const blockers = readArray(record.blockers)?.filter((blocker): blocker is string => typeof blocker === "string") ?? [];
+  const readyFields = readReadyFields(record);
+  const payload = isRecord(record.payload)
+    ? record.payload
+    : {
+        jobId: id,
+        source: "writeback.eligible",
+        fields: readyFields
+      };
+
+  return {
+    id,
+    subject: `${sourceFileId} / ${schemaKey}`,
+    target: "LIMS",
+    extractedFields: typeof record.extractedFields === "number" ? record.extractedFields : readyFields.length,
+    greenRules: ["来自后端 eligible writeback 列表", "服务端已过滤需复核或无 readyFields 的任务"],
+    blockers,
+    status: blockers.length > 0 ? "blocked" : "ready",
+    permission: "allowed",
+    payload
+  };
+}
+
+export async function loadEligibleWritebackJobs(
+  api: Pick<ApiClient, "listEligibleWritebacks">,
+  currentJobs: WritebackJob[],
+  currentSelectedJobId: string,
+  limit = 20
+) {
+  try {
+    const response = await api.listEligibleWritebacks(limit);
+    const items = Array.isArray(response.items) ? response.items.map(normalizeEligibleWritebackItem) : [];
+
+    if (items.length === 0) {
+      return {
+        jobs: currentJobs,
+        selectedJobId: currentSelectedJobId,
+        state: "success" as const,
+        errorMessage: ""
+      };
+    }
+
+    const nextJobs = [...items, ...currentJobs.filter((job) => !items.some((item) => item.id === job.id))];
+
+    return {
+      jobs: nextJobs,
+      // 用户已通过手动 jobId 选中的任务仍保留焦点，避免后台 eligible 刷新抢走上下文。
+      selectedJobId: nextJobs.some((job) => job.id === currentSelectedJobId)
+        ? currentSelectedJobId
+        : items[0]?.id ?? currentSelectedJobId,
+      state: "success" as const,
+      errorMessage: ""
+    };
+  } catch (error) {
+    return {
+      jobs: currentJobs,
+      selectedJobId: currentSelectedJobId,
+      state: "error" as const,
+      errorMessage: readWritebackApiErrorMessage(error)
+    };
+  }
 }
 
 export function WritebackPage() {
@@ -169,7 +331,9 @@ export function WritebackPage() {
   const [selectedJobId, setSelectedJobId] = useState<string>(initialJobs[0]?.id ?? "");
   const [jobIdInput, setJobIdInput] = useState(routeJobId);
   const [apiLoadState, setApiLoadState] = useState<ApiLoadState>("idle");
+  const [eligibleLoadState, setEligibleLoadState] = useState<EligibleLoadState>("idle");
   const [apiLoadError, setApiLoadError] = useState("");
+  const [eligibleLoadError, setEligibleLoadError] = useState("");
   const [confirmJobId, setConfirmJobId] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState<string>("等待执行写回任务");
   const [resultTone, setResultTone] = useState<WritebackResultTone>("info");
@@ -249,11 +413,7 @@ export function WritebackPage() {
 
     try {
       // 后端会用 confirmed=true 区分二次确认后的危险动作，否则会返回 409。
-      await api.executeWriteback({
-        jobId: job.id,
-        confirmed: true,
-        payload: job.payload
-      });
+      await api.executeWriteback(createWritebackRequest(job));
       setJobs((current) => current.map((item) => (item.id === jobId ? { ...item, status: "done" } : item)));
       setResultTone("success");
       setResultMessage(`${job.id} 已完成写回，目标系统 ${job.target} 返回成功`);
@@ -277,6 +437,33 @@ export function WritebackPage() {
     // 只在 URL jobId 变化时自动加载，api 对象变化不应重复触发用户刚完成的写回列表操作。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeJobId]);
+
+  useEffect(() => {
+    let shouldIgnore = false;
+
+    async function loadEligibleWritebacks() {
+      setEligibleLoadState("loading");
+      setEligibleLoadError("");
+
+      const result = await loadEligibleWritebackJobs(api, jobs, selectedJobId, 20);
+      if (shouldIgnore) {
+        return;
+      }
+
+      setJobs(result.jobs);
+      setSelectedJobId(result.selectedJobId);
+      setEligibleLoadState(result.state);
+      setEligibleLoadError(result.errorMessage);
+    }
+
+    void loadEligibleWritebacks();
+
+    return () => {
+      shouldIgnore = true;
+    };
+    // 初始 eligible list 只跟随 API client 切换加载，避免覆盖用户后续手动 jobId 操作。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api]);
 
   return (
     <main className="app-page">
@@ -338,9 +525,14 @@ export function WritebackPage() {
           <div className="panel-header">
             <h2>可写回 Job</h2>
             <StatusPill tone={apiLoadState === "success" ? "success" : "info"}>
-              {apiLoadState === "success" ? "真实数据优先" : "Demo 兜底"}
+              {eligibleLoadState === "success" || apiLoadState === "success" ? "真实数据优先" : "Demo 兜底"}
             </StatusPill>
           </div>
+          {eligibleLoadState === "error" ? (
+            <InlineNotice tone="warning" title="真实候选加载失败">
+              {`已保留 Demo 兜底和手动 Job ID 加载能力。${eligibleLoadError}`}
+            </InlineNotice>
+          ) : null}
           <table className="data-table">
             <thead>
               <tr>

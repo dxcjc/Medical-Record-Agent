@@ -60,6 +60,34 @@ describe("createApiClient", () => {
     expect((headers as Headers).get("content-type")).toBe("application/json");
   });
 
+  it("读取文件内容时调用文件二进制端点并解析文件名", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    const fetchMock: typeof fetch = vi.fn(async (input, init) => {
+      fetchCalls.push({ input, init });
+      return new Response("DEMO_PDF_BYTES", {
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": "attachment; filename=\"record.pdf\"",
+        },
+        status: 200,
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    const result = await client.getFileContent("file-001");
+
+    expect(result.fileName).toBe("record.pdf");
+    expect(result.mimeType).toBe("application/pdf");
+    await expect(result.blob.text()).resolves.toBe("DEMO_PDF_BYTES");
+    expect(fetchCalls[0]?.input).toBe("http://api.example.test/files/file-001/content");
+    expect((fetchCalls[0]?.init?.headers as Headers).get("authorization")).toBe("Bearer token-demo");
+  });
+
   it("发布 schema 草稿时调用对应发布端点", async () => {
     const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     stubJsonFetch({ version: { id: "schema-version-001" } }, fetchCalls);
@@ -110,6 +138,7 @@ describe("createApiClient", () => {
 
     const result = await client.createEvaluationRun({
       datasetId: "dataset-001",
+      schemaKey: "custom-clinical-schema",
       providerKey: "mock-provider",
       sampleLimit: 20,
     });
@@ -121,6 +150,7 @@ describe("createApiClient", () => {
         method: "POST",
         body: JSON.stringify({
           datasetId: "dataset-001",
+          schemaKey: "custom-clinical-schema",
           providerKey: "mock-provider",
           sampleLimit: 20,
         }),
@@ -198,5 +228,56 @@ describe("createApiClient", () => {
         }),
       }),
     );
+  });
+
+  it("读取可写回候选列表时调用 writeback eligible 端点并携带 limit", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    stubJsonFetch({ items: [{ id: "job-eligible-001" }] }, fetchCalls);
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    const result = await client.listEligibleWritebacks(10);
+
+    expect(result).toEqual({ items: [{ id: "job-eligible-001" }] });
+    expect(fetchCalls[0]?.input).toBe("http://api.example.test/writeback/eligible?limit=10");
+    expect(fetchCalls[0]?.init).toEqual(
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      }),
+    );
+  });
+
+  it("执行 Provider 健康检查时调用单 provider health 端点", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    stubJsonFetch(
+      {
+        health: {
+          key: "openai-compatible-model",
+          status: "healthy",
+          latencyMs: 128
+        }
+      },
+      fetchCalls
+    );
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    const result = await client.checkProviderHealth("openai-compatible-model");
+
+    expect(result).toEqual({
+      health: {
+        key: "openai-compatible-model",
+        status: "healthy",
+        latencyMs: 128
+      }
+    });
+    expect(fetchCalls[0]?.input).toBe("http://api.example.test/providers/openai-compatible-model/health");
+    expect(fetchCalls[0]?.init).toEqual(expect.objectContaining({ method: "POST" }));
   });
 });

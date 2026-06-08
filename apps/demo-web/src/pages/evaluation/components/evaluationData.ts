@@ -19,6 +19,10 @@ export type ImportFlowState = {
   fileName: string;
   sampleImportStatus: "未开始" | "校验中" | "已导入";
   groundTruthStatusText: "等待导入" | "字段匹配中" | "已完成";
+  groundTruthFieldKey: string;
+  groundTruthValue: string;
+  predictedValue: string;
+  expectedNeedsReview: boolean;
 };
 
 export type EvaluationRunDraft = {
@@ -93,7 +97,11 @@ export const initialImportFlow: ImportFlowState = {
   sourceType: "CSV",
   fileName: "admission_eval_samples_0605.csv",
   sampleImportStatus: "未开始",
-  groundTruthStatusText: "等待导入"
+  groundTruthStatusText: "等待导入",
+  groundTruthFieldKey: "clinicalDiagnosis",
+  groundTruthValue: "肺腺癌",
+  predictedValue: "肺腺癌",
+  expectedNeedsReview: false
 };
 
 export const initialRunDraft: EvaluationRunDraft = {

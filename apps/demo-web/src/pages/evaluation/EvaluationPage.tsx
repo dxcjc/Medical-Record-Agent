@@ -46,6 +46,29 @@ type RunMutationState =
   | { status: "success"; message: string }
   | { status: "error"; message: string };
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
+const fallbackSchemaOptions: SelectOption[] = [
+  {
+    value: initialRunDraft.schemaVersion,
+    label: initialRunDraft.schemaVersion
+  }
+];
+
+const fallbackProviderOptions: SelectOption[] = [
+  {
+    value: initialRunDraft.modelVersion,
+    label: initialRunDraft.modelVersion
+  }
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function readStringField(source: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = source[key];
@@ -55,6 +78,53 @@ function readStringField(source: Record<string, unknown>, keys: string[]) {
   }
 
   return null;
+}
+
+function readItems(value: unknown) {
+  return isRecord(value) && Array.isArray(value.items) ? value.items : [];
+}
+
+export function parseEvaluationSchemaOptions(response: unknown): SelectOption[] {
+  return readItems(response).flatMap((item): SelectOption[] => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const value = readStringField(item, ["schemaKey", "key", "id"]);
+    if (!value) {
+      return [];
+    }
+
+    const displayName = readStringField(item, ["displayName", "label", "name"]) ?? value;
+    const version = typeof item.version === "number" || typeof item.version === "string" ? ` v${item.version}` : "";
+
+    return [
+      {
+        value,
+        label: `${displayName}${version}`
+      }
+    ];
+  });
+}
+
+export function parseEvaluationProviderOptions(response: unknown): SelectOption[] {
+  return readItems(response).flatMap((item): SelectOption[] => {
+    if (!isRecord(item) || item.kind !== "llm") {
+      return [];
+    }
+
+    const value = readStringField(item, ["key", "id"]);
+    if (!value) {
+      return [];
+    }
+
+    return [
+      {
+        value,
+        label: readStringField(item, ["displayName", "name", "label"]) ?? value
+      }
+    ];
+  });
 }
 
 function readNumberField(source: Record<string, unknown>, keys: string[]) {
@@ -268,12 +338,6 @@ function extractRunStatus(response: unknown) {
   return status ? normalizeRunStatus(status) : fallbackStatus;
 }
 
-function parseProviderKey(modelVersion: string) {
-  const providerKey = modelVersion.split("-")[0]?.trim();
-
-  return providerKey && providerKey.length > 0 ? providerKey : "mock";
-}
-
 function parseSampleLimit(sampleScope: string) {
   const matchedNumber = sampleScope.match(/\d+/u)?.[0];
   if (!matchedNumber) {
@@ -282,6 +346,45 @@ function parseSampleLimit(sampleScope: string) {
 
   const value = Number(matchedNumber);
   return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+export function buildEvaluationRunRequest(datasetId: string, draft: EvaluationRunDraft) {
+  const sampleLimit = parseSampleLimit(draft.sampleScope);
+
+  return {
+    datasetId,
+    schemaKey: draft.schemaVersion,
+    providerKey: draft.modelVersion,
+    ...(sampleLimit === undefined ? {} : { sampleLimit })
+  };
+}
+
+export function buildEvaluationSampleImportPayload(importFlow: ImportFlowState) {
+  const fieldKey = importFlow.groundTruthFieldKey.trim() || "feedbackValue";
+  const value = importFlow.groundTruthValue;
+
+  return [
+    {
+      externalId: importFlow.fileName,
+      input: {
+        sourceType: importFlow.sourceType,
+        fileName: importFlow.fileName,
+        predictedValue: importFlow.predictedValue
+      },
+      groundTruth: {
+        [fieldKey]: {
+          value,
+          normalizedValue: value,
+          expectedNeedsReview: importFlow.expectedNeedsReview
+        }
+      },
+      metadata: {
+        sourceType: importFlow.sourceType,
+        fileName: importFlow.fileName,
+        groundTruthFieldKey: fieldKey
+      }
+    }
+  ];
 }
 
 export default function EvaluationPage() {
@@ -295,6 +398,12 @@ export default function EvaluationPage() {
   });
   const [importFlow, setImportFlow] = useState<ImportFlowState>(initialImportFlow);
   const [runDraft, setRunDraft] = useState<EvaluationRunDraft>(initialRunDraft);
+  const [schemaOptions, setSchemaOptions] = useState<SelectOption[]>(fallbackSchemaOptions);
+  const [providerOptions, setProviderOptions] = useState<SelectOption[]>(fallbackProviderOptions);
+  const [configLoadState, setConfigLoadState] = useState<ApiListLoadState>({
+    status: "loading",
+    message: "正在读取真实 Schema 和 Provider 配置。"
+  });
   const [runs, setRuns] = useState<EvaluationRun[]>(completedRuns);
   const [runLoadState, setRunLoadState] = useState<ApiListLoadState>({
     status: "loading",
@@ -313,6 +422,66 @@ export default function EvaluationPage() {
     status: "idle",
     message: null
   });
+
+  useEffect(() => {
+    let shouldIgnore = false;
+
+    async function loadEvaluationConfig() {
+      setConfigLoadState({ status: "loading", message: "正在读取真实 Schema 和 Provider 配置。" });
+
+      try {
+        const [schemaResponse, providerResponse] = await Promise.all([api.listSchemas(), api.listProviders()]);
+        if (shouldIgnore) {
+          return;
+        }
+
+        const nextSchemaOptions = parseEvaluationSchemaOptions(schemaResponse);
+        const nextProviderOptions = parseEvaluationProviderOptions(providerResponse);
+
+        if (nextSchemaOptions.length > 0) {
+          setSchemaOptions(nextSchemaOptions);
+          setRunDraft((currentDraft) => ({
+            ...currentDraft,
+            schemaVersion: nextSchemaOptions.some((option) => option.value === currentDraft.schemaVersion)
+              ? currentDraft.schemaVersion
+              : nextSchemaOptions[0]?.value ?? currentDraft.schemaVersion
+          }));
+        }
+
+        if (nextProviderOptions.length > 0) {
+          setProviderOptions(nextProviderOptions);
+          setRunDraft((currentDraft) => ({
+            ...currentDraft,
+            modelVersion: nextProviderOptions.some((option) => option.value === currentDraft.modelVersion)
+              ? currentDraft.modelVersion
+              : nextProviderOptions[0]?.value ?? currentDraft.modelVersion
+          }));
+        }
+
+        setConfigLoadState({
+          status: "success",
+          message: "评测创建已使用真实 Schema/Provider key。"
+        });
+      } catch (error) {
+        if (shouldIgnore) {
+          return;
+        }
+
+        setSchemaOptions(fallbackSchemaOptions);
+        setProviderOptions(fallbackProviderOptions);
+        setConfigLoadState({
+          status: "error",
+          message: formatApiError(error, "Schema/Provider 配置接口暂时不可用，继续使用静态兜底选项。")
+        });
+      }
+    }
+
+    void loadEvaluationConfig();
+
+    return () => {
+      shouldIgnore = true;
+    };
+  }, [api]);
 
   useEffect(() => {
     let shouldIgnore = false;
@@ -473,12 +642,7 @@ export default function EvaluationPage() {
     setRunMutationState({ status: "submitting", message: "正在创建评测任务" });
 
     try {
-      const sampleLimit = parseSampleLimit(runDraft.sampleScope);
-      const response = await api.createEvaluationRun({
-        datasetId: selectedDataset.id,
-        providerKey: parseProviderKey(runDraft.modelVersion),
-        ...(sampleLimit === undefined ? {} : { sampleLimit })
-      });
+      const response = await api.createEvaluationRun(buildEvaluationRunRequest(selectedDataset.id, runDraft));
       const runId = extractRunId(response) ?? `run-${runs.length + 1000}`;
       const nextRun: EvaluationRun = {
         id: runId,
@@ -519,17 +683,8 @@ export default function EvaluationPage() {
     setImportMutationState({ status: "submitting", message: "正在调用后端样本导入接口" });
 
     try {
-      // Demo 页面没有真实文件上传流，这里用表单当前文件名构造一条最小 synthetic sample，确保导入动作走真实后端 route。
-      await api.importEvaluationSamples(selectedDataset.id, [
-        {
-          externalId: importFlow.fileName,
-          groundTruth: {},
-          metadata: {
-            sourceType: importFlow.sourceType,
-            fileName: importFlow.fileName
-          }
-        }
-      ]);
+      // Demo 页面先提供一条可编辑的最小字段级 ground truth，避免评估样本落库后无法参与字段指标计算。
+      await api.importEvaluationSamples(selectedDataset.id, buildEvaluationSampleImportPayload(importFlow));
       setImportFlow((currentFlow) => ({
         ...currentFlow,
         sampleImportStatus: "已导入",
@@ -632,6 +787,16 @@ export default function EvaluationPage() {
         </section>
       ) : null}
 
+      {configLoadState.status === "error" ? (
+        <section className="warning-box" role="alert">
+          <AppIcon icon={statusIcons.warning} tone="orange" />
+          <div>
+            <strong>评测配置读取提示</strong>
+            <p>{configLoadState.message}</p>
+          </div>
+        </section>
+      ) : null}
+
       <DatasetListPanel
         datasets={displayDatasets}
         selectedDatasetId={selectedDatasetId}
@@ -660,6 +825,8 @@ export default function EvaluationPage() {
       <EvaluationRunPanel
         draft={runDraft}
         runs={runs}
+        schemaOptions={schemaOptions}
+        providerOptions={providerOptions}
         mutationState={runMutationState}
         onChange={handleRunDraftChange}
         onCreateRun={handleCreateRun}
@@ -667,6 +834,7 @@ export default function EvaluationPage() {
 
       <section className="panel" aria-labelledby="evaluation-api-state-title">
         <h2 id="evaluation-api-state-title">真实 API 状态</h2>
+        <p>{configLoadState.message}</p>
         <p>{runLoadState.message}</p>
         <p>{metricLoadState.message}</p>
       </section>

@@ -1,9 +1,16 @@
 import { AppIcon, actionIcons, navigationIcons } from "../../../icons/appIcons";
 import type { EvaluationRun, EvaluationRunDraft } from "./evaluationData";
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
 type EvaluationRunPanelProps = {
   draft: EvaluationRunDraft;
   runs: EvaluationRun[];
+  schemaOptions: SelectOption[];
+  providerOptions: SelectOption[];
   mutationState: {
     status: "idle" | "submitting" | "success" | "error";
     message: string | null;
@@ -18,6 +25,8 @@ type EvaluationRunPanelProps = {
 export function EvaluationRunPanel({
   draft,
   runs,
+  schemaOptions,
+  providerOptions,
   mutationState,
   onChange,
   onCreateRun
@@ -44,17 +53,29 @@ export function EvaluationRunPanel({
         </label>
         <label>
           Schema Version
-          <input
+          <select
             value={draft.schemaVersion}
             onChange={(event) => onChange("schemaVersion", event.currentTarget.value)}
-          />
+          >
+            {schemaOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Model Version
-          <input
+          <select
             value={draft.modelVersion}
             onChange={(event) => onChange("modelVersion", event.currentTarget.value)}
-          />
+          >
+            {providerOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Sample Scope

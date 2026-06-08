@@ -27,6 +27,7 @@ export type CreateFileInput = {
 
 export type CreateEvaluationRunInput = {
   datasetId: string;
+  schemaKey?: string;
   providerKey: string;
   sampleLimit?: number;
 };
@@ -43,6 +44,12 @@ export class ApiClientError extends Error {
   }
 }
 
+export type FileContentResponse = {
+  blob: Blob;
+  fileName: string;
+  mimeType: string;
+};
+
 const defaultBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 function readErrorCode(payload: unknown) {
@@ -56,16 +63,31 @@ function readErrorCode(payload: unknown) {
   return "API_ERROR";
 }
 
+function readFileNameFromDisposition(value: string | null) {
+  if (!value) {
+    return "medical-record-file";
+  }
+
+  const match = /filename="([^"]+)"/.exec(value) ?? /filename=([^;]+)/.exec(value);
+  return match?.[1]?.trim() || "medical-record-file";
+}
+
 export function createApiClient(options: ApiClientOptions = {}) {
   const baseUrl = (options.baseUrl ?? defaultBaseUrl).replace(/\/$/, "");
 
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers(init.headers);
+  function createAuthorizedHeaders(headers?: HeadersInit) {
+    const output = new Headers(headers);
     const token = options.getToken?.();
 
     if (token) {
-      headers.set("authorization", `Bearer ${token}`);
+      output.set("authorization", `Bearer ${token}`);
     }
+
+    return output;
+  }
+
+  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const headers = createAuthorizedHeaders(init.headers);
 
     if (init.body !== undefined && !headers.has("content-type")) {
       headers.set("content-type", "application/json");
@@ -83,6 +105,30 @@ export function createApiClient(options: ApiClientOptions = {}) {
     }
 
     return payload as T;
+  }
+
+  async function download(path: string): Promise<FileContentResponse> {
+    const response = await fetch(`${baseUrl}${path}`, {
+      headers: createAuthorizedHeaders()
+    });
+
+    if (!response.ok) {
+      let payload: unknown;
+      try {
+        const text = await response.text();
+        payload = text.length > 0 ? JSON.parse(text) : undefined;
+      } catch {
+        payload = undefined;
+      }
+
+      throw new ApiClientError(response.status, readErrorCode(payload));
+    }
+
+    return {
+      blob: await response.blob(),
+      fileName: readFileNameFromDisposition(response.headers.get("content-disposition")),
+      mimeType: response.headers.get("content-type") ?? "application/octet-stream"
+    };
   }
 
   return {
@@ -149,6 +195,11 @@ export function createApiClient(options: ApiClientOptions = {}) {
         method: "POST"
       });
     },
+    checkProviderHealth(key: string) {
+      return request<unknown>(`/providers/${encodeURIComponent(key)}/health`, {
+        method: "POST"
+      });
+    },
     listEvaluationDatasets() {
       return request<{ items: unknown[] }>("/evaluations/datasets");
     },
@@ -193,6 +244,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
         body: JSON.stringify(input)
       });
     },
+    getFileContent(id: string) {
+      return download(`/files/${encodeURIComponent(id)}/content`);
+    },
     createRecognitionJob(input: unknown) {
       return request<unknown>("/jobs", {
         method: "POST",
@@ -216,6 +270,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
         method: "POST",
         body: JSON.stringify(input)
       });
+    },
+    listEligibleWritebacks(limit = 20) {
+      const search = new URLSearchParams({
+        limit: String(limit)
+      });
+
+      return request<{ items: unknown[] }>(`/writeback/eligible?${search.toString()}`);
     },
     listAudit() {
       return request<{ items: unknown[] }>("/audit?take=20");

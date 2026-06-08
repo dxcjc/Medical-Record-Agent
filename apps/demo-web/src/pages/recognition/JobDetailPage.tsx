@@ -43,12 +43,19 @@ type SubmitState = "idle" | "loading" | "success" | "error";
 
 type ApiDetailState = {
   jobId?: string;
+  sourceFileId?: string;
   ocrText?: string;
   fields?: FieldCandidate[];
   evidence?: EvidenceItem[];
   trace?: TraceStep[];
   payload?: unknown;
 };
+
+type DocumentPreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; url: string; fileName: string; mimeType: string }
+  | { status: "error"; message: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -76,12 +83,64 @@ function readNumber(record: Record<string, unknown>, keys: string[]): number | u
   return undefined;
 }
 
+function readDisplayValue(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+
+    if (typeof value === "boolean") {
+      return value ? "是" : "否";
+    }
+
+    if (Array.isArray(value) && value.length > 0) {
+      return value
+        .map((item) => {
+          if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+            return String(item);
+          }
+
+          return undefined;
+        })
+        .filter((item): item is string => Boolean(item))
+        .join("、");
+    }
+  }
+
+  return undefined;
+}
+
 function readArray(value: unknown): unknown[] | undefined {
   return Array.isArray(value) ? value : undefined;
 }
 
-function normalizeDecision(value: unknown): FieldCandidate["decision"] {
-  return value === "green" || value === "yellow" || value === "red" ? value : "yellow";
+function readFirstRecord(value: unknown): Record<string, unknown> | undefined {
+  return isRecord(value) ? value : undefined;
+}
+
+function normalizeDecision(value: unknown, confidence: number): FieldCandidate["decision"] {
+  if (value === "green" || value === "accepted") {
+    return "green";
+  }
+
+  if (value === "red" || value === "rejected" || value === "blocked") {
+    return "red";
+  }
+
+  if (value === "yellow" || value === "needs_review") {
+    return "yellow";
+  }
+
+  if (confidence >= 0.9) {
+    return "green";
+  }
+
+  return confidence >= 0.75 ? "yellow" : "red";
 }
 
 function normalizeTraceStatus(value: unknown): TraceStep["status"] {
@@ -99,14 +158,51 @@ function findFirstArray(record: Record<string, unknown>, keys: string[]): unknow
   return undefined;
 }
 
+function findCandidateItems(result: Record<string, unknown>): unknown[] | undefined {
+  const payload = readFirstRecord(result.payload);
+  const extraction = readFirstRecord(result.extraction);
+  const payloadExtraction = readFirstRecord(payload?.extraction);
+
+  // 后端可能返回数据库 result.fields，也可能直接返回 core RecognitionResult.fieldCandidates。
+  // 这里把几种真实链路的候选数组统一成一个来源，避免页面只认识静态 demo 的字段形状。
+  return (
+    findFirstArray(result, ["fields", "fieldCandidates", "candidates"]) ??
+    (extraction ? findFirstArray(extraction, ["fields", "fieldCandidates", "candidates"]) : undefined) ??
+    (payload ? findFirstArray(payload, ["fields", "fieldCandidates", "candidates"]) : undefined) ??
+    (payloadExtraction ? findFirstArray(payloadExtraction, ["fields", "fieldCandidates", "candidates"]) : undefined)
+  );
+}
+
+function readCandidateEvidence(item: Record<string, unknown>): Record<string, unknown>[] {
+  const evidence = readArray(item.evidence) ?? [];
+  return evidence.filter((entry): entry is Record<string, unknown> => isRecord(entry));
+}
+
+function formatEvidenceSource(evidence: Record<string, unknown> | undefined): string | undefined {
+  if (!evidence) {
+    return undefined;
+  }
+
+  const page = readNumber(evidence, ["page", "pageNumber"]);
+  const blockId = readString(evidence, ["ocrBlockId", "blockId", "id"]);
+
+  if (page !== undefined && blockId) {
+    return `第 ${page} 页 ${blockId}`;
+  }
+
+  if (page !== undefined) {
+    return `第 ${page} 页`;
+  }
+
+  return blockId;
+}
+
 function parseFieldCandidates(result: unknown): FieldCandidate[] | undefined {
   if (!isRecord(result)) {
     return undefined;
   }
 
-  const sourceItems =
-    findFirstArray(result, ["fields", "fieldCandidates", "candidates"]) ??
-    (isRecord(result.payload) ? findFirstArray(result.payload, ["fields", "fieldCandidates", "candidates"]) : undefined);
+  const sourceItems = findCandidateItems(result);
 
   const parsed = sourceItems
     ?.map((item): FieldCandidate | null => {
@@ -114,22 +210,60 @@ function parseFieldCandidates(result: unknown): FieldCandidate[] | undefined {
         return null;
       }
 
-      const field = readString(item, ["field", "name", "label"]);
-      const value = readString(item, ["value", "candidateValue", "text"]);
+      const field = readString(item, ["field", "name", "label", "fieldKey"]);
+      const value = readDisplayValue(item, ["value", "candidateValue", "text", "rawValue"]);
 
       if (!field || !value) {
         return null;
       }
 
+      const confidence = readNumber(item, ["confidence", "score"]) ?? 0;
+      const firstEvidence = readCandidateEvidence(item)[0];
+
       return {
         field,
         value,
-        confidence: readNumber(item, ["confidence", "score"]) ?? 0,
-        source: readString(item, ["source", "evidenceSource", "location"]) ?? "真实接口返回",
-        decision: normalizeDecision(item.decision),
+        confidence,
+        source: readString(item, ["source", "evidenceSource", "location"]) ?? formatEvidenceSource(firstEvidence) ?? "真实接口返回",
+        decision: normalizeDecision(item.decision, confidence),
       };
     })
     .filter((item): item is FieldCandidate => Boolean(item));
+
+  return parsed && parsed.length > 0 ? parsed : undefined;
+}
+
+function parseNestedEvidenceItems(result: Record<string, unknown>): EvidenceItem[] | undefined {
+  const candidates = findCandidateItems(result);
+  const parsed = candidates
+    ?.flatMap((candidate, candidateIndex): EvidenceItem[] => {
+      if (!isRecord(candidate)) {
+        return [];
+      }
+
+      const field = readString(candidate, ["field", "fieldName", "label", "fieldKey"]);
+      if (!field) {
+        return [];
+      }
+
+      const candidateConfidence = readNumber(candidate, ["confidence", "score"]) ?? 0;
+      return readCandidateEvidence(candidate)
+        .map((item, evidenceIndex): EvidenceItem | null => {
+          const quote = readString(item, ["quote", "text", "snippet"]);
+          if (!quote) {
+            return null;
+          }
+
+          return {
+            id: readString(item, ["id", "evidenceId", "ocrBlockId", "blockId"]) ?? `API-E-${candidateIndex + 1}-${evidenceIndex + 1}`,
+            field,
+            quote,
+            page: readNumber(item, ["page", "pageNumber"]) ?? 1,
+            confidence: readNumber(item, ["confidence", "score"]) ?? candidateConfidence,
+          };
+        })
+        .filter((item): item is EvidenceItem => Boolean(item));
+    });
 
   return parsed && parsed.length > 0 ? parsed : undefined;
 }
@@ -149,7 +283,7 @@ function parseEvidenceItems(result: unknown): EvidenceItem[] | undefined {
         return null;
       }
 
-      const field = readString(item, ["field", "fieldName", "label"]);
+      const field = readString(item, ["field", "fieldName", "label", "fieldKey"]);
       const quote = readString(item, ["quote", "text", "snippet"]);
 
       if (!field || !quote) {
@@ -166,7 +300,11 @@ function parseEvidenceItems(result: unknown): EvidenceItem[] | undefined {
     })
     .filter((item): item is EvidenceItem => Boolean(item));
 
-  return parsed && parsed.length > 0 ? parsed : undefined;
+  if (parsed && parsed.length > 0) {
+    return parsed;
+  }
+
+  return parseNestedEvidenceItems(result);
 }
 
 function parseTraceSteps(result: unknown): TraceStep[] | undefined {
@@ -220,11 +358,12 @@ function parseOcrText(result: unknown): string | undefined {
   return undefined;
 }
 
-function parseApiDetail(job: unknown, result: unknown): ApiDetailState {
+export function parseApiDetail(job: unknown, result: unknown): ApiDetailState {
   const jobRecord = isRecord(job) ? job : undefined;
   const resultRecord = isRecord(result) ? result : undefined;
   const detail: ApiDetailState = {};
   const jobId = jobRecord ? readString(jobRecord, ["id", "jobId"]) : undefined;
+  const sourceFileId = jobRecord ? readString(jobRecord, ["sourceFileId", "fileId"]) : undefined;
   const ocrText = parseOcrText(result);
   const fields = parseFieldCandidates(result);
   const evidence = parseEvidenceItems(result);
@@ -234,6 +373,10 @@ function parseApiDetail(job: unknown, result: unknown): ApiDetailState {
   // 后端当前仍可能调整返回结构，所以这里只做宽松读取；读不到的部分继续使用静态 demo 数据兜底。
   if (jobId) {
     detail.jobId = jobId;
+  }
+
+  if (sourceFileId) {
+    detail.sourceFileId = sourceFileId;
   }
 
   if (ocrText) {
@@ -271,6 +414,7 @@ export default function JobDetailPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [loadError, setLoadError] = useState("");
   const [apiDetail, setApiDetail] = useState<ApiDetailState>({});
+  const [documentPreview, setDocumentPreview] = useState<DocumentPreviewState>({ status: "idle" });
   const routeJobId = jobId ?? "demo";
   const displayJobId = apiDetail.jobId ?? routeJobId;
   const displayFields = apiDetail.fields ?? fieldCandidates;
@@ -318,6 +462,14 @@ export default function JobDetailPage() {
       isActive = false;
     };
   }, [api, routeJobId]);
+
+  useEffect(() => {
+    return () => {
+      if (documentPreview.status === "success") {
+        URL.revokeObjectURL(documentPreview.url);
+      }
+    };
+  }, [documentPreview]);
 
   const selectedEvidence = useMemo(
     () => displayEvidenceItems.find((item) => item.id === selectedEvidenceId) ?? displayEvidenceItems[0],
@@ -383,6 +535,41 @@ export default function JobDetailPage() {
     navigate(`/writeback?${search.toString()}`);
   }
 
+  async function handleOpenDocument() {
+    if (!apiDetail.sourceFileId) {
+      setDocumentPreview({
+        status: "error",
+        message: "当前任务没有返回 sourceFileId，无法读取原始文档。"
+      });
+      return;
+    }
+
+    setDocumentPreview((current) => {
+      if (current.status === "success") {
+        URL.revokeObjectURL(current.url);
+      }
+
+      return { status: "loading" };
+    });
+
+    try {
+      const file = await api.getFileContent(apiDetail.sourceFileId);
+      const url = URL.createObjectURL(file.blob);
+
+      setDocumentPreview({
+        status: "success",
+        url,
+        fileName: file.fileName,
+        mimeType: file.mimeType
+      });
+    } catch (error) {
+      setDocumentPreview({
+        status: "error",
+        message: error instanceof Error ? error.message : "原始文档读取失败。"
+      });
+    }
+  }
+
   return (
     <main className="app-page">
       <PageHeader
@@ -391,9 +578,15 @@ export default function JobDetailPage() {
         description="查看文档预览、OCR 文本、字段候选、证据、Payload、LangGraph trace 与人工反馈。"
         actions={
           <>
-            <button className="secondary-button" type="button" aria-label="打开原始文档">
+            <button
+              className="secondary-button"
+              type="button"
+              aria-label="打开原始文档"
+              disabled={documentPreview.status === "loading"}
+              onClick={handleOpenDocument}
+            >
               <AppIcon icon={actionIcons.createRecognition} size="sm" />
-              原始文档
+              {documentPreview.status === "loading" ? "读取中" : "原始文档"}
             </button>
             <button className="action-button" type="button" aria-label="确认绿色字段写回" onClick={handleGoWriteback}>
               <AppIcon icon={dashboardMetricIcons.writeback} size="sm" />
@@ -434,11 +627,33 @@ export default function JobDetailPage() {
       <div className="detail-grid">
         <section className="panel document-preview" aria-label="文档预览占位">
           <SectionTitle title="文档预览" />
-          <div className="preview-placeholder">
-            <AppIcon icon={actionIcons.createRecognition} size="lg" tone="blue" tile />
-            <strong>PDF / 图片预览区域</strong>
-            <span>主线程接入文件渲染器后，这里展示页码、缩放、框选证据坐标。</span>
-          </div>
+          {documentPreview.status === "success" ? (
+            <div className="document-preview-frame">
+              {documentPreview.mimeType.startsWith("image/") ? (
+                <img alt={documentPreview.fileName} src={documentPreview.url} />
+              ) : documentPreview.mimeType === "application/pdf" ? (
+                <object aria-label={documentPreview.fileName} data={documentPreview.url} type="application/pdf">
+                  <a href={documentPreview.url} download={documentPreview.fileName}>
+                    下载 {documentPreview.fileName}
+                  </a>
+                </object>
+              ) : (
+                <a className="secondary-button" href={documentPreview.url} download={documentPreview.fileName}>
+                  下载 {documentPreview.fileName}
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="preview-placeholder">
+              <AppIcon icon={actionIcons.createRecognition} size="lg" tone="blue" tile />
+              <strong>PDF / 图片预览区域</strong>
+              <span>
+                {documentPreview.status === "error"
+                  ? `原始文档读取失败：${documentPreview.message}`
+                  : "点击原始文档读取真实上传文件，读取后展示 PDF 或图片预览。"}
+              </span>
+            </div>
+          )}
         </section>
 
         <section className="panel">

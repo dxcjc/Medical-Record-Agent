@@ -83,6 +83,39 @@ export function SampleImportPanel({
             <option value="已完成">已完成</option>
           </select>
         </label>
+
+        <label>
+          Ground Truth 字段
+          <input
+            value={importFlow.groundTruthFieldKey}
+            onChange={(event) => onChange("groundTruthFieldKey", event.currentTarget.value)}
+          />
+        </label>
+
+        <label>
+          期望值
+          <input
+            value={importFlow.groundTruthValue}
+            onChange={(event) => onChange("groundTruthValue", event.currentTarget.value)}
+          />
+        </label>
+
+        <label>
+          当前预测值
+          <input
+            value={importFlow.predictedValue}
+            onChange={(event) => onChange("predictedValue", event.currentTarget.value)}
+          />
+        </label>
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={importFlow.expectedNeedsReview}
+            onChange={(event) => onChange("expectedNeedsReview", event.currentTarget.checked)}
+          />
+          期望进入人工复核
+        </label>
       </div>
 
       <div className="toolbar">
