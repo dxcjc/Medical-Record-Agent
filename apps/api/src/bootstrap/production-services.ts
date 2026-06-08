@@ -36,6 +36,7 @@ import { createEvaluationRepository } from "../repositories/evaluation.repositor
 import { createFeedbackRepository } from "../repositories/feedback.repository";
 import { createFileRepository } from "../repositories/file.repository";
 import { createJobsRepository } from "../repositories/jobs.repository";
+import { createProviderRepository } from "../repositories/provider.repository";
 import { createResultsRepository } from "../repositories/results.repository";
 import { createSchemaRepository } from "../repositories/schema.repository";
 import { createTokenRepository } from "../repositories/token.repository";
@@ -53,6 +54,19 @@ import {
 
 type ProductionEnv = Pick<AppEnv, "jwt" | "storage" | "providers" | "lims">;
 type ProviderHealthFetch = (url: string, init: RequestInit) => Promise<Pick<Response, "ok" | "status" | "statusText">>;
+type ProductionProviderRepository = ReturnType<typeof createProviderRepository>;
+type ProviderKindValue = "ocr" | "llm" | "storage" | "lims";
+type ProviderRegistryItem = {
+  key: string;
+  kind: ProviderKindValue;
+  name: string;
+  displayName: string;
+  enabled: boolean;
+  isDefault: boolean;
+  config: Record<string, unknown>;
+  secretRefs: Record<string, unknown>;
+  status?: unknown;
+};
 
 export interface CreateProductionApiServicesOptions {
   env: ProductionEnv;
@@ -75,6 +89,10 @@ function readString(value: unknown, fallback: string) {
 
 function readOptionalString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isInputJsonObject(value: unknown): value is Prisma.InputJsonObject {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function readPayloadRecord(value: unknown) {
@@ -603,13 +621,43 @@ async function runLimsHealthProbe(input: {
   }
 }
 
+function normalizeProviderConfigRecord(provider: Record<string, unknown>): ProviderRegistryItem {
+  const key = readString(provider.key, "unknown-provider");
+  const displayName = readString(provider.displayName, readString(provider.name, key));
+  const kind = parseProviderKind(readString(provider.kind, "llm"));
+
+  return {
+    key,
+    kind,
+    name: displayName,
+    displayName,
+    enabled: typeof provider.enabled === "boolean" ? provider.enabled : provider.status !== "disabled",
+    isDefault: provider.isDefault === true,
+    config: isInputJsonObject(provider.config) ? provider.config : {},
+    secretRefs: isInputJsonObject(provider.secretRefs) ? provider.secretRefs : {},
+    status: provider.status
+  };
+}
+
+function parseProviderKind(kind: string) {
+  if (kind === "ocr" || kind === "llm" || kind === "storage" || kind === "lims") {
+    return kind;
+  }
+
+  throw Object.assign(new Error("PROVIDER_KIND_INVALID"), {
+    code: "PROVIDER_KIND_INVALID",
+    statusCode: 400
+  });
+}
+
 function createProviderRegistry(
   env: ProductionEnv,
   storageProvider: StorageProvider,
   now: () => Date,
-  providerHealthFetch: ProviderHealthFetch
+  providerHealthFetch: ProviderHealthFetch,
+  providerRepository: ProductionProviderRepository
 ): ProviderRegistry {
-  const providers = [
+  const environmentProviders = [
     {
       key: env.providers.ocr.provider === "http" ? "http-ocr" : "mock-ocr",
       kind: "ocr",
@@ -666,10 +714,52 @@ function createProviderRegistry(
   return {
     async list() {
       // Provider 列表只暴露配置状态，不返回密钥、token 或 header 原文。
-      return providers;
+      const providersByKey = new Map<string, Record<string, unknown>>();
+      for (const provider of environmentProviders) {
+        providersByKey.set(provider.key, normalizeProviderConfigRecord(provider));
+      }
+      for (const provider of await providerRepository.list()) {
+        providersByKey.set(
+          provider.key,
+          normalizeProviderConfigRecord({
+            ...provider,
+            enabled: provider.status !== "disabled"
+          })
+        );
+      }
+
+      return Array.from(providersByKey.values());
+    },
+    async save(input) {
+      const kind = parseProviderKind(input.kind);
+      if (input.key.trim().length === 0 || input.displayName.trim().length === 0) {
+        throw Object.assign(new Error("PROVIDER_CONFIG_INVALID"), {
+          code: "PROVIDER_CONFIG_INVALID",
+          statusCode: 400
+        });
+      }
+
+      return providerRepository.save({
+        key: input.key.trim(),
+        kind,
+        displayName: input.displayName.trim(),
+        status: input.enabled ? "active" : "disabled",
+        isDefault: input.isDefault,
+        config: isInputJsonObject(input.config) ? input.config : {},
+        secretRefs: isInputJsonObject(input.secretRefs) ? input.secretRefs : {},
+        updatedById: input.actor.actorUserId
+      });
     },
     async setDefault(key) {
-      const provider = providers.find((item) => item.key === key);
+      const persistedProvider = await providerRepository.setDefault(key);
+      if (persistedProvider) {
+        return normalizeProviderConfigRecord({
+          ...persistedProvider,
+          enabled: persistedProvider.status !== "disabled"
+        });
+      }
+
+      const provider = environmentProviders.find((item) => item.key === key);
       if (!provider) {
         throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
           code: "PROVIDER_NOT_FOUND",
@@ -683,7 +773,13 @@ function createProviderRegistry(
       };
     },
     async checkHealth(key) {
-      const provider = providers.find((item) => item.key === key);
+      const persistedProvider = await providerRepository.findByKey(key);
+      const provider = persistedProvider
+        ? normalizeProviderConfigRecord({
+            ...persistedProvider,
+            enabled: persistedProvider.status !== "disabled"
+          })
+        : environmentProviders.find((item) => item.key === key);
       if (!provider) {
         throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
           code: "PROVIDER_NOT_FOUND",
@@ -997,6 +1093,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
   const tokenRepository = createTokenRepository(prisma);
   const auditRepository = createAuditRepository(prisma);
   const schemaRepository = createSchemaRepository(prisma);
+  const providerRepository = createProviderRepository(prisma);
   const jobsRepository = createJobsRepository(prisma);
   const resultsRepository = createResultsRepository(prisma);
   const writebackRepository = createWritebackRepository(prisma);
@@ -1073,7 +1170,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
       evaluationRepository: createEvaluationRepository(prisma)
     },
     recognitionOrchestrator,
-    providerRegistry: createProviderRegistry(options.env, storageProvider, now, providerHealthFetch),
+    providerRegistry: createProviderRegistry(options.env, storageProvider, now, providerHealthFetch, providerRepository),
     evaluationRunner: createProductionEvaluationRunner({
       jobsRepository,
       resultsRepository,

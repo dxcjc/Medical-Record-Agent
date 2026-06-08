@@ -41,6 +41,19 @@ export function createDemoApiServices(): ApiServerServices {
   const evaluationSamples = new Map<string, Array<{ id: string; externalId?: string; groundTruth: unknown; metadata?: unknown }>>();
   const evaluationRuns = new Map<string, { id: string; datasetId: string; providerKey?: string; status: string }>();
   const evaluationMetrics = new Map<string, Array<{ name: string; value: number; unit: string }>>();
+  const demoProviders = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      displayName: string;
+      kind: "ocr" | "llm" | "storage" | "lims";
+      enabled: boolean;
+      isDefault: boolean;
+      config: Record<string, unknown>;
+      secretRefs: Record<string, unknown>;
+    }
+  >();
   const demoSchemaDefinition = {
     key: "lims-clinical-info",
     label: "LIMS 临床信息弹窗字段",
@@ -138,6 +151,61 @@ export function createDemoApiServices(): ApiServerServices {
       unit: "ratio"
     }
   ]);
+  demoProviders.set("mock-ocr", {
+    key: "mock-ocr",
+    name: "Mock Provider",
+    displayName: "Mock Provider",
+    kind: "ocr",
+    enabled: true,
+    isDefault: true,
+    config: {
+      provider: "mock",
+      syntheticOnly: true
+    },
+    secretRefs: {
+      apiKey: "demo-secret"
+    }
+  });
+  demoProviders.set("mock-model", {
+    key: "mock-model",
+    name: "Mock Model Provider",
+    displayName: "Mock Model Provider",
+    kind: "llm",
+    enabled: true,
+    isDefault: true,
+    config: {
+      provider: "mock",
+      model: "mock-medical-record-extractor",
+      syntheticOnly: true
+    },
+    secretRefs: {}
+  });
+  demoProviders.set("local-storage", {
+    key: "local-storage",
+    name: "Local Storage Provider",
+    displayName: "Local Storage Provider",
+    kind: "storage",
+    enabled: true,
+    isDefault: true,
+    config: {
+      driver: "local"
+    },
+    secretRefs: {}
+  });
+  demoProviders.set("lims-writeback", {
+    key: "lims-writeback",
+    name: "LIMS Writeback Adapter",
+    displayName: "LIMS Writeback Adapter",
+    kind: "lims",
+    enabled: true,
+    isDefault: true,
+    config: {
+      endpoint: "http://localhost:8090/api/clinical-info/writeback"
+    },
+    secretRefs: {
+      apiToken: "demo-secret"
+    }
+  });
 
   function createDemoError(code: string, statusCode: number) {
     return Object.assign(new Error(code), {
@@ -478,46 +546,61 @@ export function createDemoApiServices(): ApiServerServices {
     },
     providerService: {
       async listProviders() {
-        return [
-          {
-            key: "mock-ocr",
-            name: "Mock Provider",
-            kind: "ocr",
-            enabled: true,
-            isDefault: true,
-            secretRefs: {
-              apiKey: "demo-secret"
-            }
-          },
-          {
-            key: "mock-model",
-            name: "Mock Model Provider",
-            kind: "llm",
-            enabled: true,
-            isDefault: true,
-            secretRefs: {}
-          },
-          {
-            key: "local-storage",
-            name: "Local Storage Provider",
-            kind: "storage",
-            enabled: true,
-            isDefault: true,
-            secretRefs: {}
-          },
-          {
-            key: "lims-writeback",
-            name: "LIMS Writeback Adapter",
-            kind: "lims",
-            enabled: true,
-            isDefault: true,
-            secretRefs: {
-              apiToken: "demo-secret"
+        return Array.from(demoProviders.values());
+      },
+      async saveProviderConfig(input) {
+        const allowedKinds = ["ocr", "llm", "storage", "lims"] as const;
+        if (!allowedKinds.includes(input.kind as (typeof allowedKinds)[number])) {
+          throw createDemoError("PROVIDER_KIND_INVALID", 400);
+        }
+
+        const kind = input.kind as (typeof allowedKinds)[number];
+        if (input.isDefault) {
+          for (const provider of demoProviders.values()) {
+            if (provider.kind === kind && provider.key !== input.key) {
+              demoProviders.set(provider.key, {
+                ...provider,
+                isDefault: false
+              });
             }
           }
-        ];
+        }
+
+        const saved = {
+          key: input.key,
+          name: input.displayName,
+          displayName: input.displayName,
+          kind,
+          enabled: input.enabled,
+          isDefault: input.isDefault,
+          config:
+            input.config && typeof input.config === "object" && !Array.isArray(input.config)
+              ? (input.config as Record<string, unknown>)
+              : {},
+          secretRefs:
+            input.secretRefs && typeof input.secretRefs === "object" && !Array.isArray(input.secretRefs)
+              ? (input.secretRefs as Record<string, unknown>)
+              : {}
+        };
+        demoProviders.set(input.key, saved);
+
+        return saved;
       },
       async setDefaultProvider(input) {
+        const provider = demoProviders.get(input.key);
+        if (!provider) {
+          throw createDemoError("PROVIDER_NOT_FOUND", 404);
+        }
+
+        for (const item of demoProviders.values()) {
+          if (item.kind === provider.kind) {
+            demoProviders.set(item.key, {
+              ...item,
+              isDefault: item.key === input.key
+            });
+          }
+        }
+
         return {
           key: input.key,
           isDefault: true

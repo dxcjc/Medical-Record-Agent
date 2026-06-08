@@ -9,8 +9,20 @@ export interface SetDefaultProviderInput {
   actor: AuthContext;
 }
 
+export interface SaveProviderConfigInput {
+  key: string;
+  kind: string;
+  displayName: string;
+  enabled: boolean;
+  isDefault: boolean;
+  config: unknown;
+  secretRefs?: unknown;
+  actor: AuthContext;
+}
+
 export interface ProviderRouteService {
   listProviders(): Promise<unknown[]>;
+  saveProviderConfig?(input: SaveProviderConfigInput): Promise<unknown>;
   setDefaultProvider(input: SetDefaultProviderInput): Promise<unknown>;
   checkProviderHealth(input: SetDefaultProviderInput): Promise<unknown>;
 }
@@ -123,6 +135,61 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
       try {
         const provider = await dependencies.providerService.setDefaultProvider({
           key: params.key,
+          actor: request.auth as AuthContext
+        });
+
+        return {
+          provider: maskSecretRefs(provider)
+        };
+      } catch (error) {
+        return sendStructuredProviderError(reply, error);
+      }
+    }
+  );
+
+  server.put(
+    "/providers/:key",
+    {
+      preHandler: [
+        ...preHandler,
+        ...(dependencies.auditHooks
+          ? [
+              dependencies.auditHooks.audit({
+                action: "provider.config.save",
+                objectType: "provider",
+                objectId: (request) => (request.params as { key?: string }).key
+              })
+            ]
+          : [])
+      ]
+    },
+    async (request, reply) => {
+      const params = request.params as { key: string };
+      const body = request.body as {
+        kind?: unknown;
+        displayName?: unknown;
+        enabled?: unknown;
+        isDefault?: unknown;
+        config?: unknown;
+        secretRefs?: unknown;
+      };
+
+      try {
+        if (!dependencies.providerService.saveProviderConfig) {
+          throw Object.assign(new Error("PROVIDER_SAVE_NOT_SUPPORTED"), {
+            code: "PROVIDER_SAVE_NOT_SUPPORTED",
+            statusCode: 501
+          });
+        }
+
+        const provider = await dependencies.providerService.saveProviderConfig({
+          key: params.key,
+          kind: typeof body.kind === "string" ? body.kind : "",
+          displayName: typeof body.displayName === "string" ? body.displayName : "",
+          enabled: body.enabled === true,
+          isDefault: body.isDefault === true,
+          config: body.config ?? {},
+          secretRefs: body.secretRefs,
           actor: request.auth as AuthContext
         });
 

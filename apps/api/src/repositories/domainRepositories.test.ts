@@ -4,6 +4,7 @@ import { createEvaluationRepository } from "./evaluation.repository";
 import { createFeedbackRepository } from "./feedback.repository";
 import { createFileRepository } from "./file.repository";
 import { createJobsRepository } from "./jobs.repository";
+import { createProviderRepository } from "./provider.repository";
 import { createResultsRepository } from "./results.repository";
 import { createSchemaRepository } from "./schema.repository";
 import { createWritebackRepository } from "./writeback.repository";
@@ -445,5 +446,81 @@ describe("domain repositories", () => {
         }
       }
     });
+  });
+  it("provider 仓库能持久化在线配置，并在设为默认时关闭同类型旧默认", async () => {
+    const providerConfig = {
+      upsert: vi.fn().mockResolvedValue({
+        id: "provider-config-001",
+        key: "openai-responses-prod",
+        kind: "llm",
+        displayName: "OpenAI Responses 生产模型",
+        status: "active",
+        isDefault: true,
+        config: {
+          model: "gpt-4.1-mini",
+          timeoutMs: 45000
+        },
+        secretRefs: {
+          apiKey: "OPENAI_API_KEY"
+        },
+        updatedById: "user-001"
+      }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn()
+    };
+    const repository = createProviderRepository({ providerConfig } as never);
+
+    const saved = await repository.save({
+      key: "openai-responses-prod",
+      kind: "llm",
+      displayName: "OpenAI Responses 生产模型",
+      status: "active",
+      isDefault: true,
+      config: {
+        model: "gpt-4.1-mini",
+        timeoutMs: 45000
+      },
+      secretRefs: {
+        apiKey: "OPENAI_API_KEY"
+      },
+      updatedById: "user-001"
+    });
+
+    expect(providerConfig.updateMany).toHaveBeenCalledWith({
+      where: {
+        kind: "llm",
+        key: {
+          not: "openai-responses-prod"
+        },
+        isDefault: true
+      },
+      data: {
+        isDefault: false
+      }
+    });
+    expect(providerConfig.upsert).toHaveBeenCalledWith({
+      where: {
+        key: "openai-responses-prod"
+      },
+      update: expect.objectContaining({
+        displayName: "OpenAI Responses 生产模型",
+        isDefault: true,
+        updatedById: "user-001"
+      }),
+      create: expect.objectContaining({
+        key: "openai-responses-prod",
+        kind: "llm",
+        status: "active",
+        isDefault: true
+      }),
+      select: expect.any(Object)
+    });
+    expect(saved).toEqual(
+      expect.objectContaining({
+        key: "openai-responses-prod",
+        isDefault: true
+      })
+    );
   });
 });

@@ -280,4 +280,50 @@ describe("createApiClient", () => {
     expect(fetchCalls[0]?.input).toBe("http://api.example.test/providers/openai-compatible-model/health");
     expect(fetchCalls[0]?.init).toEqual(expect.objectContaining({ method: "POST" }));
   });
+
+  it("保存 Provider 配置时调用真实 provider 配置端点", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    stubJsonFetch({ provider: { key: "openai-responses-prod", isDefault: true } }, fetchCalls);
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    const result = await client.saveProviderConfig("openai-responses-prod", {
+      kind: "llm",
+      displayName: "OpenAI Responses 生产模型",
+      enabled: true,
+      isDefault: true,
+      config: {
+        model: "gpt-4.1-mini",
+        timeoutMs: 45000,
+      },
+      secretRefs: {
+        apiKey: "OPENAI_API_KEY",
+      },
+    });
+
+    expect(result).toEqual({ provider: { key: "openai-responses-prod", isDefault: true } });
+    expect(fetchCalls[0]?.input).toBe("http://api.example.test/providers/openai-responses-prod");
+    expect(fetchCalls[0]?.init).toEqual(
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          kind: "llm",
+          displayName: "OpenAI Responses 生产模型",
+          enabled: true,
+          isDefault: true,
+          config: {
+            model: "gpt-4.1-mini",
+            timeoutMs: 45000,
+          },
+          secretRefs: {
+            apiKey: "OPENAI_API_KEY",
+          },
+        }),
+      }),
+    );
+    expect((fetchCalls[0]?.init?.headers as Headers).get("authorization")).toBe("Bearer token-demo");
+  });
 });

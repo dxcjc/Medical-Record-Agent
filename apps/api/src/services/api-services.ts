@@ -12,7 +12,7 @@ import type { AuthLayerService } from "../middleware/auth.middleware";
 import type { AuditRecorder } from "../middleware/audit.middleware";
 import type { AuditRouteService } from "../routes/audit.routes";
 import type { AuthRouteService } from "../routes/auth.routes";
-import type { ProviderRouteService, SetDefaultProviderInput } from "../routes/providers.routes";
+import type { ProviderRouteService, SaveProviderConfigInput, SetDefaultProviderInput } from "../routes/providers.routes";
 import type {
   CreateEvaluationDatasetRouteInput,
   CreateEvaluationRunInput,
@@ -174,6 +174,7 @@ export interface ApiServiceRepositories {
 
 export interface ProviderRegistry {
   list(): Promise<unknown[]>;
+  save?(input: SaveProviderConfigInput): Promise<unknown>;
   setDefault(key: string, input: SetDefaultProviderInput): Promise<unknown>;
   checkHealth?(key: string, input: SetDefaultProviderInput): Promise<unknown>;
 }
@@ -674,6 +675,16 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
   const providerService: ProviderRouteService = {
     listProviders() {
       return options.providerRegistry.list();
+    },
+    async saveProviderConfig(input) {
+      if (!options.providerRegistry.save) {
+        throw Object.assign(new Error("PROVIDER_SAVE_NOT_SUPPORTED"), {
+          code: "PROVIDER_SAVE_NOT_SUPPORTED",
+          statusCode: 501
+        });
+      }
+
+      return options.providerRegistry.save(input);
     },
     setDefaultProvider(input) {
       return options.providerRegistry.setDefault(input.key, input);

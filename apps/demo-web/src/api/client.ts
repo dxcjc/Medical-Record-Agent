@@ -32,6 +32,15 @@ export type CreateEvaluationRunInput = {
   sampleLimit?: number;
 };
 
+export type SaveProviderConfigInput = {
+  kind: string;
+  displayName: string;
+  enabled: boolean;
+  isDefault: boolean;
+  config: unknown;
+  secretRefs?: unknown;
+};
+
 export class ApiClientError extends Error {
   readonly status: number;
   readonly code: string;
@@ -193,6 +202,12 @@ export function createApiClient(options: ApiClientOptions = {}) {
     setDefaultProvider(key: string) {
       return request<unknown>(`/providers/${encodeURIComponent(key)}/default`, {
         method: "POST"
+      });
+    },
+    saveProviderConfig(key: string, input: SaveProviderConfigInput) {
+      return request<unknown>(`/providers/${encodeURIComponent(key)}`, {
+        method: "PUT",
+        body: JSON.stringify(input)
       });
     },
     checkProviderHealth(key: string) {

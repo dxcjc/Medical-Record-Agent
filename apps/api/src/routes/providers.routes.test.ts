@@ -261,4 +261,92 @@ describe("provider routes", () => {
     });
     expect(response.body).not.toContain("real-openai-secret");
   });
+
+  it("PUT /providers/:key 有权限时保存 provider 配置并返回脱敏后的 secretRefs", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const providerService = {
+      listProviders: vi.fn(),
+      setDefaultProvider: vi.fn(),
+      saveProviderConfig: vi.fn(async () => ({
+        key: "openai-responses-prod",
+        kind: "llm",
+        displayName: "OpenAI Responses 生产模型",
+        enabled: true,
+        isDefault: true,
+        config: {
+          model: "gpt-4.1-mini",
+          timeoutMs: 45000
+        },
+        secretRefs: {
+          apiKey: "OPENAI_API_KEY"
+        }
+      })),
+      checkProviderHealth: vi.fn()
+    } as ProviderRouteService & {
+      saveProviderConfig: ReturnType<typeof vi.fn>;
+    };
+    const server = await createServer(authService, providerService);
+
+    const response = await server.inject({
+      method: "PUT",
+      url: "/providers/openai-responses-prod",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        kind: "llm",
+        displayName: "OpenAI Responses 生产模型",
+        enabled: true,
+        isDefault: true,
+        config: {
+          model: "gpt-4.1-mini",
+          timeoutMs: 45000
+        },
+        secretRefs: {
+          apiKey: "OPENAI_API_KEY"
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerService.saveProviderConfig).toHaveBeenCalledWith({
+      key: "openai-responses-prod",
+      kind: "llm",
+      displayName: "OpenAI Responses 生产模型",
+      enabled: true,
+      isDefault: true,
+      config: {
+        model: "gpt-4.1-mini",
+        timeoutMs: 45000
+      },
+      secretRefs: {
+        apiKey: "OPENAI_API_KEY"
+      },
+      actor: context
+    });
+    expect(response.json()).toEqual({
+      provider: {
+        key: "openai-responses-prod",
+        kind: "llm",
+        displayName: "OpenAI Responses 生产模型",
+        enabled: true,
+        isDefault: true,
+        config: {
+          model: "gpt-4.1-mini",
+          timeoutMs: 45000
+        },
+        secretRefs: {
+          apiKey: {
+            configured: true
+          }
+        }
+      }
+    });
+    expect(response.body).not.toContain("OPENAI_API_KEY");
+  });
 });

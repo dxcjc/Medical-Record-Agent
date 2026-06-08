@@ -17,6 +17,25 @@ function createPrismaClientStub() {
     schemaVersion: {
       findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null)
     },
+    providerConfig: {
+      findMany: vi.fn(async () => []),
+      findUnique: vi.fn(async () => null),
+      updateMany: vi.fn(async () => ({ count: 0 })),
+      upsert: vi.fn(async (input) => ({
+        id: "provider-config-001",
+        ...input.create
+      })),
+      update: vi.fn(async (input) => ({
+        id: "provider-config-001",
+        key: input.where.key,
+        kind: "llm",
+        displayName: "Updated Provider",
+        status: "active",
+        isDefault: true,
+        config: {},
+        secretRefs: {}
+      }))
+    },
     storedFile: {
       create: vi.fn(async (input) => ({
         id: "file-001",

@@ -43,6 +43,18 @@ type LocalProviderActionState = {
 };
 
 const providerKinds: ProviderKind[] = ["LangChain", "OpenAI-compatible", "OpenAI Responses", "Mock"];
+const providerKeyByArea: Record<ProviderArea, string> = {
+  OCR: "configured-ocr-provider",
+  LLM: "configured-llm-provider",
+  storage: "configured-storage-provider",
+  LIMS: "configured-lims-provider"
+};
+const providerKindByArea: Record<ProviderArea, "ocr" | "llm" | "storage" | "lims"> = {
+  OCR: "ocr",
+  LLM: "llm",
+  storage: "storage",
+  LIMS: "lims"
+};
 
 const providerAreaIcons: Record<ProviderArea, (typeof providerIcons)[keyof typeof providerIcons]> = {
   OCR: providerIcons.azureOcr,
@@ -176,6 +188,28 @@ function matchesProviderArea(provider: ApiProviderItem, area: ProviderArea) {
   return kind === "lims" || key.includes("lims") || key.includes("writeback");
 }
 
+export function buildProviderKeyForArea(area: ProviderArea) {
+  return providerKeyByArea[area];
+}
+
+export function buildProviderConfigSaveRequest(config: ProviderConfig) {
+  const secretRefs = config.secret.trim().length > 0 ? { primary: config.secret.trim() } : {};
+
+  return {
+    kind: providerKindByArea[config.area],
+    displayName: `${config.area} ${config.kind} Provider`,
+    enabled: config.enabled,
+    isDefault: config.enabled,
+    config: {
+      providerKind: config.kind,
+      endpoint: config.endpoint,
+      modelOrBucket: config.modelOrBucket,
+      timeoutMs: config.timeoutMs
+    },
+    secretRefs
+  };
+}
+
 export function ProviderSettingsPage() {
   const { api } = useAuth();
   const [configs, setConfigs] = useState<ProviderConfig[]>(initialConfigs);
@@ -183,6 +217,7 @@ export function ProviderSettingsPage() {
   const [visibleSecretArea, setVisibleSecretArea] = useState<ProviderArea | null>(null);
   const [savedAt, setSavedAt] = useState<string>("09:40:28");
   const [checkingArea, setCheckingArea] = useState<ProviderArea | null>(null);
+  const [savingConfigs, setSavingConfigs] = useState(false);
   const [apiProviders, setApiProviders] = useState<ApiProviderItem[]>([]);
   const [apiStatus, setApiStatus] = useState<ProviderApiStatus>({
     status: "loading",
@@ -191,7 +226,7 @@ export function ProviderSettingsPage() {
   });
   const [settingDefaultKey, setSettingDefaultKey] = useState<string | null>(null);
   const [localActionState, setLocalActionState] = useState<LocalProviderActionState>({
-    message: "保存配置仍是本地草稿；Health check 已优先调用真实 Provider API。",
+    message: "Provider 配置会保存到后端 Provider API；Secret 字段只作为密钥引用名保存，不保存真实密钥明文。",
     tone: "info"
   });
 
@@ -288,13 +323,32 @@ export function ProviderSettingsPage() {
     }
   }
 
-  function saveConfigs() {
-    setSavedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
-    setVisibleSecretArea(null);
+  async function saveConfigs() {
+    setSavingConfigs(true);
     setLocalActionState({
-      message: "已保存到当前页面本地草稿状态；后端暂无 provider 配置保存 route，刷新页面后不会持久化。",
-      tone: "warning"
+      message: "正在保存 OCR、LLM、Storage 和 LIMS provider 配置。",
+      tone: "info"
     });
+
+    try {
+      await Promise.all(
+        configs.map((config) => api.saveProviderConfig(buildProviderKeyForArea(config.area), buildProviderConfigSaveRequest(config)))
+      );
+      setSavedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+      setVisibleSecretArea(null);
+      setLocalActionState({
+        message: "Provider 配置已保存到后端，并会参与真实 Provider 列表、默认值和健康检查展示。",
+        tone: "info"
+      });
+      await loadProviders();
+    } catch (error) {
+      setLocalActionState({
+        message: error instanceof Error ? `Provider 配置保存失败：${error.message}` : "Provider 配置保存失败，请检查后端服务。",
+        tone: "warning"
+      });
+    } finally {
+      setSavingConfigs(false);
+    }
   }
 
   async function setDefaultProvider(key: string) {
@@ -332,15 +386,15 @@ export function ProviderSettingsPage() {
         title="Provider Settings"
         description="集中维护 OCR、LLM、对象存储和 LIMS 写回 provider，支持 Mock 与生产兼容模式切换。"
         actions={
-          <button className="action-button" type="button" onClick={saveConfigs}>
+          <button className="action-button" type="button" disabled={savingConfigs} onClick={() => void saveConfigs()}>
             <AppIcon icon={dashboardMetricIcons.decisionPass} size="sm" />
-            保存本地草稿
+            {savingConfigs ? "保存中" : "保存到 Provider API"}
           </button>
         }
       />
 
       <section className="metric-grid" aria-label="Provider 指标">
-        <MetricCard label="启用 Provider" value={`${enabledCount}/4`} hint={`本地草稿保存 ${savedAt}`} tone="info" />
+        <MetricCard label="启用 Provider" value={`${enabledCount}/4`} hint={`API 配置保存 ${savedAt}`} tone="info" />
         <MetricCard label="健康实例" value={`${healthyCount}/4`} hint="按最新健康检查结果统计" tone="success" />
         <MetricCard label="密钥策略" value="保存后隐藏" hint="Secret 不在页面常驻明文展示" tone="warning" />
         <MetricCard label="API Provider" value={`${apiStatus.count}`} hint={apiStatus.message} tone={apiStatus.status === "error" ? "warning" : "info"} />
@@ -397,8 +451,8 @@ export function ProviderSettingsPage() {
         </div>
       </section>
 
-      <InlineNotice tone="info" title="本地配置区">
-        下方 OCR、LLM、storage、LIMS 表单保留原演示布局；保存仍是本地草稿，Health check 会按 provider kind/key 调用真实 API。
+      <InlineNotice tone="info" title="Provider 配置区">
+        下方 OCR、LLM、Storage、LIMS 表单会保存到后端 Provider API；Health Check 会按 provider kind/key 调用真实 API。
       </InlineNotice>
 
       <section className="provider-grid">
