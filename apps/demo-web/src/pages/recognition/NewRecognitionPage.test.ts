@@ -4,7 +4,8 @@ import {
   buildRecognitionFileUploadInput,
   createSyntheticRecognitionFile,
   parseProviderOptions,
-  parseSchemaOptions
+  parseSchemaOptions,
+  validateRecognitionFile
 } from "./NewRecognitionPage";
 
 describe("NewRecognitionPage option parsing", () => {
@@ -93,5 +94,39 @@ describe("NewRecognitionPage option parsing", () => {
         source: "demo-web"
       }
     });
+  });
+
+  it("在创建识别任务前拦截空文件、超大文件和非病历文件类型", () => {
+    expect(
+      validateRecognitionFile({
+        name: "record.pdf",
+        size: 1024,
+        type: "application/pdf"
+      })
+    ).toEqual({ valid: true });
+
+    expect(
+      validateRecognitionFile({
+        name: "empty.pdf",
+        size: 0,
+        type: "application/pdf"
+      })
+    ).toEqual({ valid: false, message: "病历文件内容为空，请重新选择文件。" });
+
+    expect(
+      validateRecognitionFile({
+        name: "large-record.pdf",
+        size: 20 * 1024 * 1024 + 1,
+        type: "application/pdf"
+      })
+    ).toEqual({ valid: false, message: "单个病历文件不能超过 20MB。" });
+
+    expect(
+      validateRecognitionFile({
+        name: "record.txt",
+        size: 1024,
+        type: "text/plain"
+      })
+    ).toEqual({ valid: false, message: "仅支持 PNG、JPG 或 PDF 病历文件。" });
   });
 });

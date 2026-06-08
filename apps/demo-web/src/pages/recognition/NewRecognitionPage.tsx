@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { blobSha256Hex, blobToBase64 } from "../../utils/fileContent";
@@ -26,12 +26,20 @@ type RecognitionFileInput = Pick<File, "name" | "size" | "type"> & {
   arrayBuffer?: File["arrayBuffer"];
 };
 
+type FileValidationResult =
+  | { valid: true }
+  | { valid: false; message: string };
+
 type SelectOption = {
   value: string;
   label: string;
 };
 
 type OptionLoadState = "idle" | "loading" | "success" | "error";
+
+const maxRecognitionFileBytes = 20 * 1024 * 1024;
+const acceptedRecognitionMimeTypes = new Set(["image/png", "image/jpeg", "application/pdf"]);
+const acceptedRecognitionExtensions = [".png", ".jpg", ".jpeg", ".pdf"];
 
 const initialPrivacyOptions: PrivacyOptions = {
   deidentify: true,
@@ -117,6 +125,30 @@ export function createSyntheticRecognitionFile() {
   });
 }
 
+export function validateRecognitionFile(file: RecognitionFileInput): FileValidationResult {
+  // 前端预检只负责给用户即时反馈，后端仍然需要保留完整的安全校验。
+  // 这里先挡住空文件、超大文件和明显不支持的类型，避免用户等到上传后才发现问题。
+  if (file.size <= 0) {
+    return { valid: false, message: "病历文件内容为空，请重新选择文件。" };
+  }
+
+  if (file.size > maxRecognitionFileBytes) {
+    return { valid: false, message: "单个病历文件不能超过 20MB。" };
+  }
+
+  const mimeType = file.type.toLowerCase();
+  const fileName = file.name.toLowerCase();
+  const hasAcceptedMimeType = acceptedRecognitionMimeTypes.has(mimeType);
+  const hasAcceptedExtension = acceptedRecognitionExtensions.some((extension) => fileName.endsWith(extension));
+  const canTrustExtensionFallback = mimeType.length === 0 || mimeType === "application/octet-stream";
+
+  if (!hasAcceptedMimeType && !(canTrustExtensionFallback && hasAcceptedExtension)) {
+    return { valid: false, message: "仅支持 PNG、JPG 或 PDF 病历文件。" };
+  }
+
+  return { valid: true };
+}
+
 function readRecordId(value: unknown) {
   if (value && typeof value === "object" && "id" in value) {
     const id = (value as { id?: unknown }).id;
@@ -156,7 +188,10 @@ export async function buildRecognitionFileUploadInput(input: {
 
 export default function NewRecognitionPage() {
   const { api } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState("");
+  const [isDragActive, setIsDragActive] = useState(false);
   const [schemaChoices, setSchemaChoices] = useState<SelectOption[]>(fallbackSchemaOptions);
   const [ocrProviderChoices, setOcrProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
   const [llmProviderChoices, setLlmProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
@@ -176,6 +211,13 @@ export default function NewRecognitionPage() {
 
     return `${selectedFile.name} · ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB`;
   }, [selectedFile]);
+
+  const uploadZoneClassName = [
+    "upload-zone",
+    selectedFile ? "is-ready" : "",
+    fileError ? "is-danger" : "",
+    isDragActive ? "is-dragging" : ""
+  ].filter(Boolean).join(" ");
 
   useEffect(() => {
     let isActive = true;
@@ -228,10 +270,55 @@ export default function NewRecognitionPage() {
     };
   }, [api]);
 
+  function applySelectedFile(file: File | null) {
+    // 点击选择和拖拽上传都走同一个入口，保证文件规则、错误文案和页面状态完全一致。
+    if (!file) {
+      setSelectedFile(null);
+      setFileError("");
+      setSubmitState({ status: "idle" });
+      return true;
+    }
+
+    const validation = validateRecognitionFile(file);
+    if (!validation.valid) {
+      setSelectedFile(null);
+      setFileError(validation.message);
+      setSubmitState({ status: "idle" });
+      return false;
+    }
+
+    setSelectedFile(file);
+    setFileError("");
+    setSubmitState({ status: "idle" });
+    return true;
+  }
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
-    setSelectedFile(file);
-    setSubmitState({ status: "idle" });
+    const accepted = applySelectedFile(file);
+
+    if (!accepted) {
+      event.currentTarget.value = "";
+    }
+  }
+
+  function handleUploadDrag(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(true);
+  }
+
+  function handleUploadDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+  }
+
+  function handleUploadDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+    void applySelectedFile(event.dataTransfer.files?.[0] ?? null);
   }
 
   function updatePrivacy(key: keyof PrivacyOptions) {
@@ -285,10 +372,20 @@ export default function NewRecognitionPage() {
 
   async function submitWithFile(file: File | null) {
     if (!file) {
-      setSubmitState({ status: "error", message: "请先上传图片或 PDF 文件。" });
+      const message = fileError || "请先上传图片或 PDF 文件。";
+      setFileError(message);
+      setSubmitState({ status: "error", message });
       return;
     }
 
+    const validation = validateRecognitionFile(file);
+    if (!validation.valid) {
+      setFileError(validation.message);
+      setSubmitState({ status: "error", message: validation.message });
+      return;
+    }
+
+    setFileError("");
     setSubmitState({ status: "loading" });
 
     try {
@@ -342,17 +439,30 @@ export default function NewRecognitionPage() {
           </span>
         </div>
 
-        <label className={`upload-zone ${selectedFile ? "is-ready" : ""}`}>
-          <AppIcon icon={actionIcons.createRecognition} size="lg" tone={selectedFile ? "green" : "blue"} tile />
-          <strong>{selectedFile ? "文件已选择" : "上传图片或 PDF"}</strong>
+        <label
+          className={uploadZoneClassName}
+          onDragEnter={handleUploadDrag}
+          onDragLeave={handleUploadDragLeave}
+          onDragOver={handleUploadDrag}
+          onDrop={handleUploadDrop}
+        >
+          <AppIcon icon={actionIcons.createRecognition} size="lg" tone={fileError ? "red" : selectedFile ? "green" : "blue"} tile />
+          <strong>{isDragActive ? "释放文件开始校验" : selectedFile ? "文件已选择" : "上传图片或 PDF"}</strong>
           <span>{fileSummary}</span>
           <input
+            ref={fileInputRef}
             aria-label="上传识别文件"
             accept="image/png,image/jpeg,application/pdf"
             type="file"
             onChange={handleFileChange}
           />
         </label>
+        {fileError ? (
+          <p className="form-error recognition-field-error" role="alert">
+            <AppIcon icon={statusIcons.danger} size="sm" />
+            <span>{fileError}</span>
+          </p>
+        ) : null}
 
         <div className="form-grid">
           <label className="field-row" data-guide="schema-selection">
@@ -475,6 +585,10 @@ export default function NewRecognitionPage() {
             aria-label="清空当前识别表单"
             onClick={() => {
               setSelectedFile(null);
+              setFileError("");
+              if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+              }
               setPrivacy(initialPrivacyOptions);
               setSubmitState({ status: "idle" });
             }}
