@@ -89,6 +89,35 @@ describe("createApiClient", () => {
     });
   });
 
+  it("后端返回文件 checksum 不一致时会给出中文提示", async () => {
+    const fetchMock: typeof fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ error: "FILE_CHECKSUM_MISMATCH" }), {
+        headers: { "content-type": "application/json" },
+        status: 409,
+      }),
+    ) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    await expect(
+      client.createFile({
+        originalName: "synthetic-record.pdf",
+        mimeType: "application/pdf",
+        byteSize: 2048,
+        checksumSha256: "0000000000000000000000000000000000000000000000000000000000000000",
+        contentBase64: "REVNT19QREZfQllURVM=",
+      }),
+    ).rejects.toMatchObject({
+      name: "ApiClientError",
+      status: 409,
+      code: "FILE_CHECKSUM_MISMATCH",
+      message: "文件校验值不一致，请重新选择病历文件后再上传。"
+    });
+  });
+
   it("读取文件内容时调用文件二进制端点并解析文件名", async () => {
     const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     const fetchMock: typeof fetch = vi.fn(async (input, init) => {
