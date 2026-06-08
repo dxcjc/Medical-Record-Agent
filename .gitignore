@@ -21,6 +21,10 @@ yarn-error.log*
 # Superpowers 头脑风暴临时文件
 .superpowers/
 
+# 真实脱敏评估样本只能放在受控本地或内网目录，默认不得提交到 git
+evaluation-data/local-deidentified/
+evaluation-data/intranet-deidentified/
+
 # 编辑器和系统文件
 .DS_Store
 Thumbs.db

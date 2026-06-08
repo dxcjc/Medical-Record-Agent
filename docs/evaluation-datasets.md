@@ -134,6 +134,26 @@ evaluation-data
 - 真实脱敏样本评估运行必须记录 datasetId、schemaVersion、promptVersion、ocrProvider、modelProvider、运行人、运行时间和审计日志。
 - 从人工反馈沉淀评估样本时，必须重新执行脱敏检查，不能把反馈 payload 直接写成真实样本。
 
+## Manifest 校验脚本
+
+真实脱敏样本导入前先用本地 manifest 脚本做预检：
+
+```powershell
+pnpm eval:manifest evaluation-data/local-deidentified/datasets/lims-clinical-info-local.json
+```
+
+脚本只读取 manifest 并输出校验摘要，不上传文件、不调用 OCR/LLM、不导入 API。当前会检查：
+
+- 顶层 `datasetId`、`schemaId`、`schemaVersion`、`sourceType`、`deidentified`、`samples` 等必填字段。
+- `sourceType=real` 直接拒绝；真实样本只能用 `real_deidentified`。
+- `real_deidentified` 必须提供 `deidentification.proofId`，或提供 `reviewedBy` + `reviewedAt`。
+- dataset 和 sample 都必须满足 `deidentified=true`。
+- 每个样本必须有 `documentRef`、`documentType` 和字段级 `groundTruth`。
+- 每个字段级 `groundTruth` 必须带 evidence。
+- manifest 文本中如果出现手机号、身份证号、联系方式、住址、住院号、门诊号、条码号等明显 PHI/PII 风险，会阻止生成导入 payload。
+
+通过校验后，manifest 可以由受控导入流程转换为 API 所需的 dataset 和 samples payload。转换后的 sample metadata 会保留 `sourceType=real_deidentified`、`deidentified=true`、脱敏证明、`documentRef`、`documentType`、质量标签和 `needsReview` 标注；后端导入接口仍会再次执行脱敏安全门校验。
+
 ## 短 JSON 示例
 
 下面示例是合成样本，不包含真实个人信息。字段值保持中文明文，禁止使用 Unicode 转义。

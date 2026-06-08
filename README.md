@@ -94,13 +94,46 @@ pnpm dev:web
 
 ```bash
 pnpm test        # 运行 Vitest 测试
-pnpm typecheck   # 运行所有 workspace 包的 TypeScript 类型检查
+pnpm typecheck   # 运行 workspace 包和 scripts 目录的 TypeScript 类型检查
 pnpm build       # 构建所有支持 build 的 workspace 包
 pnpm dev:api     # 启动 API 开发服务
 pnpm dev:web     # 启动 Demo/Admin 前端
+pnpm eval:manifest <manifest.json>  # 校验评估数据集 manifest，不导入 API
+pnpm eval:run                      # 创建受控评估 run 并读取 metrics
+pnpm smoke:production               # 对生产 API 做受控 smoke 检查
 pnpm db:migrate  # 执行 Prisma 数据库迁移
 pnpm db:seed     # 写入初始化种子数据
 ```
+
+## 真实 LLM Provider
+
+生产模式下 `LLM_PROVIDER` 支持 `mock`、`langchain`、`openai-compatible` 和 `openai-responses`。推荐学习和默认 agent 主线使用 `langchain`：它会通过 LangChain `ChatOpenAI` 创建真实模型，读取 `LLM_MODEL`，优先使用 `OPENAI_API_KEY`，否则使用 `LLM_API_KEY`；配置 `LLM_BASE_URL` 后可以指向 OpenAI-compatible 网关。测试或特殊部署也可以在 production service 创建时注入 `langChainModel`，用于接入自定义 LangChain model-like 对象。
+
+## 生产 Smoke 与评估 Manifest
+
+`pnpm smoke:production` 默认按 `.env` 中的 `PRODUCTION_SMOKE_*` 配置执行。安全默认值只用于验证 `/status`、登录、Provider 列表和 Provider health。只有设置 `PRODUCTION_SMOKE_RUN_RECOGNITION=true` 时，脚本才会上传合成或审批后的强脱敏样本并创建识别任务；只有再设置 `PRODUCTION_SMOKE_RUN_WRITEBACK=true` 时，才会基于本次识别结果里的 `readyFields` 调用 `/writeback`。
+
+真实脱敏评估样本导入前先运行：
+
+```bash
+pnpm eval:manifest evaluation-data/local-deidentified/datasets/lims-clinical-info-local.json
+```
+
+该命令只做本地预检，不上传文件、不调用 OCR/LLM、不导入 API。确认 manifest 通过校验后，可以在受控环境里显式执行导入：
+
+```bash
+pnpm eval:manifest --import evaluation-data/local-deidentified/datasets/lims-clinical-info-local.json
+```
+
+导入模式需要配置 `EVALUATION_API_BASE_URL` 和具备 `evaluation:manage` 权限的 `EVALUATION_API_ACCESS_TOKEN`。导入脚本只创建 evaluation dataset 和 sample metadata，传递 `documentRef`、`groundTruth` 和脱敏证明，不读取或上传真实病历文件字节。`evaluation-data/local-deidentified/` 和 `evaluation-data/intranet-deidentified/` 默认已加入 `.gitignore`。
+
+导入完成后，可以配置 `EVALUATION_DATASET_ID`、`EVALUATION_PROVIDER_KEY`、可选 `EVALUATION_SCHEMA_KEY` 和 `EVALUATION_SAMPLE_LIMIT`，再执行：
+
+```bash
+pnpm eval:run
+```
+
+该命令只调用 Evaluation API 创建 run、读取 run 状态和 metrics；真正使用哪个 OCR/LLM provider 由后端生产配置和 run 参数决定。
 
 ## 文档索引
 
