@@ -736,6 +736,53 @@ describe("api service composition", () => {
     expect(repositories.fileRepository.create).not.toHaveBeenCalled();
   });
 
+  it("上传文件字节时会校验 SHA-256，不一致则拒绝创建文件记录", async () => {
+    const repositories = createRepositories();
+    const storageProvider = {
+      put: vi.fn(),
+      get: vi.fn(),
+      delete: vi.fn()
+    };
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator: {
+        start: vi.fn()
+      },
+      providerRegistry: {
+        list: vi.fn(),
+        setDefault: vi.fn()
+      },
+      storageProvider,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.fileService.createUpload({
+        originalName: "record.pdf",
+        mimeType: "application/pdf",
+        checksumSha256: "0000000000000000000000000000000000000000000000000000000000000000",
+        contentBase64: Buffer.from("DEMO_PDF_BYTES").toString("base64")
+      })
+    ).rejects.toMatchObject({
+      code: "FILE_CHECKSUM_MISMATCH",
+      statusCode: 409
+    });
+
+    expect(storageProvider.put).not.toHaveBeenCalled();
+    expect(repositories.fileRepository.create).not.toHaveBeenCalled();
+  });
+
   it("上传文件字节写入存储，并在创建识别任务时把字节交给 OCR 编排", async () => {
     const repositories = createRepositories();
     const storageProvider = {
@@ -791,7 +838,7 @@ describe("api service composition", () => {
     await services.fileService.createUpload({
       originalName: "record.pdf",
       mimeType: "application/pdf",
-      checksumSha256: "sha-demo",
+      checksumSha256: "b66f1b66ec824925d01f389a3494722c0676af4d131cc3bd7d38b7c06bf62d61",
       contentBase64: Buffer.from("DEMO_PDF_BYTES").toString("base64"),
       metadata: {
         source: "unit-test"
@@ -809,7 +856,7 @@ describe("api service composition", () => {
       expect.objectContaining({
         storageKey: "uploads/2026-06-05/record.pdf",
         byteSize: BigInt(14),
-        checksumSha256: "sha-demo"
+        checksumSha256: "b66f1b66ec824925d01f389a3494722c0676af4d131cc3bd7d38b7c06bf62d61"
       })
     );
 

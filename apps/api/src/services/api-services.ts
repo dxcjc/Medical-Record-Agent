@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { Prisma } from "@prisma/client";
 import type {
   EvaluationDataset as CoreEvaluationDataset,
@@ -275,6 +277,21 @@ function decodeBase64Content(contentBase64: unknown): Buffer | undefined {
   }
 
   return body;
+}
+
+function checksumSha256Hex(content: Buffer) {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function assertUploadedContentChecksum(content: Buffer, checksumSha256: unknown) {
+  if (typeof checksumSha256 !== "string" || checksumSha256.length === 0 || checksumSha256 === "unknown") {
+    return;
+  }
+
+  // 真实上传字节进入受控存储前先校验前端提交的 SHA-256，避免损坏内容被写入并继续识别。
+  if (checksumSha256Hex(content) !== checksumSha256.toLowerCase()) {
+    throw createApiServiceError("FILE_CHECKSUM_MISMATCH", 409);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -844,6 +861,9 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           // 调用方已经上传了真实文件字节时，必须把字节落到受控存储。
           // 没有 storageProvider 仍创建文件记录会制造“上传成功但后续无法 OCR”的假文件。
           throw createApiServiceError("FILE_STORAGE_PROVIDER_NOT_CONFIGURED", 503);
+        }
+        if (content !== undefined) {
+          assertUploadedContentChecksum(content, body.checksumSha256);
         }
 
         const storedFile = content

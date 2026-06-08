@@ -966,7 +966,7 @@ describe("production api services bootstrap", () => {
     await services.fileService.createUpload({
       originalName: "record.pdf",
       mimeType: "application/pdf",
-      checksumSha256: "sha-demo",
+      checksumSha256: "b66f1b66ec824925d01f389a3494722c0676af4d131cc3bd7d38b7c06bf62d61",
       contentBase64: Buffer.from("DEMO_PDF_BYTES").toString("base64")
     });
 
