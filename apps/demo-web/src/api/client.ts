@@ -46,7 +46,7 @@ export class ApiClientError extends Error {
   readonly code: string;
 
   constructor(status: number, code: string) {
-    super(code);
+    super(describeApiErrorCode(code));
     this.name = "ApiClientError";
     this.status = status;
     this.code = code;
@@ -70,6 +70,19 @@ function readErrorCode(payload: unknown) {
   }
 
   return "API_ERROR";
+}
+
+export function describeApiErrorCode(code: string) {
+  // API 只暴露稳定错误码，前端在这里集中转成用户可理解的中文提示。
+  // 这样页面不需要认识每个后端 code，也避免把原始 Error.message 或敏感配置细节直接展示出来。
+  const messages: Record<string, string> = {
+    FILE_CONTENT_BASE64_INVALID: "文件内容编码无效，请重新选择病历图片或 PDF。",
+    FILE_STORAGE_PROVIDER_NOT_CONFIGURED: "文件存储服务未配置，无法保存上传的病历文件。",
+    SOURCE_FILE_NOT_FOUND: "未找到已上传的病历文件，请重新上传后再创建识别任务。",
+    STORED_FILE_NOT_FOUND: "病历文件在受控存储中不存在，请重新上传后再试。"
+  };
+
+  return messages[code] ?? code;
 }
 
 function readFileNameFromDisposition(value: string | null) {

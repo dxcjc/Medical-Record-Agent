@@ -60,6 +60,35 @@ describe("createApiClient", () => {
     expect((headers as Headers).get("content-type")).toBe("application/json");
   });
 
+  it("后端返回文件存储未配置时会保留错误码并给出中文提示", async () => {
+    const fetchMock: typeof fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ error: "FILE_STORAGE_PROVIDER_NOT_CONFIGURED" }), {
+        headers: { "content-type": "application/json" },
+        status: 503,
+      }),
+    ) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    await expect(
+      client.createFile({
+        originalName: "synthetic-record.pdf",
+        mimeType: "application/pdf",
+        byteSize: 2048,
+        checksumSha256: "demo-checksum",
+        contentBase64: "REVNT19QREZfQllURVM=",
+      }),
+    ).rejects.toMatchObject({
+      name: "ApiClientError",
+      status: 503,
+      code: "FILE_STORAGE_PROVIDER_NOT_CONFIGURED",
+      message: "文件存储服务未配置，无法保存上传的病历文件。"
+    });
+  });
+
   it("读取文件内容时调用文件二进制端点并解析文件名", async () => {
     const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     const fetchMock: typeof fetch = vi.fn(async (input, init) => {
