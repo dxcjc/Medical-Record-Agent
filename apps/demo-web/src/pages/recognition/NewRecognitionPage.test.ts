@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createSyntheticRecognitionFile, parseProviderOptions, parseSchemaOptions } from "./NewRecognitionPage";
+import {
+  buildRecognitionFileUploadInput,
+  createSyntheticRecognitionFile,
+  parseProviderOptions,
+  parseSchemaOptions
+} from "./NewRecognitionPage";
 
 describe("NewRecognitionPage option parsing", () => {
   it("把真实 Schema API 响应转换成 value=backend key 的下拉选项", () => {
@@ -51,5 +56,42 @@ describe("NewRecognitionPage option parsing", () => {
     expect(file.name).toBe("synthetic-clinical-record.pdf");
     expect(file.type).toBe("application/pdf");
     await expect(file.text()).resolves.toContain("synthetic clinical record");
+  });
+
+  it("上传病历文件时使用真实 SHA-256 checksum 和 base64 字节", async () => {
+    const file = new File(["DEMO_PDF_BYTES"], "record.pdf", {
+      type: "application/pdf"
+    });
+
+    await expect(
+      buildRecognitionFileUploadInput({
+        file,
+        adapter: "lims-clinical-payload",
+        ocrProvider: "mock-ocr",
+        provider: "mock-model",
+        privacy: {
+          deidentify: true,
+          keepEvidence: true,
+          allowWriteBack: false
+        }
+      })
+    ).resolves.toEqual({
+      originalName: "record.pdf",
+      mimeType: "application/pdf",
+      byteSize: 14,
+      checksumSha256: "b66f1b66ec824925d01f389a3494722c0676af4d131cc3bd7d38b7c06bf62d61",
+      contentBase64: "REVNT19QREZfQllURVM=",
+      metadata: {
+        adapter: "lims-clinical-payload",
+        ocrProvider: "mock-ocr",
+        provider: "mock-model",
+        privacy: {
+          deidentify: true,
+          keepEvidence: true,
+          allowWriteBack: false
+        },
+        source: "demo-web"
+      }
+    });
   });
 });

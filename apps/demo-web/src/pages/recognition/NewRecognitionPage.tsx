@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { blobToBase64 } from "../../utils/fileContent";
+import { blobSha256Hex, blobToBase64 } from "../../utils/fileContent";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
 import {
   adapterOptions,
@@ -128,8 +128,30 @@ function readRecordId(value: unknown) {
   return undefined;
 }
 
-function buildDemoChecksum(file: Pick<File, "name" | "size">) {
-  return `demo-${file.name}-${file.size}`;
+export async function buildRecognitionFileUploadInput(input: {
+  file: RecognitionFileInput;
+  adapter: string;
+  ocrProvider: string;
+  provider: string;
+  privacy: PrivacyOptions;
+}) {
+  const contentBase64 = input.file instanceof Blob ? await blobToBase64(input.file) : undefined;
+  const checksumSha256 = input.file instanceof Blob ? await blobSha256Hex(input.file) : "unknown";
+
+  return {
+    originalName: input.file.name,
+    mimeType: input.file.type || "application/octet-stream",
+    byteSize: input.file.size,
+    checksumSha256,
+    ...(contentBase64 ? { contentBase64 } : {}),
+    metadata: {
+      adapter: input.adapter,
+      ocrProvider: input.ocrProvider,
+      provider: input.provider,
+      privacy: input.privacy,
+      source: "demo-web"
+    }
+  };
 }
 
 export default function NewRecognitionPage() {
@@ -220,21 +242,15 @@ export default function NewRecognitionPage() {
   }
 
   async function createRecognitionFromFile(file: RecognitionFileInput) {
-    const contentBase64 = file instanceof Blob ? await blobToBase64(file) : undefined;
-    const createdFile = await api.createFile({
-      originalName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      byteSize: file.size,
-      checksumSha256: buildDemoChecksum(file),
-      ...(contentBase64 ? { contentBase64 } : {}),
-      metadata: {
+    const createdFile = await api.createFile(
+      await buildRecognitionFileUploadInput({
+        file,
         adapter,
         ocrProvider,
         provider,
-        privacy,
-        source: "demo-web",
-      },
-    });
+        privacy
+      })
+    );
     const fileId = readRecordId(createdFile);
 
     if (!fileId) {
