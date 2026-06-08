@@ -139,6 +139,7 @@ pnpm eval:run
 
 - [系统架构文档](docs/system-architecture.md)：目标架构、技术栈选型、核心模块、流程、数据架构、部署、安全和风险约束。
 - [评估数据集执行规范](docs/evaluation-datasets.md)：合成样本、真实脱敏样本、ground truth、证据标注和评估边界。
+- [2026-06-08 晚间交接](docs/2026-06-08-handoff.md)：今日已推送内容、验证命令、运行入口、已知风险和接手优先级。
 - [superpowers 设计规格](docs/superpowers/specs/2026-06-04-medical-record-recognition-agent-design.md)：病历识别 Agent 的设计来源和目标范围。
 - [superpowers 实施计划](docs/superpowers/plans/2026-06-04-medical-record-agent-product.md)：按任务拆分的产品实现计划。
 - [Agent 框架对比](docs/agent-framework-comparison.md)：LangGraph、OpenAI Agents SDK、Mastra 和 LlamaIndex.TS 的项目内取舍。
