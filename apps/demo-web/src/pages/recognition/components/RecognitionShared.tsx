@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, ArrowRight, CheckCircle2, CircleAlert, Clock3 } from "lucide-react";
+import { AppIcon, actionIcons, statusIcons } from "../../../icons/appIcons";
 import type { DecisionLevel, ProviderHealth, RecognitionStatus } from "./demoData";
 import { decisionLabels, providerHealthLabels, statusLabels } from "./demoData";
 
@@ -10,11 +10,19 @@ type PageHeaderProps = {
   actions?: React.ReactNode;
 };
 
+export type MetricTone = "neutral" | "success" | "warning" | "danger" | "info";
+type TrendDirection = "up" | "down";
+
 type MetricCardProps = {
   label: string;
   value: string;
   description: string;
   icon: LucideIcon;
+  tone?: MetricTone;
+  trend?: {
+    direction: TrendDirection;
+    label: string;
+  };
 };
 
 type StatusPillProps = {
@@ -44,55 +52,62 @@ const toneClassMap: Record<StatusPillProps["tone"], string> = {
   neutral: "is-neutral",
 };
 
-const toneIconMap: Record<StatusPillProps["tone"], LucideIcon> = {
-  queued: Clock3,
-  running: Activity,
-  review: CircleAlert,
-  completed: CheckCircle2,
-  failed: CircleAlert,
-  online: CheckCircle2,
-  degraded: CircleAlert,
-  offline: CircleAlert,
-  green: CheckCircle2,
-  yellow: CircleAlert,
-  red: CircleAlert,
-  neutral: Activity,
+const metricToneClassMap: Record<MetricTone, string> = {
+  neutral: "metric-card--neutral",
+  success: "metric-card--success",
+  warning: "metric-card--warning",
+  danger: "metric-card--danger",
+  info: "metric-card--info",
+};
+
+const metricTileToneMap: Record<MetricTone, "blue" | "green" | "orange" | "red" | "gray"> = {
+  neutral: "gray",
+  success: "green",
+  warning: "orange",
+  danger: "red",
+  info: "blue",
 };
 
 export function PageHeader({ eyebrow, title, description, actions }: PageHeaderProps) {
   return (
-    <header className="page-header">
-      <div>
+    <header className="page-header u-surface">
+      <div className="u-stack">
         <p className="page-eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-      {actions ? <div className="toolbar">{actions}</div> : null}
+      {actions ? <div className="page-header__actions u-cluster">{actions}</div> : null}
     </header>
   );
 }
 
-export function MetricCard({ label, value, description, icon: Icon }: MetricCardProps) {
+export function MetricCard({ label, value, description, icon: Icon, tone = "info", trend }: MetricCardProps) {
+  const TrendIcon = trend?.direction === "down" ? actionIcons.trendDown : actionIcons.trendUp;
+
   return (
-    <article className="metric-card">
+    <article className={`metric-card u-surface ${metricToneClassMap[tone]}`}>
       <div className="metric-card__icon" aria-hidden="true">
-        <Icon size={20} />
+        <AppIcon icon={Icon} size="md" tone={metricTileToneMap[tone]} tile />
       </div>
-      <div>
+      <div className="metric-card__body">
         <p>{label}</p>
         <strong>{value}</strong>
         <span>{description}</span>
       </div>
+      {trend ? (
+        <div className={`metric-card__trend is-${trend.direction}`}>
+          <AppIcon icon={TrendIcon} size="xs" />
+          {trend.label}
+        </div>
+      ) : null}
     </article>
   );
 }
 
 export function StatusPill({ label, tone }: StatusPillProps) {
-  const Icon = toneIconMap[tone];
-
   return (
     <span className={`status-pill ${toneClassMap[tone]}`}>
-      <Icon size={14} aria-hidden="true" />
+      <AppIcon icon={statusIcons[tone]} size="xs" className={tone === "running" ? "is-spinning" : undefined} />
       {label}
     </span>
   );
@@ -112,8 +127,8 @@ export function DecisionPill({ decision }: { decision: DecisionLevel }) {
 
 export function EmptyPanel({ icon: Icon, title, description, action }: EmptyPanelProps) {
   return (
-    <section className="panel empty-panel">
-      <Icon size={28} aria-hidden="true" />
+    <section className="panel empty-panel u-surface">
+      <AppIcon icon={Icon} size="lg" tone="blue" tile />
       <h2>{title}</h2>
       <p>{description}</p>
       {action}
@@ -121,16 +136,16 @@ export function EmptyPanel({ icon: Icon, title, description, action }: EmptyPane
   );
 }
 
-export function SectionTitle({ title, actionLabel }: { title: string; actionLabel?: string }) {
+export function SectionTitle({ title, actionLabel, action }: { title: string; actionLabel?: string; action?: React.ReactNode }) {
   return (
     <div className="section-title">
       <h2>{title}</h2>
-      {actionLabel ? (
+      {action ?? (actionLabel ? (
         <button className="secondary-button" type="button" aria-label={actionLabel}>
           {actionLabel}
-          <ArrowRight size={16} aria-hidden="true" />
+          <AppIcon icon={actionIcons.next} size="sm" />
         </button>
-      ) : null}
+      ) : null)}
     </div>
   );
 }

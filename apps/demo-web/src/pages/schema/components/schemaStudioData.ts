@@ -1,13 +1,3 @@
-import type { ComponentType } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  GitCompare,
-  RotateCcw,
-  ShieldCheck
-} from "lucide-react";
-
 export type SchemaStatus = "draft" | "active" | "inactive" | "archived";
 
 export type ValidationLevel = "success" | "warning" | "error";
@@ -58,14 +48,6 @@ export type FlowState = {
   deactivateRequested: boolean;
   rollbackTarget: string;
   compareBase: string;
-};
-
-export type FlowAction = {
-  id: string;
-  label: string;
-  description: string;
-  statusText: string;
-  Icon: ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
 };
 
 export const schemaRecords: SchemaRecord[] = [
@@ -237,49 +219,9 @@ export const validationResults: ValidationResult[] = [
   }
 ];
 
-export const flowActions: FlowAction[] = [
-  {
-    id: "publish",
-    label: "发布草稿",
-    description: "将草稿版本提升为生产可用版本。",
-    statusText: "等待管理员确认",
-    Icon: ShieldCheck
-  },
-  {
-    id: "compare",
-    label: "比较版本",
-    description: "对比草稿与当前生产版本的字段和指标差异。",
-    statusText: "可执行",
-    Icon: GitCompare
-  },
-  {
-    id: "rollback",
-    label: "回滚版本",
-    description: "将生产版本切回最近稳定快照。",
-    statusText: "需要影响评估",
-    Icon: RotateCcw
-  },
-  {
-    id: "deactivate",
-    label: "停用 Schema",
-    description: "停止生产管道继续引用当前 Schema。",
-    statusText: "高风险操作",
-    Icon: AlertTriangle
-  }
-];
-
 export const statusLabels: Record<SchemaStatus, string> = {
   draft: "草稿",
   active: "生产中",
   inactive: "已停用",
   archived: "已归档"
-};
-
-export const validationIcons: Record<
-  ValidationLevel,
-  ComponentType<{ size?: number; "aria-hidden"?: boolean }>
-> = {
-  success: CheckCircle2,
-  warning: AlertTriangle,
-  error: Clock
 };

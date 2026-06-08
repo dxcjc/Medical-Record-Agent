@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import { Database, HardDrive, RefreshCcw, Save, ServerCog, Sparkles, Stethoscope } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, providerIcons } from "../../icons/appIcons";
 import { InlineNotice, MetricCard, SecretField, SectionHeader, StatusPill } from "./components";
 
 type ProviderKind = "LangChain" | "OpenAI-compatible" | "OpenAI Responses" | "Mock";
@@ -37,11 +36,11 @@ type LocalProviderActionState = {
 
 const providerKinds: ProviderKind[] = ["LangChain", "OpenAI-compatible", "OpenAI Responses", "Mock"];
 
-const providerIcons: Record<ProviderArea, ReactNode> = {
-  OCR: <Stethoscope size={18} aria-hidden="true" />,
-  LLM: <Sparkles size={18} aria-hidden="true" />,
-  storage: <HardDrive size={18} aria-hidden="true" />,
-  LIMS: <Database size={18} aria-hidden="true" />
+const providerAreaIcons: Record<ProviderArea, (typeof providerIcons)[keyof typeof providerIcons]> = {
+  OCR: providerIcons.azureOcr,
+  LLM: providerIcons.openaiVision,
+  storage: dashboardMetricIcons.dataset,
+  LIMS: dashboardMetricIcons.writeback
 };
 
 const initialConfigs: ProviderConfig[] = [
@@ -261,7 +260,7 @@ export function ProviderSettingsPage() {
         description="集中维护 OCR、LLM、对象存储和 LIMS 写回 provider，支持 Mock 与生产兼容模式切换。"
         actions={
           <button className="action-button" type="button" onClick={saveConfigs}>
-            <Save size={16} aria-hidden="true" />
+            <AppIcon icon={dashboardMetricIcons.decisionPass} size="sm" />
             保存本地草稿
           </button>
         }
@@ -281,11 +280,11 @@ export function ProviderSettingsPage() {
       <section className="panel">
         <div className="panel-header">
           <h2>
-            <ServerCog size={18} aria-hidden="true" />
+            <AppIcon icon={navigationIcons.providerSettings} size="md" />
             真实 Provider API
           </h2>
           <button className="secondary-button" type="button" disabled={apiStatus.status === "loading"} onClick={() => void loadProviders()}>
-            <RefreshCcw size={16} aria-hidden="true" />
+            <AppIcon icon={actionIcons.refresh} size="sm" className={apiStatus.status === "loading" ? "is-spinning" : undefined} />
             {apiStatus.status === "loading" ? "读取中" : "刷新"}
           </button>
         </div>
@@ -312,7 +311,7 @@ export function ProviderSettingsPage() {
                 disabled={provider.isDefault || settingDefaultKey === provider.key}
                 onClick={() => void setDefaultProvider(provider.key)}
               >
-                <ServerCog size={16} aria-hidden="true" />
+                <AppIcon icon={navigationIcons.providerSettings} size="sm" />
                 {settingDefaultKey === provider.key ? "设置中" : provider.isDefault ? "默认" : "设为默认"}
               </button>
             </article>
@@ -336,7 +335,7 @@ export function ProviderSettingsPage() {
             <article className="panel" key={config.area}>
               <div className="panel-header">
                 <h2>
-                  {providerIcons[config.area]}
+                  <AppIcon icon={providerAreaIcons[config.area]} size="md" />
                   {config.area}
                 </h2>
                 <StatusPill tone={getHealthTone(healthResult.status)}>
@@ -411,7 +410,7 @@ export function ProviderSettingsPage() {
                   disabled={checkingArea === config.area}
                   onClick={() => runHealthCheck(config.area)}
                 >
-                  <ServerCog size={16} aria-hidden="true" />
+                  <AppIcon icon={navigationIcons.providerSettings} size="sm" className={checkingArea === config.area ? "is-spinning" : undefined} />
                   {checkingArea === config.area ? "预检中" : "本地预检"}
                 </button>
               </div>

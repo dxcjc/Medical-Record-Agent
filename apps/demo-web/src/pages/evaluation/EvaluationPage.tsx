@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ClipboardCheck, Database, ShieldAlert } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AppIcon, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { DatasetListPanel } from "./components/DatasetListPanel";
 import { EvaluationRunPanel } from "./components/EvaluationRunPanel";
 import { MetricCardsPanel } from "./components/MetricCardsPanel";
@@ -560,14 +560,14 @@ export default function EvaluationPage() {
           <p>管理医疗抽取评测集、样本导入、ground truth、评测任务和版本对比。</p>
         </div>
         <span className="status-pill">
-          <ClipboardCheck aria-hidden size={16} />
+          <AppIcon icon={navigationIcons.evaluation} size="sm" />
           {selectedDataset.scenario}
         </span>
       </header>
 
       {!selectedDataset.deidentified ? (
         <section className="warning-box" role="alert">
-          <ShieldAlert aria-hidden size={18} />
+          <AppIcon icon={statusIcons.danger} tone="red" />
           <div>
             <strong>未标记 deidentified 的 warning</strong>
             <p>
@@ -578,7 +578,7 @@ export default function EvaluationPage() {
         </section>
       ) : (
         <section className="warning-box" role="note">
-          <AlertTriangle aria-hidden size={18} />
+          <AppIcon icon={statusIcons.warning} tone="orange" />
           <div>
             <strong>数据治理提示</strong>
             <p>当前数据集已标记脱敏，仍需保留导入批次、ground truth 来源和复核记录。</p>
@@ -589,7 +589,7 @@ export default function EvaluationPage() {
       <div className="metric-grid">
         <article className="metric-card">
           <span className="status-pill">
-            <Database aria-hidden size={14} />
+            <AppIcon icon={dashboardMetricIcons.dataset} size="xs" />
             Dataset
           </span>
           <h2>{displayDatasets.length}</h2>
@@ -614,7 +614,7 @@ export default function EvaluationPage() {
 
       {datasetLoadState.error ? (
         <section className="warning-box" role="alert">
-          <AlertTriangle aria-hidden size={18} />
+          <AppIcon icon={statusIcons.warning} tone="orange" />
           <div>
             <strong>Evaluation Dataset 接口加载失败</strong>
             <p>{datasetLoadState.error}。当前页面继续展示静态兜底数据，样本导入和数据集创建模拟状态不会影响页面稳定性。</p>
@@ -624,7 +624,7 @@ export default function EvaluationPage() {
 
       {runLoadState.status === "error" || metricLoadState.status === "error" ? (
         <section className="warning-box" role="alert">
-          <AlertTriangle aria-hidden size={18} />
+          <AppIcon icon={statusIcons.warning} tone="orange" />
           <div>
             <strong>Evaluation API 读取提示</strong>
             <p>{runLoadState.status === "error" ? runLoadState.message : metricLoadState.message}</p>

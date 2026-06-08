@@ -1,6 +1,5 @@
-import { Loader2, ShieldCheck } from "lucide-react";
+import { AppIcon, commonUiIcons, navigationIcons, statusIcons } from "../../../icons/appIcons";
 import type { ValidationResult } from "./schemaStudioData";
-import { validationIcons } from "./schemaStudioData";
 
 type ValidationResultsPanelProps = {
   results: ValidationResult[];
@@ -18,7 +17,7 @@ export function ValidationResultsPanel({
   onValidate
 }: ValidationResultsPanelProps) {
   return (
-    <section className="panel" aria-labelledby="schema-validation-title">
+    <section className="panel studio-panel" aria-labelledby="schema-validation-title">
       <div className="toolbar">
         <div>
           <h2 id="schema-validation-title">验证结果</h2>
@@ -33,9 +32,9 @@ export function ValidationResultsPanel({
             disabled={actionState.isRunning}
           >
             {actionState.isRunning ? (
-              <Loader2 aria-hidden size={16} />
+              <AppIcon icon={commonUiIcons.loading} size="sm" />
             ) : (
-              <ShieldCheck aria-hidden size={16} />
+              <AppIcon icon={navigationIcons.brand} size="sm" />
             )}
             {actionState.isRunning ? "验证中" : "验证草稿"}
           </button>
@@ -49,7 +48,7 @@ export function ValidationResultsPanel({
       ) : null}
       {actionState.message ? (
         <div className="warning-box" role="status">
-          <ShieldCheck aria-hidden size={18} />
+          <AppIcon icon={statusIcons.success} tone="green" />
           <div>
             <strong>验证请求已发送</strong>
             <p>{actionState.message}</p>
@@ -59,12 +58,19 @@ export function ValidationResultsPanel({
 
       <div className="metric-grid">
         {results.map((result) => {
-          const ResultIcon = validationIcons[result.level];
+          const resultIcon =
+            result.level === "success"
+              ? statusIcons.success
+              : result.level === "warning"
+                ? statusIcons.warning
+                : statusIcons.danger;
+          const resultTone =
+            result.level === "success" ? "green" : result.level === "warning" ? "orange" : "red";
 
           return (
             <article className="metric-card" key={result.id}>
               <div className="toolbar">
-                <ResultIcon aria-hidden size={18} />
+                <AppIcon icon={resultIcon} tone={resultTone} tile />
                 <span className={`status-pill status-${result.level}`}>
                   {result.level === "success"
                     ? "通过"

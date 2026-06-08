@@ -1,4 +1,4 @@
-import { AlertTriangle, GitCompare, Loader2, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
+import { AppIcon, commonUiIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../../icons/appIcons";
 import type { FlowState, SchemaRecord, SchemaVersion } from "./schemaStudioData";
 
 type ApiActionState = {
@@ -41,20 +41,20 @@ export function SchemaFlowPanel({
   const rollbackOptions = archivedVersions.length > 0 ? archivedVersions : versions;
 
   return (
-    <section className="panel" aria-labelledby="schema-flow-title" data-guide="schema-publish">
+    <section className="panel studio-panel" aria-labelledby="schema-flow-title" data-guide="schema-publish">
       <div className="toolbar">
         <div>
           <h2 id="schema-flow-title">发布与变更流</h2>
           <p>管理 publish、deactivate、rollback、compare 的操作状态。</p>
         </div>
-        <label>
+        <label className="toggle-row">
           管理员
           <input type="checkbox" checked={isAdmin} onChange={onToggleAdmin} />
         </label>
       </div>
 
       <div className="warning-box" role="note">
-        <AlertTriangle aria-hidden size={18} />
+        <AppIcon icon={statusIcons.warning} tone="orange" />
         <div>
           <strong>生产影响 warning</strong>
           <p>
@@ -67,7 +67,7 @@ export function SchemaFlowPanel({
       <div className="metric-grid">
         <article className="metric-card">
           <div className="toolbar">
-            <ShieldCheck aria-hidden size={18} />
+            <AppIcon icon={navigationIcons.brand} tone="green" tile />
             <span className="status-pill">
               {flowState.publishRequested ? "已请求" : "未请求"}
             </span>
@@ -82,9 +82,9 @@ export function SchemaFlowPanel({
             title={isAdmin ? "发布草稿" : "非管理员不能发布"}
           >
             {actionState.publish.isRunning ? (
-              <Loader2 aria-hidden size={16} />
+              <AppIcon icon={commonUiIcons.loading} size="sm" />
             ) : (
-              <ShieldCheck aria-hidden size={16} />
+              <AppIcon icon={navigationIcons.brand} size="sm" />
             )}
             {actionState.publish.isRunning ? "发布中" : "发布"}
           </button>
@@ -100,7 +100,7 @@ export function SchemaFlowPanel({
 
         <article className="metric-card">
           <div className="toolbar">
-            <XCircle aria-hidden size={18} />
+            <AppIcon icon={statusIcons.danger} tone="red" tile />
             <span className="status-pill">
               {flowState.deactivateRequested ? "已进入审批" : "待评估"}
             </span>
@@ -108,14 +108,14 @@ export function SchemaFlowPanel({
           <h3>Deactivate</h3>
           <p>停用后生产管道将不再引用此 Schema。</p>
           <button type="button" className="danger-button" onClick={onDeactivate}>
-            <XCircle aria-hidden size={16} />
+            <AppIcon icon={statusIcons.danger} size="sm" />
             停用
           </button>
         </article>
 
         <article className="metric-card">
           <div className="toolbar">
-            <RotateCcw aria-hidden size={18} />
+            <AppIcon icon={dashboardMetricIcons.rollback} tone="orange" tile />
             <span className="status-pill">{flowState.rollbackTarget}</span>
           </div>
           <h3>Rollback</h3>
@@ -134,7 +134,7 @@ export function SchemaFlowPanel({
 
         <article className="metric-card">
           <div className="toolbar">
-            <GitCompare aria-hidden size={18} />
+            <AppIcon icon={navigationIcons.schemaStudio} tone="purple" tile />
             <span className="status-pill">比较基线</span>
           </div>
           <h3>Compare</h3>
@@ -157,9 +157,9 @@ export function SchemaFlowPanel({
             disabled={actionState.compare.isRunning}
           >
             {actionState.compare.isRunning ? (
-              <Loader2 aria-hidden size={16} />
+              <AppIcon icon={commonUiIcons.loading} size="sm" />
             ) : (
-              <GitCompare aria-hidden size={16} />
+              <AppIcon icon={navigationIcons.schemaStudio} size="sm" />
             )}
             {actionState.compare.isRunning ? "比较中" : "执行比较"}
           </button>

@@ -1,4 +1,4 @@
-import { FileInput, UploadCloud } from "lucide-react";
+import { AppIcon, actionIcons, dashboardMetricIcons } from "../../../icons/appIcons";
 import type { ImportFlowState } from "./evaluationData";
 
 type SampleImportPanelProps = {
@@ -18,13 +18,13 @@ export function SampleImportPanel({
   onCompleteImport
 }: SampleImportPanelProps) {
   return (
-    <section className="panel" aria-labelledby="evaluation-import-title">
+    <section className="panel studio-panel" aria-labelledby="evaluation-import-title">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-import-title">Sample Import Flow</h2>
           <p>导入样本文件并跟踪 ground truth 字段匹配状态。</p>
         </div>
-        <FileInput aria-hidden size={20} />
+        <AppIcon icon={dashboardMetricIcons.taskVolume} tone="purple" tile />
       </div>
 
       <div className="form-grid">
@@ -89,11 +89,11 @@ export function SampleImportPanel({
         <span className="status-pill">{importFlow.sampleImportStatus}</span>
         <span className="status-pill">{importFlow.groundTruthStatusText}</span>
         <button type="button" className="secondary-button" onClick={onValidateSamples}>
-          <UploadCloud aria-hidden size={16} />
+          <AppIcon icon={actionIcons.viewFlow} size="sm" />
           校验样本
         </button>
         <button type="button" className="action-button" onClick={onCompleteImport}>
-          <UploadCloud aria-hidden size={16} />
+          <AppIcon icon={actionIcons.createRecognition} size="sm" />
           完成导入
         </button>
       </div>

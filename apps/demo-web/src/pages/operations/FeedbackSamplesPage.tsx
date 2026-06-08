@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Archive, CheckCircle2, Send, Tag, ThumbsDown, ThumbsUp } from "lucide-react";
+import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { ConfirmDialog, InlineNotice, MetricCard, PayloadPreview, SectionHeader, StatusPill } from "./components";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -182,7 +182,7 @@ export function FeedbackSamplesPage() {
         <section className="panel" data-guide="feedback">
           <div className="panel-header">
             <h2>
-              <Tag size={18} aria-hidden="true" />
+              <AppIcon icon={navigationIcons.feedbackSamples} size="md" />
               样本列表
             </h2>
             <StatusPill tone="info">可标注</StatusPill>
@@ -225,7 +225,7 @@ export function FeedbackSamplesPage() {
                           setConfirmGoldenId(sample.id);
                         }}
                       >
-                        <ThumbsUp size={15} aria-hidden="true" />
+                        <AppIcon icon={statusIcons.success} size="sm" />
                         入集
                       </button>
                       <button
@@ -235,7 +235,7 @@ export function FeedbackSamplesPage() {
                         title={sample.status === "ignored" ? "样本已忽略" : undefined}
                         onClick={() => void submitSampleStatus(sample.id, "ignored")}
                       >
-                        <ThumbsDown size={15} aria-hidden="true" />
+                        <AppIcon icon={statusIcons.warning} size="sm" />
                         忽略
                       </button>
                     </div>
@@ -252,7 +252,7 @@ export function FeedbackSamplesPage() {
               <section className="panel">
                 <div className="panel-header">
                   <h2>
-                    <Archive size={18} aria-hidden="true" />
+                    <AppIcon icon={dashboardMetricIcons.dataset} size="md" />
                     对比详情
                   </h2>
                   <StatusPill tone={statusToneMap[selectedSample.status]}>{statusLabelMap[selectedSample.status]}</StatusPill>
@@ -298,7 +298,7 @@ export function FeedbackSamplesPage() {
 
       {apiState.status === "submitting" ? (
         <p role="status" className="page-subtle-note">
-          <Send size={15} aria-hidden="true" />
+          <AppIcon icon={actionIcons.next} size="sm" />
           {apiState.message}
         </p>
       ) : null}

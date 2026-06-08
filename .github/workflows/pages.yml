@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - feature/ui-optimization
   workflow_dispatch:
 
 # GitHub Pages 的 Actions 部署需要读取代码、写入 Pages，并通过 OIDC 发布部署。

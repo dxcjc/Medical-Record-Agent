@@ -1,4 +1,4 @@
-import { FilePenLine, Plus, Trash2 } from "lucide-react";
+import { AppIcon, actionIcons, dashboardMetricIcons, statusIcons } from "../../../icons/appIcons";
 import type { SchemaFieldDraft } from "./schemaStudioData";
 
 type DraftEditorPanelProps = {
@@ -19,23 +19,23 @@ export function DraftEditorPanel({
   onRemoveField
 }: DraftEditorPanelProps) {
   return (
-    <section className="panel" aria-labelledby="schema-draft-editor-title">
+    <section className="panel studio-panel" aria-labelledby="schema-draft-editor-title">
       <div className="toolbar">
         <div>
           <h2 id="schema-draft-editor-title">草稿编辑器</h2>
           <p>维护字段 metadata、aliases、enumMap、validators、normalizers 与 adapter hints。</p>
         </div>
         <button type="button" className="secondary-button" onClick={onAddField}>
-          <Plus aria-hidden size={16} />
+          <AppIcon icon={actionIcons.createRecognition} size="sm" />
           新增字段
         </button>
       </div>
 
       <div className="form-grid">
         {fields.map((field, index) => (
-          <fieldset className="panel" key={field.id}>
+          <fieldset className="panel studio-field-card" key={field.id}>
             <legend>
-              <FilePenLine aria-hidden size={16} />
+              <AppIcon icon={dashboardMetricIcons.schema} size="sm" />
               字段 {index + 1}
             </legend>
 
@@ -123,7 +123,7 @@ export function DraftEditorPanel({
                 onClick={() => onRemoveField(field.id)}
                 disabled={fields.length === 1}
               >
-                <Trash2 aria-hidden size={16} />
+                <AppIcon icon={statusIcons.danger} size="sm" />
                 删除
               </button>
             </div>

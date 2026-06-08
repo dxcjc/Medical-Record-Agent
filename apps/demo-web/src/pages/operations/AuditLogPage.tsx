@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Filter, RefreshCw, ShieldCheck } from "lucide-react";
+import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons } from "../../icons/appIcons";
 import { InlineNotice, MetricCard, PayloadPreview, SectionHeader, StatusPill } from "./components";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -176,7 +176,7 @@ export function AuditLogPage() {
         actions={
           <>
             <label className="toolbar-control">
-              <Filter size={15} aria-hidden="true" />
+              <AppIcon icon={dashboardMetricIcons.decisionReview} size="sm" />
               <span>风险</span>
               <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as AuditEntry["risk"] | "all")}>
                 <option value="all">全部</option>
@@ -186,11 +186,11 @@ export function AuditLogPage() {
               </select>
             </label>
             <button className="secondary-button" type="button">
-              <Download size={16} aria-hidden="true" />
+              <AppIcon icon={navigationIcons.auditLog} size="sm" />
               导出 CSV
             </button>
             <button className="secondary-button" type="button" disabled={loadState.status === "loading"} onClick={() => void loadAuditEntries()}>
-              <RefreshCw size={16} aria-hidden="true" />
+              <AppIcon icon={actionIcons.refresh} size="sm" className={loadState.status === "loading" ? "is-spinning" : undefined} />
               {loadState.status === "loading" ? "读取中" : "刷新"}
             </button>
           </>
@@ -211,7 +211,7 @@ export function AuditLogPage() {
         <section className="panel">
           <div className="panel-header">
             <h2>
-              <ShieldCheck size={18} aria-hidden="true" />
+              <AppIcon icon={navigationIcons.auditLog} size="md" />
               审计流水
             </h2>
             <StatusPill tone="info">{filteredEntries.length} 条</StatusPill>

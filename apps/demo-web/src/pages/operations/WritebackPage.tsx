@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, Lock, RotateCcw, Send, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { ConfirmDialog, InlineNotice, MetricCard, PayloadPreview, RowActionButton, SectionHeader, StatusPill } from "./components";
 
 type WritebackStatus = "ready" | "blocked" | "running" | "done";
@@ -324,7 +324,7 @@ export function WritebackPage() {
           <div className="field-row">
             <span>操作</span>
             <button className="action-button" type="submit" disabled={apiLoadState === "loading"}>
-              <Send size={16} aria-hidden="true" />
+              <AppIcon icon={actionIcons.next} size="sm" />
               {apiLoadState === "loading" ? "加载中" : "加载任务"}
             </button>
           </div>
@@ -383,7 +383,7 @@ export function WritebackPage() {
                     <td>
                       {readonly ? (
                         <button className="secondary-button" type="button" disabled title={disabledReason}>
-                          <Lock size={15} aria-hidden="true" />
+                          <AppIcon icon={actionIcons.privacyPolicy} size="sm" />
                           只读
                         </button>
                       ) : (
@@ -395,7 +395,7 @@ export function WritebackPage() {
                             setConfirmJobId(job.id);
                           }}
                         >
-                          {running ? <RotateCcw size={15} aria-hidden="true" /> : <Send size={15} aria-hidden="true" />}
+                          <AppIcon icon={running ? dashboardMetricIcons.rollback : actionIcons.next} size="sm" className={running ? "is-spinning" : undefined} />
                           {running ? "写回中" : "写回"}
                         </RowActionButton>
                       )}
@@ -412,7 +412,10 @@ export function WritebackPage() {
             <>
               <section className="panel">
                 <div className="panel-header">
-                  <h2>条件检查</h2>
+                  <h2>
+                    <AppIcon icon={navigationIcons.writeback} size="md" />
+                    条件检查
+                  </h2>
                   <StatusPill tone={selectedJob.blockers.length === 0 ? "success" : "danger"}>
                     {selectedJob.blockers.length === 0 ? "满足 green" : "存在 blocker"}
                   </StatusPill>
@@ -420,13 +423,13 @@ export function WritebackPage() {
                 <ul className="check-list">
                   {selectedJob.greenRules.map((rule) => (
                     <li key={rule}>
-                      <CheckCircle2 size={15} aria-hidden="true" />
+                      <AppIcon icon={statusIcons.success} size="sm" />
                       {rule}
                     </li>
                   ))}
                   {selectedJob.blockers.map((blocker) => (
                     <li key={blocker} className="is-danger">
-                      <ShieldCheck size={15} aria-hidden="true" />
+                      <AppIcon icon={statusIcons.danger} size="sm" />
                       {blocker}
                     </li>
                   ))}
