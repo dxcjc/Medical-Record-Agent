@@ -144,6 +144,81 @@ describe("light RAG and specialist agents", () => {
     expect(blocked.blockers).toContainEqual(expect.objectContaining({ code: "MISSING_PERMISSION" }));
   });
 
+  it("writeback agent blocks empty values while keeping explicit zero and false values", () => {
+    const schema: CoreSchemaDraft = {
+      ...limsClinicalInfoSchema,
+      fields: [
+        ...limsClinicalInfoSchema.fields.map((field) =>
+          field.key === "sampleType"
+            ? { ...field, adapterHints: { ...field.adapterHints, writebackMode: "auto" as const } }
+            : field
+        ),
+        {
+          key: "smokingPackYears",
+          label: "吸烟包年",
+          type: "number",
+          comments: ["用于验证 0 是明确值，不能被当作空值丢弃。"],
+          adapterHints: {
+            limsTargetPath: "clinicalInfo.smokingPackYears",
+            writebackMode: "auto"
+          }
+        },
+        {
+          key: "hasFamilyHistory",
+          label: "有无家族史",
+          type: "boolean",
+          comments: ["用于验证 false 是明确值，不能被当作空值丢弃。"],
+          adapterHints: {
+            limsTargetPath: "clinicalInfo.hasFamilyHistory",
+            writebackMode: "auto"
+          }
+        }
+      ]
+    };
+    const writebackAgent = createWritebackAgent();
+
+    const result = writebackAgent.run({
+      schema,
+      validationDecision: "green",
+      permissions: ["writeback:execute"],
+      candidates: [
+        {
+          fieldKey: "sampleType",
+          value: "  ",
+          rawValue: "样本类型：空白",
+          confidence: 0.96,
+          evidence: [{ snippet: "样本类型：空白", startOffset: 36, endOffset: 43, pageNumber: 1 }]
+        },
+        {
+          fieldKey: "smokingPackYears",
+          value: 0,
+          rawValue: "吸烟包年：0",
+          confidence: 0.96,
+          evidence: [{ snippet: "吸烟包年：0", startOffset: 44, endOffset: 50, pageNumber: 1 }]
+        },
+        {
+          fieldKey: "hasFamilyHistory",
+          value: false,
+          rawValue: "家族史：无",
+          confidence: 0.96,
+          evidence: [{ snippet: "家族史：无", startOffset: 51, endOffset: 56, pageNumber: 1 }]
+        }
+      ]
+    });
+
+    expect(result.ready).toBe(false);
+    expect(result.readyFields).toEqual([
+      expect.objectContaining({ fieldKey: "smokingPackYears", value: 0 }),
+      expect.objectContaining({ fieldKey: "hasFamilyHistory", value: false })
+    ]);
+    expect(result.blockers).toContainEqual(
+      expect.objectContaining({
+        code: "EMPTY_AUTO_WRITEBACK_VALUE",
+        fieldKey: "sampleType"
+      })
+    );
+  });
+
   it("evaluation agent creates de-identified evaluation sample candidates from accepted fields only", () => {
     const evaluationAgent = createEvaluationAgent();
 

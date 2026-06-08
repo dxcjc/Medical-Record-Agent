@@ -9,7 +9,12 @@ export interface WritebackReadyField {
 }
 
 export interface WritebackBlocker {
-  code: "NOT_GREEN_DECISION" | "MISSING_PERMISSION" | "NO_AUTO_FIELDS" | "MISSING_TARGET_PATH";
+  code:
+    | "NOT_GREEN_DECISION"
+    | "MISSING_PERMISSION"
+    | "NO_AUTO_FIELDS"
+    | "MISSING_TARGET_PATH"
+    | "EMPTY_AUTO_WRITEBACK_VALUE";
   message: string;
   fieldKey?: string;
 }
@@ -34,6 +39,22 @@ export interface WritebackAgent {
 
 function findField(schema: CoreSchemaDraft, fieldKey: string): CoreFieldDefinition | undefined {
   return schema.fields.find((field) => field.key === fieldKey);
+}
+
+function hasWritebackValue(value: ModelFieldCandidate["value"]): boolean {
+  if (value === null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => item.trim().length > 0);
+  }
+
+  return true;
 }
 
 export function createWritebackAgent(): WritebackAgent {
@@ -68,6 +89,17 @@ export function createWritebackAgent(): WritebackAgent {
           blockers.push({
             code: "MISSING_TARGET_PATH",
             message: `字段 ${candidate.fieldKey} 缺少写回目标路径。`,
+            fieldKey: candidate.fieldKey
+          });
+          continue;
+        }
+
+        // 自动写回是高风险动作，不能把空字符串、null 或空数组当作“高置信结果”写入下游系统。
+        // 这里保留 0 和 false，因为它们是临床字段里可能出现的明确结构化值。
+        if (!hasWritebackValue(candidate.value)) {
+          blockers.push({
+            code: "EMPTY_AUTO_WRITEBACK_VALUE",
+            message: `字段 ${candidate.fieldKey} 的自动写回值为空。`,
             fieldKey: candidate.fieldKey
           });
           continue;
