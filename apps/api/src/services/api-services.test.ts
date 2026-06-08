@@ -793,6 +793,54 @@ describe("api service composition", () => {
     });
   });
 
+  it("创建识别任务前会校验 sourceFileId 对应的存储文件存在，避免生成无文件任务", async () => {
+    const repositories = createRepositories();
+    const recognitionOrchestrator = {
+      start: vi.fn()
+    };
+    const storageProvider = {
+      put: vi.fn(),
+      get: vi.fn(async () => null),
+      delete: vi.fn()
+    };
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator,
+      providerRegistry: {
+        list: vi.fn(),
+        setDefault: vi.fn()
+      },
+      storageProvider,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.jobService.create({
+        schemaKey: "lims-clinical-info",
+        sourceFileId: "file-001"
+      })
+    ).rejects.toMatchObject({
+      code: "STORED_FILE_NOT_FOUND",
+      statusCode: 404
+    });
+
+    expect(repositories.fileRepository.findById).toHaveBeenCalledWith("file-001");
+    expect(storageProvider.get).toHaveBeenCalledWith("uploads/2026-06-05/record.pdf");
+    expect(repositories.jobsRepository.create).not.toHaveBeenCalled();
+    expect(recognitionOrchestrator.start).not.toHaveBeenCalled();
+  });
+
   it("读取文件内容时通过文件仓库定位 storageKey 并返回受控存储字节", async () => {
     const repositories = createRepositories();
     const storageProvider = {

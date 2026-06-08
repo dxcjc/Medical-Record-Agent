@@ -891,8 +891,22 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           options?: unknown;
           providerConfig?: unknown;
         };
+        const schemaKey = body.schemaKey ?? "lims-clinical-info";
+        // 真实上传文件链路必须先确认文件仓库和受控存储都可读，再创建识别任务。
+        // 这样文件丢失、storageKey 配错或对象存储故障时，不会留下一个已经排队但永远无法 OCR 的假任务。
+        const preparedDocument =
+          body.sourceFileId !== undefined
+            ? await createStoredFileDocumentInput({
+                sourceFileId: body.sourceFileId,
+                document: body.document ?? {
+                  documentId: body.sourceFileId
+                },
+                fileRepository: repositories.fileRepository,
+                storageProvider: options.storageProvider
+              })
+            : (body.document ?? undefined);
         const job = await repositories.jobsRepository.create({
-          schemaKey: body.schemaKey ?? "lims-clinical-info",
+          schemaKey,
           sourceFileId: body.sourceFileId ?? null,
           createdById: body.createdById ?? null,
           options: toInputJsonValue(body.options),
@@ -900,20 +914,10 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         });
         const orchestratorInput: Parameters<ApiRecognitionOrchestrator["start"]>[0] = {
           jobId: job.id,
-          schemaKey: body.schemaKey ?? "lims-clinical-info",
-          document:
-            body.sourceFileId !== undefined
-              ? await createStoredFileDocumentInput({
-                  sourceFileId: body.sourceFileId,
-                  document: body.document ?? {
-                    documentId: body.sourceFileId
-                  },
-                  fileRepository: repositories.fileRepository,
-                  storageProvider: options.storageProvider
-                })
-              : body.document ?? {
-                  documentId: job.id
-                }
+          schemaKey,
+          document: preparedDocument ?? {
+            documentId: job.id
+          }
         };
 
         const providerSelection = readProviderSelectionConfig(body.providerConfig);
