@@ -77,6 +77,40 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
       });
     },
 
+    async listEligibleForWriteback(limit = 20) {
+      return dependencies.recognitionJob.findMany({
+        where: {
+          status: {
+            in: ["completed"]
+          },
+          result: {
+            is: {
+              reviewRequired: false
+            }
+          },
+          writebacks: {
+            none: {
+              status: {
+                in: ["pending", "running", "succeeded"]
+              }
+            }
+          }
+        },
+        include: {
+          result: true,
+          writebacks: {
+            orderBy: {
+              attemptedAt: "desc"
+            }
+          }
+        },
+        orderBy: {
+          completedAt: "desc"
+        },
+        take: limit
+      });
+    },
+
     async updateStatus(input: UpdateRecognitionJobStatusInput) {
       const data: Prisma.RecognitionJobUpdateInput = {
         status: input.status

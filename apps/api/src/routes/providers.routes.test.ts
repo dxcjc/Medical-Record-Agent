@@ -32,7 +32,8 @@ describe("provider routes", () => {
     };
     const providerService: ProviderRouteService = {
       listProviders: vi.fn(),
-      setDefaultProvider: vi.fn()
+      setDefaultProvider: vi.fn(),
+      checkProviderHealth: vi.fn()
     };
     const server = await createServer(authService, providerService);
 
@@ -64,7 +65,8 @@ describe("provider routes", () => {
     };
     const providerService: ProviderRouteService = {
       listProviders: vi.fn(),
-      setDefaultProvider: vi.fn()
+      setDefaultProvider: vi.fn(),
+      checkProviderHealth: vi.fn()
     };
     const server = await createServer(authService, providerService);
 
@@ -100,7 +102,8 @@ describe("provider routes", () => {
           }
         }
       ]),
-      setDefaultProvider: vi.fn()
+      setDefaultProvider: vi.fn(),
+      checkProviderHealth: vi.fn()
     };
     const server = await createServer(authService, providerService);
 
@@ -143,7 +146,8 @@ describe("provider routes", () => {
       setDefaultProvider: vi.fn(async () => ({
         key: "mock",
         isDefault: true
-      }))
+      })),
+      checkProviderHealth: vi.fn()
     };
     const server = await createServer(authService, providerService);
 
@@ -185,7 +189,8 @@ describe("provider routes", () => {
             apiKey: "real-openai-secret"
           }
         });
-      })
+      }),
+      checkProviderHealth: vi.fn()
     };
     const server = await createServer(authService, providerService);
 
@@ -200,6 +205,59 @@ describe("provider routes", () => {
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({
       error: "PROVIDER_NOT_FOUND"
+    });
+    expect(response.body).not.toContain("real-openai-secret");
+  });
+
+  it("POST /providers/:key/health 有权限时调用健康检查并隐藏 secretRefs", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const providerService: ProviderRouteService = {
+      listProviders: vi.fn(),
+      setDefaultProvider: vi.fn(),
+      checkProviderHealth: vi.fn(async () => ({
+        key: "openai",
+        status: "healthy",
+        latencyMs: 123,
+        checkedAt: "2026-06-08T10:00:00.000Z",
+        message: "provider reachable",
+        secretRefs: {
+          apiKey: "real-openai-secret"
+        }
+      }))
+    };
+    const server = await createServer(authService, providerService);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/providers/openai/health",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerService.checkProviderHealth).toHaveBeenCalledWith({
+      key: "openai",
+      actor: context
+    });
+    expect(response.json()).toEqual({
+      health: {
+        key: "openai",
+        status: "healthy",
+        latencyMs: 123,
+        checkedAt: "2026-06-08T10:00:00.000Z",
+        message: "provider reachable",
+        secretRefs: {
+          apiKey: {
+            configured: true
+          }
+        }
+      }
     });
     expect(response.body).not.toContain("real-openai-secret");
   });

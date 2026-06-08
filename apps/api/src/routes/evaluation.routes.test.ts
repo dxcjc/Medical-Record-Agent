@@ -156,6 +156,7 @@ describe("evaluation routes", () => {
       },
       payload: {
         datasetId: "dataset-001",
+        schemaKey: "custom-clinical-schema",
         providerKey: "openai",
         sampleLimit: 5
       }
@@ -164,6 +165,7 @@ describe("evaluation routes", () => {
     expect(response.statusCode).toBe(201);
     expect(evaluationService.createRun).toHaveBeenCalledWith({
       datasetId: "dataset-001",
+      schemaKey: "custom-clinical-schema",
       providerKey: "openai",
       sampleLimit: 5,
       actor: context

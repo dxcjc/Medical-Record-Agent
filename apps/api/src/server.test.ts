@@ -92,7 +92,13 @@ function createServices(authService = createAuthService()): ApiServerServices {
     },
     schemaService: createSchemaRouteService(),
     fileService: {
-      createUpload: vi.fn(async () => ({ id: "file-001", storageKey: "uploads/file-001.pdf" }))
+      createUpload: vi.fn(async () => ({ id: "file-001", storageKey: "uploads/file-001.pdf" })),
+      getContent: vi.fn(async () => ({
+        id: "file-001",
+        originalName: "record.pdf",
+        mimeType: "application/pdf",
+        body: Buffer.from("DEMO_PDF_BYTES")
+      }))
     },
     jobService: {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
@@ -105,7 +111,8 @@ function createServices(authService = createAuthService()): ApiServerServices {
       create: vi.fn(async () => ({ id: "feedback-001", status: "open" }))
     },
     writebackService: {
-      execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" }))
+      execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" })),
+      listEligible: vi.fn(async () => [])
     },
     providerService: {
       listProviders: vi.fn(async () => [
@@ -118,7 +125,13 @@ function createServices(authService = createAuthService()): ApiServerServices {
           }
         }
       ]),
-      setDefaultProvider: vi.fn(async () => ({ key: "mock", isDefault: true }))
+      setDefaultProvider: vi.fn(async () => ({ key: "mock", isDefault: true })),
+      checkProviderHealth: vi.fn(async () => ({
+        key: "mock",
+        status: "healthy",
+        checkedAt: "2026-06-08T10:00:00.000Z",
+        message: "provider reachable"
+      }))
     },
     evaluationService: {
       listDatasets: vi.fn(async () => [{ id: "dataset-001", name: "入院记录抽取基准集" }]),
@@ -212,6 +225,15 @@ describe("api server routes", () => {
     expect(providers.statusCode).toBe(200);
     expect(providers.body).not.toContain("secret-value");
 
+    const providerHealth = await server.inject({ method: "POST", url: "/providers/mock/health", headers: authHeader });
+    expect(providerHealth.statusCode).toBe(200);
+    expect(providerHealth.json()).toEqual({
+      health: expect.objectContaining({
+        key: "mock",
+        status: "healthy"
+      })
+    });
+
     const evaluationDatasets = await server.inject({
       method: "GET",
       url: "/evaluations/datasets",
@@ -289,6 +311,40 @@ describe("api server routes", () => {
 
     expect(response.statusCode).toBe(204);
     expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+  });
+
+  it("状态端点返回当前服务模式和生产驱动摘要且不泄露 secret", async () => {
+    const server = await createApiServer({
+      services: createServices(),
+      runtimeInfo: {
+        serviceMode: "production",
+        providers: {
+          ocr: "http",
+          llm: "openai-responses",
+          storage: "s3",
+          writeback: "lims"
+        }
+      }
+    });
+
+    const response = await server.inject({ method: "GET", url: "/status" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      status: "ok",
+      service: "medical-record-agent-api",
+      runtime: {
+        serviceMode: "production",
+        providers: {
+          ocr: "http",
+          llm: "openai-responses",
+          storage: "s3",
+          writeback: "lims"
+        }
+      }
+    });
+    expect(response.body).not.toContain("secret");
+    expect(response.body).not.toContain("apiKey");
   });
 
   it("写回路由要求已确认任务和 writeback 权限", async () => {

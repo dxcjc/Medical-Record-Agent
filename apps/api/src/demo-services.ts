@@ -365,6 +365,14 @@ export function createDemoApiServices(): ApiServerServices {
           storageKey: "demo/uploads/file-demo-001",
           input
         };
+      },
+      async getContent(id) {
+        return {
+          id,
+          originalName: "demo-medical-record.pdf",
+          mimeType: "application/pdf",
+          body: Buffer.from("DEMO_MEDICAL_RECORD_BYTES")
+        };
       }
     },
     jobService: {
@@ -418,6 +426,48 @@ export function createDemoApiServices(): ApiServerServices {
       }
     },
     writebackService: {
+      async listEligible() {
+        return [
+          {
+            id: "job-demo-writeback-001",
+            jobId: "job-demo-writeback-001",
+            schemaKey: "lims-clinical-info",
+            sourceFileId: "file-demo-001",
+            status: "completed",
+            extractedFields: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                value: "演示诊断",
+                confidence: 0.92
+              }
+            ],
+            readyFields: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                targetPath: "clinicalInfo.clinicalDiagnosis",
+                value: "演示诊断"
+              }
+            ],
+            blockers: [],
+            payload: {
+              jobId: "job-demo-writeback-001",
+              source: {
+                fileId: "file-demo-001"
+              },
+              fields: [
+                {
+                  fieldKey: "clinicalDiagnosis",
+                  value: "演示诊断"
+                }
+              ],
+              result: {
+                status: "completed",
+                reviewRequired: false
+              }
+            }
+          }
+        ];
+      },
       async execute(input) {
         return {
           id: "writeback-demo-001",
@@ -430,12 +480,39 @@ export function createDemoApiServices(): ApiServerServices {
       async listProviders() {
         return [
           {
-            key: "mock",
+            key: "mock-ocr",
             name: "Mock Provider",
+            kind: "ocr",
             enabled: true,
             isDefault: true,
             secretRefs: {
               apiKey: "demo-secret"
+            }
+          },
+          {
+            key: "mock-model",
+            name: "Mock Model Provider",
+            kind: "llm",
+            enabled: true,
+            isDefault: true,
+            secretRefs: {}
+          },
+          {
+            key: "local-storage",
+            name: "Local Storage Provider",
+            kind: "storage",
+            enabled: true,
+            isDefault: true,
+            secretRefs: {}
+          },
+          {
+            key: "lims-writeback",
+            name: "LIMS Writeback Adapter",
+            kind: "lims",
+            enabled: true,
+            isDefault: true,
+            secretRefs: {
+              apiToken: "demo-secret"
             }
           }
         ];
@@ -444,6 +521,15 @@ export function createDemoApiServices(): ApiServerServices {
         return {
           key: input.key,
           isDefault: true
+        };
+      },
+      async checkProviderHealth(input) {
+        return {
+          key: input.key,
+          status: "healthy",
+          latencyMs: 12,
+          checkedAt: new Date().toISOString(),
+          message: "Demo provider 健康检查通过；未调用外部真实服务。"
         };
       }
     },

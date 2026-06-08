@@ -110,6 +110,39 @@ describe("domain repositories", () => {
       }),
       select: expect.any(Object)
     });
+
+    await jobsRepository.listEligibleForWriteback(15);
+    expect(recognitionJob.findMany).toHaveBeenCalledWith({
+      where: {
+        status: {
+          in: ["completed"]
+        },
+        result: {
+          is: {
+            reviewRequired: false
+          }
+        },
+        writebacks: {
+          none: {
+            status: {
+              in: ["pending", "running", "succeeded"]
+            }
+          }
+        }
+      },
+      include: {
+        result: true,
+        writebacks: {
+          orderBy: {
+            attemptedAt: "desc"
+          }
+        }
+      },
+      orderBy: {
+        completedAt: "desc"
+      },
+      take: 15
+    });
   });
 
   it("schema 仓库能够按 active 版本查询，并保存草稿校验结果", async () => {

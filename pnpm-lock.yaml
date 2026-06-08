@@ -116,6 +116,9 @@ importers:
       '@langchain/langgraph':
         specifier: ^0.2.40
         version: 0.2.74(@langchain/core@0.3.80(openai@4.104.0(zod@3.25.76)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod-to-json-schema@3.25.2(zod@3.25.76))
+      '@langchain/openai':
+        specifier: 0.6.17
+        version: 0.6.17(@langchain/core@0.3.80(openai@4.104.0(zod@3.25.76)))
       '@medical-record-agent/shared':
         specifier: workspace:*
         version: link:../shared

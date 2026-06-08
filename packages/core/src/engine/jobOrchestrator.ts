@@ -75,7 +75,12 @@ export interface JobError {
 
 export interface JobOrchestratorInput {
   jobId: string;
+  schemaKey?: string;
   document: OcrDocumentInput;
+  providerConfig?: {
+    ocrProviderKey?: string;
+    providerKey?: string;
+  };
 }
 
 export interface JobOrchestratorResult {

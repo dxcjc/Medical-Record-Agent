@@ -19,7 +19,8 @@ function createRepositories(): ApiServiceRepositories {
     },
     jobsRepository: {
       create: vi.fn(async (input) => ({ id: "job-001", status: "queued", ...input })),
-      findById: vi.fn(async () => ({ id: "job-001", status: "completed", sourceFileId: "file-001" }))
+      findById: vi.fn(async () => ({ id: "job-001", status: "completed", sourceFileId: "file-001" })),
+      listEligibleForWriteback: vi.fn(async () => [])
     },
     resultsRepository: {
       findByJobId: vi.fn(async () => ({ jobId: "job-001", fields: [] })),
@@ -49,7 +50,12 @@ function createRepositories(): ApiServiceRepositories {
           },
           metadata: {
             sourceType: "synthetic",
-            deidentified: true
+            deidentified: true,
+            evaluationInput: {
+              sourceType: "synthetic",
+              fileName: "synthetic-001.json",
+              predictedValue: "肺腺癌?"
+            }
           }
         }
       ]),
@@ -88,6 +94,43 @@ function createSchemaService(): SchemaRouteService {
     }))
   };
 }
+
+function createEvaluationServiceForTest(repositories = createRepositories()) {
+  // 评估样本导入的安全门只依赖 evaluationRepository；其它依赖保持最小 mock，避免测试把注意力分散到无关服务。
+  const services = createApiServices({
+    authService: {
+      login: vi.fn(),
+      authenticateJwt: vi.fn(),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    },
+    auditService: {
+      listRecent: vi.fn(),
+      record: vi.fn()
+    },
+    schemaService: createSchemaService(),
+    repositories,
+    recognitionOrchestrator: {
+      start: vi.fn()
+    },
+    providerRegistry: {
+      list: vi.fn(),
+      setDefault: vi.fn()
+    }
+  });
+
+  return {
+    repositories,
+    evaluationService: services.evaluationService
+  };
+}
+
+const evaluationActor = {
+  actorUserId: "user-001",
+  authType: "jwt" as const,
+  permissions: ["evaluation:manage"],
+  roles: ["admin"]
+};
 
 describe("api service composition", () => {
   it("把 repositories、core orchestrator 和 provider registry 组合成 API services", async () => {
@@ -136,7 +179,13 @@ describe("api service composition", () => {
       recognitionOrchestrator,
       providerRegistry: {
         list: vi.fn(async () => [{ key: "mock", secretRefs: { apiKey: "secret" } }]),
-        setDefault: vi.fn(async (key) => ({ key, isDefault: true }))
+        setDefault: vi.fn(async (key) => ({ key, isDefault: true })),
+        checkHealth: vi.fn(async (key) => ({
+          key,
+          status: "healthy" as const,
+          checkedAt: "2026-06-05T09:00:00.000Z",
+          message: "provider reachable"
+        }))
       },
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
@@ -159,19 +208,32 @@ describe("api service composition", () => {
       sourceFileId: "file-001",
       document: {
         documentId: "file-001"
+      },
+      providerConfig: {
+        ocrProviderKey: "mock-ocr",
+        providerKey: "mock-model"
       }
     });
     expect(repositories.jobsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         schemaKey: "lims-clinical-info",
-        sourceFileId: "file-001"
+        sourceFileId: "file-001",
+        providerConfig: {
+          ocrProviderKey: "mock-ocr",
+          providerKey: "mock-model"
+        }
       })
     );
     expect(recognitionOrchestrator.start).toHaveBeenCalledWith({
       jobId: "job-001",
+      schemaKey: "lims-clinical-info",
       document: expect.objectContaining({
         documentId: "file-001"
-      })
+      }),
+      providerConfig: {
+        ocrProviderKey: "mock-ocr",
+        providerKey: "mock-model"
+      }
     });
     expect(repositories.resultsRepository.upsertByJobId).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -215,6 +277,22 @@ describe("api service composition", () => {
     await expect(services.providerService.listProviders()).resolves.toEqual([
       { key: "mock", secretRefs: { apiKey: "secret" } }
     ]);
+    await expect(
+      services.providerService.checkProviderHealth({
+        key: "mock",
+        actor: {
+          actorUserId: "user-001",
+          authType: "jwt",
+          permissions: ["provider:manage"],
+          roles: ["admin"]
+        }
+      })
+    ).resolves.toEqual({
+      key: "mock",
+      status: "healthy",
+      checkedAt: "2026-06-05T09:00:00.000Z",
+      message: "provider reachable"
+    });
 
     await services.evaluationService.createRun({
       datasetId: "dataset-001",
@@ -266,6 +344,11 @@ describe("api service composition", () => {
       samples: [
         {
           externalId: "synthetic-001",
+          input: {
+            sourceType: "synthetic",
+            fileName: "synthetic-001.json",
+            predictedValue: "肺腺癌?"
+          },
           metadata: {
             sourceType: "synthetic",
             deidentified: true
@@ -291,7 +374,12 @@ describe("api service composition", () => {
         externalId: "synthetic-001",
         metadata: {
           sourceType: "synthetic",
-          deidentified: true
+          deidentified: true,
+          evaluationInput: {
+            sourceType: "synthetic",
+            fileName: "synthetic-001.json",
+            predictedValue: "肺腺癌?"
+          }
         }
       })
     );
@@ -351,6 +439,121 @@ describe("api service composition", () => {
     expect(repositories.evaluationRepository.addSample).not.toHaveBeenCalled();
   });
 
+  it("允许 synthetic 评估样本导入", async () => {
+    const { repositories, evaluationService } = createEvaluationServiceForTest();
+
+    await expect(
+      evaluationService.importSamples({
+        datasetId: "dataset-001",
+        samples: [
+          {
+            externalId: "synthetic-safe-001",
+            metadata: {
+              sourceType: "synthetic"
+            },
+            groundTruth: []
+          }
+        ],
+        actor: evaluationActor
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        externalId: "synthetic-safe-001"
+      })
+    ]);
+    expect(repositories.evaluationRepository.addSample).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalId: "synthetic-safe-001",
+        metadata: {
+          sourceType: "synthetic"
+        }
+      })
+    );
+  });
+
+  it("拒绝 sourceType 为 real 的真实评估样本", async () => {
+    const { repositories, evaluationService } = createEvaluationServiceForTest();
+
+    await expect(
+      evaluationService.importSamples({
+        datasetId: "dataset-001",
+        samples: [
+          {
+            metadata: {
+              sourceType: "real",
+              deidentified: true
+            },
+            groundTruth: []
+          }
+        ],
+        actor: evaluationActor
+      })
+    ).rejects.toMatchObject({
+      code: "EVALUATION_SAMPLE_REAL_SOURCE_TYPE_FORBIDDEN",
+      statusCode: 409
+    });
+    expect(repositories.evaluationRepository.addSample).not.toHaveBeenCalled();
+  });
+
+  it("拒绝缺少脱敏证明的 real_deidentified 评估样本", async () => {
+    const { repositories, evaluationService } = createEvaluationServiceForTest();
+
+    await expect(
+      evaluationService.importSamples({
+        datasetId: "dataset-001",
+        samples: [
+          {
+            metadata: {
+              sourceType: "real_deidentified",
+              deidentified: true
+            },
+            groundTruth: []
+          }
+        ],
+        actor: evaluationActor
+      })
+    ).rejects.toMatchObject({
+      code: "EVALUATION_SAMPLE_DEIDENTIFICATION_PROOF_REQUIRED",
+      statusCode: 409
+    });
+    expect(repositories.evaluationRepository.addSample).not.toHaveBeenCalled();
+  });
+
+  it("允许带脱敏证明的 real_deidentified 评估样本导入并保留 metadata", async () => {
+    const { repositories, evaluationService } = createEvaluationServiceForTest();
+
+    await evaluationService.importSamples({
+      datasetId: "dataset-001",
+      samples: [
+        {
+          externalId: "real-deidentified-001",
+          metadata: {
+            sourceType: "real_deidentified",
+            deidentified: true,
+            deidentification: {
+              proofId: "proof-20260608-001"
+            }
+          },
+          groundTruth: []
+        }
+      ],
+      actor: evaluationActor
+    });
+
+    expect(repositories.evaluationRepository.addSample).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalId: "real-deidentified-001",
+        metadata: {
+          sourceType: "real_deidentified",
+          deidentified: true,
+          deidentification: {
+            proofId: "proof-20260608-001"
+          }
+        }
+      })
+    );
+  });
+
   it("创建评估 run 后执行 runner、持久化指标并完成 run", async () => {
     const repositories = createRepositories();
     const evaluationRunner = {
@@ -404,6 +607,7 @@ describe("api service composition", () => {
 
     const run = await services.evaluationService.createRun({
       datasetId: "dataset-001",
+      schemaKey: "custom-clinical-schema",
       providerKey: "mock-model",
       sampleLimit: 1,
       actor: {
@@ -418,6 +622,9 @@ describe("api service composition", () => {
       expect.objectContaining({
         datasetId: "dataset-001",
         createdById: "user-001",
+        schemaConfig: {
+          schemaKey: "custom-clinical-schema"
+        },
         providerConfig: {
           providerKey: "mock-model"
         }
@@ -436,11 +643,19 @@ describe("api service composition", () => {
           samples: expect.arrayContaining([
             expect.objectContaining({
               id: "sample-001",
+              input: {
+                sourceType: "synthetic",
+                fileName: "synthetic-001.json",
+                predictedValue: "肺腺癌?"
+              },
               deidentified: true
             })
           ]),
           deidentified: true
         }),
+        schemaConfig: {
+          schemaKey: "custom-clinical-schema"
+        },
         providerConfig: {
           providerKey: "mock-model"
         }
@@ -567,6 +782,7 @@ describe("api service composition", () => {
     expect(storageProvider.get).toHaveBeenCalledWith("uploads/2026-06-05/record.pdf");
     expect(recognitionOrchestrator.start).toHaveBeenCalledWith({
       jobId: "job-001",
+      schemaKey: "lims-clinical-info",
       document: expect.objectContaining({
         documentId: "file-001",
         fileName: "record.pdf",
@@ -575,5 +791,274 @@ describe("api service composition", () => {
         content: Buffer.from("DEMO_PDF_BYTES")
       })
     });
+  });
+
+  it("读取文件内容时通过文件仓库定位 storageKey 并返回受控存储字节", async () => {
+    const repositories = createRepositories();
+    const storageProvider = {
+      put: vi.fn(),
+      get: vi.fn(async () => ({
+        key: "uploads/2026-06-05/record.pdf",
+        body: Buffer.from("DEMO_PDF_BYTES"),
+        size: Buffer.byteLength("DEMO_PDF_BYTES"),
+        contentType: "application/pdf"
+      })),
+      delete: vi.fn()
+    };
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator: {
+        start: vi.fn()
+      },
+      providerRegistry: {
+        list: vi.fn(),
+        setDefault: vi.fn()
+      },
+      storageProvider,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    const file = await services.fileService.getContent("file-001");
+
+    expect(repositories.fileRepository.findById).toHaveBeenCalledWith("file-001");
+    expect(storageProvider.get).toHaveBeenCalledWith("uploads/2026-06-05/record.pdf");
+    expect(file).toEqual({
+      id: "file-001",
+      originalName: "record.pdf",
+      mimeType: "application/pdf",
+      body: Buffer.from("DEMO_PDF_BYTES")
+    });
+  });
+
+  it("写回候选列表只返回已完成、无需复核且存在 readyFields 的任务摘要", async () => {
+    const repositories = createRepositories();
+    vi.mocked(repositories.jobsRepository.listEligibleForWriteback).mockResolvedValueOnce([
+      {
+        id: "job-eligible-001",
+        status: "completed",
+        schemaKey: "lims-clinical-info",
+        sourceFileId: "file-001",
+        result: {
+          fields: [
+            {
+              fieldKey: "clinicalDiagnosis",
+              value: "肺腺癌",
+              confidence: 0.96
+            }
+          ],
+          payload: {
+            jobId: "job-eligible-001",
+            source: {
+              fileId: "file-001",
+              ocrText: "这段 OCR 原文不能出现在候选列表响应里"
+            },
+            fields: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                value: "肺腺癌"
+              }
+            ],
+            result: {
+              status: "completed",
+              reviewRequired: false
+            },
+            writeback: {
+              readyFields: [
+                {
+                  fieldKey: "clinicalDiagnosis",
+                  targetPath: "clinicalInfo.clinicalDiagnosis",
+                  value: "肺腺癌"
+                }
+              ],
+              blockers: []
+            }
+          },
+          reviewRequired: false
+        },
+        writebacks: []
+      },
+      {
+        id: "job-no-ready-fields",
+        status: "completed",
+        schemaKey: "lims-clinical-info",
+        result: {
+          fields: [],
+          payload: {
+            writeback: {
+              readyFields: []
+            }
+          },
+          reviewRequired: false
+        },
+        writebacks: []
+      },
+      {
+        id: "job-needs-review",
+        status: "completed",
+        schemaKey: "lims-clinical-info",
+        result: {
+          fields: [],
+          payload: {
+            writeback: {
+              readyFields: [{ fieldKey: "sampleType", value: "组织" }]
+            }
+          },
+          reviewRequired: true
+        },
+        writebacks: []
+      },
+      {
+        id: "job-running",
+        status: "running",
+        schemaKey: "lims-clinical-info",
+        result: {
+          fields: [],
+          payload: {
+            writeback: {
+              readyFields: [{ fieldKey: "sampleType", value: "组织" }]
+            }
+          },
+          reviewRequired: false
+        },
+        writebacks: []
+      },
+      {
+        id: "job-already-succeeded",
+        status: "completed",
+        schemaKey: "lims-clinical-info",
+        result: {
+          fields: [],
+          payload: {
+            writeback: {
+              readyFields: [{ fieldKey: "sampleType", value: "组织" }]
+            }
+          },
+          reviewRequired: false
+        },
+        writebacks: [{ status: "succeeded" }]
+      },
+      {
+        id: "job-failed-retryable",
+        status: "confirmed",
+        schemaKey: "lims-clinical-info",
+        result: {
+          fields: [{ fieldKey: "sampleType", value: "组织" }],
+          payload: {
+            writeback: {
+              readyFields: [{ fieldKey: "sampleType", targetPath: "clinicalInfo.sampleType", value: "组织" }],
+              blockers: [{ code: "PREVIOUS_ATTEMPT_FAILED" }]
+            },
+            result: {
+              status: "completed"
+            }
+          },
+          reviewRequired: false
+        },
+        writebacks: [{ status: "failed" }]
+      }
+    ]);
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator: {
+        start: vi.fn()
+      },
+      providerRegistry: {
+        list: vi.fn(),
+        setDefault: vi.fn()
+      }
+    });
+    const actor = {
+      actorUserId: "user-001",
+      authType: "jwt" as const,
+      permissions: ["writeback:execute"],
+      roles: ["operator"]
+    };
+
+    const items = await services.writebackService.listEligible({ actor, limit: 20 });
+
+    expect(repositories.jobsRepository.listEligibleForWriteback).toHaveBeenCalledWith(20);
+    expect(items).toEqual([
+      {
+        id: "job-eligible-001",
+        jobId: "job-eligible-001",
+        schemaKey: "lims-clinical-info",
+        sourceFileId: "file-001",
+        status: "completed",
+        extractedFields: [
+          {
+            fieldKey: "clinicalDiagnosis",
+            value: "肺腺癌",
+            confidence: 0.96
+          }
+        ],
+        readyFields: [
+          {
+            fieldKey: "clinicalDiagnosis",
+            targetPath: "clinicalInfo.clinicalDiagnosis",
+            value: "肺腺癌"
+          }
+        ],
+        blockers: [],
+        payload: {
+          jobId: "job-eligible-001",
+          source: {
+            fileId: "file-001"
+          },
+          fields: [
+            {
+              fieldKey: "clinicalDiagnosis",
+              value: "肺腺癌"
+            }
+          ],
+          result: {
+            status: "completed",
+            reviewRequired: false
+          }
+        }
+      },
+      {
+        id: "job-failed-retryable",
+        jobId: "job-failed-retryable",
+        schemaKey: "lims-clinical-info",
+        sourceFileId: null,
+        status: "confirmed",
+        extractedFields: [{ fieldKey: "sampleType", value: "组织" }],
+        readyFields: [{ fieldKey: "sampleType", targetPath: "clinicalInfo.sampleType", value: "组织" }],
+        blockers: [{ code: "PREVIOUS_ATTEMPT_FAILED" }],
+        payload: {
+          jobId: "job-failed-retryable",
+          source: {
+            fileId: null
+          },
+          fields: [{ fieldKey: "sampleType", value: "组织" }],
+          result: {
+            status: "completed"
+          }
+        }
+      }
+    ]);
+    expect(JSON.stringify(items)).not.toContain("OCR 原文");
   });
 });

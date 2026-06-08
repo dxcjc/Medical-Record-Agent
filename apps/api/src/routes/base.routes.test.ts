@@ -111,7 +111,8 @@ describe("base route groups", () => {
     const server = Fastify();
     const tools = createRouteTools(["job:create"]);
     const fileService: FileRouteService = {
-      createUpload: vi.fn(async () => ({ id: "file-001" }))
+      createUpload: vi.fn(async () => ({ id: "file-001" })),
+      getContent: vi.fn()
     };
     await registerFileRoutes(server, {
       fileService,
@@ -140,6 +141,47 @@ describe("base route groups", () => {
       expect.objectContaining({
         action: "file.upload",
         objectType: "file",
+        result: "success"
+      })
+    );
+  });
+
+  it("File API 下载内容时要求 job:read 并写入审计", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:read"]);
+    const fileService: FileRouteService = {
+      createUpload: vi.fn(),
+      getContent: vi.fn(async () => ({
+        id: "file-001",
+        originalName: "record.pdf",
+        mimeType: "application/pdf",
+        body: Buffer.from("DEMO_PDF_BYTES")
+      }))
+    };
+    await registerFileRoutes(server, {
+      fileService,
+      authHooks: tools.authHooks,
+      auditHooks: tools.auditHooks
+    });
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/files/file-001/content",
+      headers: { authorization: "Bearer valid-jwt" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/pdf");
+    expect(response.headers["content-disposition"]).toContain("record.pdf");
+    expect(response.rawPayload).toEqual(Buffer.from("DEMO_PDF_BYTES"));
+    expect(fileService.getContent).toHaveBeenCalledWith("file-001");
+
+    await waitForAuditRecord(tools.recordAudit);
+    expect(tools.recordAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "file.download",
+        objectType: "file",
+        objectId: "file-001",
         result: "success"
       })
     );
@@ -248,7 +290,8 @@ describe("base route groups", () => {
     const server = Fastify();
     const tools = createRouteTools(["writeback:execute"]);
     const writebackService: WritebackRouteService = {
-      execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" }))
+      execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" })),
+      listEligible: vi.fn(async () => [])
     };
     const jobService = {
       get: vi.fn(async () => ({ id: "job-001", status: "completed" }))
@@ -266,7 +309,14 @@ describe("base route groups", () => {
       headers: { authorization: "Bearer valid-jwt" },
       payload: {
         jobId: "job-001",
-        confirmed: true
+        confirmed: true,
+        fields: [
+          {
+            fieldKey: "clinicalDiagnosis",
+            targetPath: "clinicalInfo.clinicalDiagnosis",
+            value: "肺腺癌"
+          }
+        ]
       }
     });
 
@@ -274,7 +324,14 @@ describe("base route groups", () => {
     expect(jobService.get).toHaveBeenCalledWith("job-001");
     expect(writebackService.execute).toHaveBeenCalledWith({
       jobId: "job-001",
-      confirmed: true
+      confirmed: true,
+      fields: [
+        {
+          fieldKey: "clinicalDiagnosis",
+          targetPath: "clinicalInfo.clinicalDiagnosis",
+          value: "肺腺癌"
+        }
+      ]
     });
   });
 });

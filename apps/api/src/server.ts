@@ -31,9 +31,20 @@ export interface ApiServerServices {
   evaluationService: EvaluationRouteService;
 }
 
+export interface ApiRuntimeInfo {
+  serviceMode: string;
+  providers: {
+    ocr: string;
+    llm: string;
+    storage: string;
+    writeback: string;
+  };
+}
+
 export interface CreateApiServerOptions {
   services: ApiServerServices;
   logger?: boolean;
+  runtimeInfo?: ApiRuntimeInfo;
 }
 
 function readErrorStatus(error: unknown) {
@@ -87,6 +98,21 @@ export async function createApiServer(options: CreateApiServerOptions) {
   server.get("/health", async () => ({
     status: "ok",
     service: "medical-record-agent-api"
+  }));
+
+  server.get("/status", async () => ({
+    status: "ok",
+    service: "medical-record-agent-api",
+    runtime:
+      options.runtimeInfo ?? {
+        serviceMode: "demo",
+        providers: {
+          ocr: "mock",
+          llm: "mock",
+          storage: "memory",
+          writeback: "demo"
+        }
+      }
   }));
 
   await registerAuthRoutes(server, { authService: options.services.authService });

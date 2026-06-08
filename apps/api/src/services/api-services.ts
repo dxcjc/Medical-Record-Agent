@@ -48,10 +48,17 @@ export interface ApiRecognitionOrchestratorResult {
   error?: unknown;
 }
 
+export interface ApiProviderSelectionConfig {
+  ocrProviderKey?: string;
+  providerKey?: string;
+}
+
 export interface ApiRecognitionOrchestrator {
   start(input: {
     jobId: string;
+    schemaKey?: string;
     document: ApiRecognitionDocumentInput;
+    providerConfig?: ApiProviderSelectionConfig & Prisma.InputJsonObject;
   }): Promise<ApiRecognitionOrchestratorResult>;
 }
 
@@ -81,6 +88,7 @@ export interface ApiServiceRepositories {
       options?: Prisma.InputJsonValue;
     }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
     findById(id: string): Promise<unknown | null>;
+    listEligibleForWriteback(limit?: number): Promise<unknown[]>;
   };
   resultsRepository: {
     findByJobId(jobId: string): Promise<unknown | null>;
@@ -138,6 +146,7 @@ export interface ApiServiceRepositories {
     createRun(input: {
       datasetId: string;
       createdById?: string | null;
+      schemaConfig?: Prisma.InputJsonValue;
       providerConfig?: Prisma.InputJsonValue;
     }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
     listSamples(datasetId: string, limit?: number): Promise<unknown[]>;
@@ -166,6 +175,7 @@ export interface ApiServiceRepositories {
 export interface ProviderRegistry {
   list(): Promise<unknown[]>;
   setDefault(key: string, input: SetDefaultProviderInput): Promise<unknown>;
+  checkHealth?(key: string, input: SetDefaultProviderInput): Promise<unknown>;
 }
 
 export interface ApiEvaluationRunnerInput {
@@ -201,6 +211,23 @@ function toStorageKey(originalName: string, now: Date) {
 
 function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
   return (value ?? {}) as Prisma.InputJsonValue;
+}
+
+function readProviderSelectionConfig(value: unknown): (ApiProviderSelectionConfig & Prisma.InputJsonObject) | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const config: ApiProviderSelectionConfig & Prisma.InputJsonObject = {};
+  if (typeof record.ocrProviderKey === "string" && record.ocrProviderKey.length > 0) {
+    config.ocrProviderKey = record.ocrProviderKey;
+  }
+  if (typeof record.providerKey === "string" && record.providerKey.length > 0) {
+    config.providerKey = record.providerKey;
+  }
+
+  return Object.keys(config).length > 0 ? config : undefined;
 }
 
 function toResultFields(result: ApiRecognitionOrchestratorResult): Prisma.InputJsonValue {
@@ -270,8 +297,26 @@ function isRealSampleMetadata(metadata: unknown) {
   return sourceType === "real" || sourceType === "real_deidentified";
 }
 
+function hasDeidentificationProof(metadata: unknown) {
+  if (!isRecord(metadata) || !isRecord(metadata.deidentification)) {
+    return false;
+  }
+
+  const proof = metadata.deidentification;
+  // 真实脱敏样本至少需要一个可审计证明：proofId 表示外部脱敏证明编号；
+  // 或 reviewedBy + reviewedAt 表示内部复核人和复核时间，便于后续追溯。
+  return (
+    readOptionalString(proof.proofId) !== undefined ||
+    (readOptionalString(proof.reviewedBy) !== undefined && readOptionalString(proof.reviewedAt) !== undefined)
+  );
+}
+
 function readSampleMetadata(sample: unknown) {
   return isRecord(sample) ? sample.metadata : undefined;
+}
+
+function readEvaluationInputFromMetadata(metadata: unknown) {
+  return isRecord(metadata) && isRecord(metadata.evaluationInput) ? metadata.evaluationInput : undefined;
 }
 
 function readFileStorageKey(file: unknown) {
@@ -288,6 +333,99 @@ function readFileOriginalName(file: unknown) {
 
 function readFileMimeType(file: unknown) {
   return isRecord(file) && typeof file.mimeType === "string" && file.mimeType.length > 0 ? file.mimeType : undefined;
+}
+
+function readFileId(file: unknown) {
+  return isRecord(file) && typeof file.id === "string" && file.id.length > 0 ? file.id : undefined;
+}
+
+function readNestedRecord(record: Record<string, unknown>, path: string[]) {
+  let current: unknown = record;
+  for (const key of path) {
+    if (!isRecord(current)) {
+      return undefined;
+    }
+
+    current = current[key];
+  }
+
+  return isRecord(current) ? current : undefined;
+}
+
+function readNestedArray(record: Record<string, unknown>, path: string[]) {
+  let current: unknown = record;
+  for (const key of path) {
+    if (!isRecord(current)) {
+      return undefined;
+    }
+
+    current = current[key];
+  }
+
+  return Array.isArray(current) ? current : undefined;
+}
+
+function hasBlockingWritebackAttempt(job: Record<string, unknown>) {
+  const attempts = Array.isArray(job.writebacks) ? job.writebacks : [];
+
+  return attempts.some((attempt) => {
+    if (!isRecord(attempt)) {
+      return false;
+    }
+
+    return attempt.status === "pending" || attempt.status === "running" || attempt.status === "succeeded";
+  });
+}
+
+function normalizeEligibleWritebackJob(job: unknown) {
+  if (!isRecord(job) || hasBlockingWritebackAttempt(job)) {
+    return null;
+  }
+
+  const status = typeof job.status === "string" ? job.status : "";
+  if (status !== "completed" && status !== "confirmed") {
+    return null;
+  }
+
+  const result = isRecord(job.result) ? job.result : undefined;
+  if (!result || result.reviewRequired === true) {
+    return null;
+  }
+
+  const payload = isRecord(result.payload) ? result.payload : {};
+  const readyFields = readNestedArray(payload, ["writeback", "readyFields"]) ?? [];
+  if (readyFields.length === 0) {
+    return null;
+  }
+
+  const jobId = readOptionalString(job.id) ?? "unknown-job";
+  const sourceFileId = readOptionalString(job.sourceFileId) ?? null;
+  const extractedFields = Array.isArray(result.fields) ? result.fields : [];
+  const payloadFields = readNestedArray(payload, ["fields"]) ?? extractedFields;
+  const blockers = readNestedArray(payload, ["writeback", "blockers"]) ?? [];
+  const safeResult = readNestedRecord(payload, ["result"]) ?? {
+    status,
+    reviewRequired: false
+  };
+
+  return {
+    id: jobId,
+    jobId,
+    schemaKey: readOptionalString(job.schemaKey) ?? "unknown-schema",
+    sourceFileId,
+    status,
+    extractedFields,
+    readyFields,
+    blockers,
+    payload: {
+      jobId,
+      source: {
+        fileId: sourceFileId
+      },
+      fields: payloadFields,
+      result: safeResult
+    }
+  };
 }
 
 async function enrichDocumentFromStoredFile(input: {
@@ -406,7 +544,7 @@ function toEvaluationSample(sample: unknown): EvaluationDatasetSample {
   const metadata = readSampleMetadata(sample);
   const input = isRecord(record.input)
     ? record.input
-    : {
+    : readEvaluationInputFromMetadata(metadata) ?? {
         fileId: record.fileId,
         recognitionJobId: record.recognitionJobId,
         externalId: record.externalId,
@@ -510,8 +648,17 @@ async function assertDatasetAllowsEvaluationSamples(
 
   for (const sample of input.samples) {
     const metadata = isRecord(sample) ? sample.metadata : undefined;
+    const sourceType = readSourceType(metadata);
+    if (sourceType === "real") {
+      throw createApiServiceError("EVALUATION_SAMPLE_REAL_SOURCE_TYPE_FORBIDDEN", 409);
+    }
+
     if (isRealSampleMetadata(metadata) && !readDeidentifiedFlag(metadata)) {
       throw createApiServiceError("EVALUATION_SAMPLE_NOT_DEIDENTIFIED", 409);
+    }
+
+    if (sourceType === "real_deidentified" && !hasDeidentificationProof(metadata)) {
+      throw createApiServiceError("EVALUATION_SAMPLE_DEIDENTIFICATION_PROOF_REQUIRED", 409);
     }
   }
 }
@@ -530,6 +677,27 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
     },
     setDefaultProvider(input) {
       return options.providerRegistry.setDefault(input.key, input);
+    },
+    async checkProviderHealth(input) {
+      if (options.providerRegistry.checkHealth) {
+        return options.providerRegistry.checkHealth(input.key, input);
+      }
+
+      const providers = await options.providerRegistry.list();
+      const provider = providers.find((item) => isRecord(item) && item.key === input.key);
+      if (!provider) {
+        throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+          code: "PROVIDER_NOT_FOUND",
+          statusCode: 404
+        });
+      }
+
+      return {
+        key: input.key,
+        status: isRecord(provider) && provider.enabled === false ? "degraded" : "healthy",
+        checkedAt: now().toISOString(),
+        message: "Provider 配置已加载；当前 registry 未提供专用健康检查实现。"
+      };
     }
   };
 
@@ -557,6 +725,10 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       return Promise.all(
         input.samples.map((sample) => {
           const record = readSampleRecord(sample);
+          const metadata = toInputJsonValue({
+            ...(isRecord(record.metadata) ? record.metadata : {}),
+            ...(isRecord(record.input) ? { evaluationInput: record.input } : {})
+          });
 
           return repositories.evaluationRepository.addSample({
             datasetId: input.datasetId,
@@ -564,7 +736,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             fileId: readOptionalString(record.fileId) ?? null,
             recognitionJobId: readOptionalString(record.recognitionJobId) ?? null,
             groundTruth: toInputJsonValue(record.groundTruth),
-            metadata: toInputJsonValue(record.metadata)
+            metadata
           });
         })
       );
@@ -577,12 +749,17 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       return Promise.resolve([]);
     },
     async createRun(input: CreateEvaluationRunInput) {
+      // 评测 runner 需要知道本次使用的 schemaKey；先以 JSON 配置保存，后续可再关联具体 schemaVersionId。
+      const schemaConfig = {
+        schemaKey: input.schemaKey ?? "lims-clinical-info"
+      };
       const providerConfig = {
         providerKey: input.providerKey
       };
       const run = await repositories.evaluationRepository.createRun({
         datasetId: input.datasetId,
         createdById: input.actor.actorUserId,
+        schemaConfig,
         providerConfig
       });
 
@@ -598,7 +775,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         const result = await options.evaluationRunner.run({
           runId: run.id,
           dataset: toEvaluationDataset(input.datasetId, datasetRecord, samples),
-          schemaConfig: {},
+          schemaConfig,
           providerConfig,
           actor: input.actor
         });
@@ -671,6 +848,26 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           metadata: toInputJsonValue(body.metadata),
           uploadedById: body.uploadedById ?? null
         });
+      },
+      async getContent(id) {
+        const file = await repositories.fileRepository.findById(id);
+        const storageKey = readFileStorageKey(file);
+
+        if (!storageKey || !options.storageProvider) {
+          return null;
+        }
+
+        const storedFile = await options.storageProvider.get(storageKey);
+        if (!storedFile) {
+          return null;
+        }
+
+        return {
+          id: readFileId(file) ?? id,
+          originalName: readFileOriginalName(file) ?? storedFile.key,
+          mimeType: readFileMimeType(file) ?? storedFile.contentType ?? "application/octet-stream",
+          body: storedFile.body
+        };
       }
     },
     jobService: {
@@ -690,8 +887,9 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           options: toInputJsonValue(body.options),
           providerConfig: toInputJsonValue(body.providerConfig)
         });
-        const result = await options.recognitionOrchestrator.start({
+        const orchestratorInput: Parameters<ApiRecognitionOrchestrator["start"]>[0] = {
           jobId: job.id,
+          schemaKey: body.schemaKey ?? "lims-clinical-info",
           document:
             body.sourceFileId !== undefined
               ? await createStoredFileDocumentInput({
@@ -705,7 +903,14 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               : body.document ?? {
                   documentId: job.id
                 }
-        });
+        };
+
+        const providerSelection = readProviderSelectionConfig(body.providerConfig);
+        if (providerSelection) {
+          orchestratorInput.providerConfig = providerSelection;
+        }
+
+        const result = await options.recognitionOrchestrator.start(orchestratorInput);
         await repositories.resultsRepository.upsertByJobId({
           jobId: job.id,
           fields: toResultFields(result),
@@ -736,6 +941,13 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       }
     },
     writebackService: {
+      async listEligible(input) {
+        const rawJobs = await repositories.jobsRepository.listEligibleForWriteback(input.limit);
+
+        return rawJobs
+          .map(normalizeEligibleWritebackJob)
+          .filter((item): item is NonNullable<ReturnType<typeof normalizeEligibleWritebackJob>> => Boolean(item));
+      },
       async execute(input) {
         const body = input as {
           jobId?: string;

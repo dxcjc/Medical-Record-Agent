@@ -5,6 +5,7 @@ import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware
 
 export interface CreateEvaluationRunInput {
   datasetId: string;
+  schemaKey?: string;
   providerKey: string;
   sampleLimit?: number;
   actor: AuthContext;
@@ -55,19 +56,23 @@ export interface EvaluationRoutesDependencies {
   authHooks: ReturnType<typeof createAuthHooks>;
 }
 
-function isCreateRunBody(value: unknown): value is { datasetId: string; providerKey: string; sampleLimit?: number } {
+function isCreateRunBody(
+  value: unknown
+): value is { datasetId: string; schemaKey?: string; providerKey: string; sampleLimit?: number } {
   if (!value || typeof value !== "object") {
     return false;
   }
 
   const body = value as Record<string, unknown>;
   const sampleLimit = body.sampleLimit;
+  const schemaKey = body.schemaKey;
 
   return (
     typeof body.datasetId === "string" &&
     body.datasetId.length > 0 &&
     typeof body.providerKey === "string" &&
     body.providerKey.length > 0 &&
+    (schemaKey === undefined || (typeof schemaKey === "string" && schemaKey.length > 0)) &&
     (sampleLimit === undefined || (typeof sampleLimit === "number" && Number.isFinite(sampleLimit)))
   );
 }
@@ -210,6 +215,10 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
         providerKey: request.body.providerKey,
         actor: request.auth as AuthContext
       };
+
+      if (request.body.schemaKey !== undefined) {
+        input.schemaKey = request.body.schemaKey;
+      }
 
       if (request.body.sampleLimit !== undefined) {
         input.sampleLimit = request.body.sampleLimit;

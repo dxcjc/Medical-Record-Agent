@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
 
 import { PERMISSIONS } from "../auth/permissions";
-import type { createAuthHooks } from "../middleware/auth.middleware";
+import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware";
 import type { createAuditHooks } from "../middleware/audit.middleware";
 
 export interface WritebackRouteService {
   execute(input: unknown): Promise<unknown>;
+  listEligible(input: { actor: AuthContext; limit: number }): Promise<unknown[]>;
 }
 
 export interface WritebackJobRouteService {
@@ -45,6 +46,28 @@ function isServerConfirmedJob(value: unknown) {
  * Agent 本身不承载人工确认 UI，但写回 API 仍要求调用方传入 confirmed=true，避免低置信或未授权任务被直接回填。
  */
 export async function registerWritebackRoutes(server: FastifyInstance, dependencies: WritebackRoutesDependencies) {
+  server.get(
+    "/writeback/eligible",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.writebackExecute)
+      ]
+    },
+    async (request) => {
+      const query = request.query as { limit?: unknown };
+      const parsedLimit = typeof query.limit === "string" ? Number(query.limit) : undefined;
+      const limit = parsedLimit && Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+
+      return {
+        items: await dependencies.writebackService.listEligible({
+          actor: request.auth as AuthContext,
+          limit
+        })
+      };
+    }
+  );
+
   server.post(
     "/writeback",
     {

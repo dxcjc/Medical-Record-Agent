@@ -12,6 +12,7 @@ export interface SetDefaultProviderInput {
 export interface ProviderRouteService {
   listProviders(): Promise<unknown[]>;
   setDefaultProvider(input: SetDefaultProviderInput): Promise<unknown>;
+  checkProviderHealth(input: SetDefaultProviderInput): Promise<unknown>;
 }
 
 export interface ProviderRoutesDependencies {
@@ -127,6 +128,40 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
 
         return {
           provider: maskSecretRefs(provider)
+        };
+      } catch (error) {
+        return sendStructuredProviderError(reply, error);
+      }
+    }
+  );
+
+  server.post(
+    "/providers/:key/health",
+    {
+      preHandler: [
+        ...preHandler,
+        ...(dependencies.auditHooks
+          ? [
+              dependencies.auditHooks.audit({
+                action: "provider.health.check",
+                objectType: "provider",
+                objectId: (request) => (request.params as { key?: string }).key
+              })
+            ]
+          : [])
+      ]
+    },
+    async (request, reply) => {
+      const params = request.params as { key: string };
+
+      try {
+        const health = await dependencies.providerService.checkProviderHealth({
+          key: params.key,
+          actor: request.auth as AuthContext
+        });
+
+        return {
+          health: maskSecretRefs(health)
         };
       } catch (error) {
         return sendStructuredProviderError(reply, error);
