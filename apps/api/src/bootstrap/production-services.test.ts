@@ -1,6 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createProductionApiServices } from "./production-services";
+import {
+  assertProductionQueueContract,
+  buildSecretResolverContract,
+  buildProductionQueueContract,
+  buildProductionSessionInvalidationStoreContract,
+  createEnvSecretResolver,
+  createKmsSecretResolver,
+  createProductionJobQueueAdapter,
+  createSecretResolverFromEnv,
+  createSecretManagerResolver,
+  createProductionSessionInvalidationStore,
+  createVaultSecretResolver,
+  createProductionApiServices
+} from "./production-services";
 
 type ProductionApiServicesOptions = Parameters<typeof createProductionApiServices>[0];
 type ProductionEnvStub = ProductionApiServicesOptions["env"];
@@ -20,7 +33,8 @@ function createPrismaClientStub() {
     },
     schemaDraft: {},
     schemaVersion: {
-      findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null)
+      findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null),
+      findUnique: vi.fn(async (): Promise<Record<string, unknown> | null> => null)
     },
     providerConfig: {
       findMany: vi.fn(async () => []),
@@ -54,12 +68,43 @@ function createPrismaClientStub() {
         status: input.data.status,
         schemaKey: input.data.schemaKey
       })),
+      findUnique: vi.fn(async () => ({
+        id: "job-001",
+        status: "completed",
+        schemaKey: "lims-clinical-info",
+        sourceFileId: "file-001",
+        providerConfig: {},
+        options: {},
+        trace: [],
+        warnings: [],
+        error: null
+      })),
       update: vi.fn(async (input) => ({
         id: input.where.id,
         ...input.data
       }))
     },
     recognitionResult: {
+      findUnique: vi.fn(async () => ({
+        id: "result-001",
+        jobId: "job-001",
+        fields: [],
+        normalizedFields: [],
+        evidence: [],
+        payload: {
+          writeback: {
+            readyFields: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                targetPath: "clinicalInfo.clinicalDiagnosis",
+                value: "服务端持久化诊断"
+              }
+            ]
+          }
+        },
+        confidence: null,
+        reviewRequired: false
+      })),
       upsert: vi.fn(async (input) => ({
         id: "result-001",
         jobId: input.where.jobId,
@@ -72,6 +117,8 @@ function createPrismaClientStub() {
         id: "writeback-001",
         ...input.data
       })),
+      findMany: vi.fn(async () => []),
+      findUnique: vi.fn(async () => null),
       update: vi.fn(async (input) => ({
         id: input.where.id,
         ...input.data
@@ -101,7 +148,12 @@ function createPrismaClientStub() {
           },
           metadata: {
             sourceType: "synthetic",
-            deidentified: true
+            deidentified: true,
+            evaluationInput: {
+              fileName: "synthetic-evaluation-record.pdf",
+              mimeType: "application/pdf",
+              storageKey: "synthetic/evaluation-record.pdf"
+            }
           }
         }
       ])
@@ -145,15 +197,15 @@ function createProductionEnvStub(): ProductionEnvStub {
         secretAccessKey: undefined
       }
     },
-    providers: {
-      ocr: {
-        provider: "mock" as const,
+      providers: {
+        ocr: {
+        provider: "none" as const,
         endpoint: undefined,
         apiKey: undefined
       },
       llm: {
-        provider: "mock" as const,
-        model: "mock-medical-record-extractor",
+        provider: "none" as const,
+        model: "unconfigured-real-model",
         baseUrl: undefined,
         apiKey: undefined,
         openAiApiKey: undefined
@@ -168,6 +220,87 @@ function createProductionEnvStub(): ProductionEnvStub {
   };
 }
 
+function createProductionEnvWithRealProvidersStub(): ProductionEnvStub {
+  const env = createProductionEnvStub();
+  env.providers = {
+    ocr: {
+      provider: "http",
+      endpoint: "http://ocr.example.test/recognize",
+      apiKey: undefined
+    },
+    llm: {
+      provider: "openai-responses",
+      model: "gpt-4.1-mini",
+      baseUrl: undefined,
+      apiKey: undefined,
+      openAiApiKey: "test-openai-api-key"
+    }
+  };
+
+  return env;
+}
+
+function createOpenAiResponsesClientStub(fieldKey = "clinicalDiagnosis", value = "模拟诊断") {
+  return {
+    responses: {
+      create: vi.fn(async () => ({
+        output_text: JSON.stringify({
+          fields: [
+            {
+              fieldKey,
+              value,
+              rawValue: `诊断：${value}`,
+              confidence: 0.96,
+              evidence: [
+                {
+                  snippet: `诊断：${value}`,
+                  startOffset: 0,
+                  endOffset: value.length + 3,
+                  pageNumber: 1
+                }
+              ]
+            }
+          ]
+        })
+      }))
+    }
+  };
+}
+
+function createProviderRuntimeFetchStub() {
+  return vi.fn(async (_url: string | URL, _init?: RequestInit) =>
+    new Response(
+      JSON.stringify({
+        pages: [
+          {
+            page: 1,
+            text: "合成病历：诊断：模拟诊断。",
+            confidence: 0.99,
+            blocks: [
+              {
+                blockId: "ocr-block-1",
+                text: "合成病历：诊断：模拟诊断。",
+                confidence: 0.99,
+                coordinates: { x: 0, y: 0, width: 100, height: 20 }
+              }
+            ]
+          }
+        ]
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    )
+  );
+}
+
+function createSyntheticRecognitionDocument(documentId: string) {
+  return {
+    documentId,
+    fileName: "demo-record.pdf",
+    mimeType: "application/pdf",
+    content: Buffer.from("SYNTHETIC_MEDICAL_RECORD_BYTES")
+  };
+}
+
 function createProviderManagerActor() {
   return {
     actorUserId: "user-001",
@@ -177,7 +310,63 @@ function createProviderManagerActor() {
   };
 }
 
+async function drainProductionJobs(services: ReturnType<typeof createProductionApiServices>) {
+  await services.jobQueue?.drain();
+}
+
 describe("production api services bootstrap", () => {
+  it("无真实 OCR/LLM provider 时业务 provider 列表不返回 mock 或开发占位", async () => {
+    const prisma = createPrismaClientStub();
+    const services = createProductionApiServices({
+      env: createProductionEnvStub(),
+      prisma: prisma as never,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    const providers = await services.providerService.listProviders();
+    expect(JSON.stringify(providers)).not.toContain("mock-ocr");
+    expect(JSON.stringify(providers)).not.toContain("mock-model");
+    expect(JSON.stringify(providers)).not.toContain("development_placeholder");
+    expect(providers).toEqual([
+      expect.objectContaining({
+        key: "lims-writeback",
+        kind: "lims",
+        secretRefs: {
+          apiToken: "configured"
+        }
+      }),
+      expect.objectContaining({
+        key: "local-storage",
+        kind: "storage",
+        secretRefs: {}
+      })
+    ]);
+  });
+
+  it("无真实 OCR/LLM provider 时阻断识别创建而不是落回 mock", async () => {
+    const prisma = createPrismaClientStub();
+    const services = createProductionApiServices({
+      env: createProductionEnvStub(),
+      prisma: prisma as never,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.jobService.create({
+        schemaKey: "lims-clinical-info",
+        document: {
+          documentId: "demo-document-no-provider",
+          fileName: "demo-record.pdf",
+          mimeType: "application/pdf"
+        }
+      })
+    ).rejects.toMatchObject({
+      code: "REAL_PROVIDER_NOT_CONFIGURED",
+      statusCode: 503
+    });
+    expect(prisma.recognitionJob.create).not.toHaveBeenCalled();
+  });
+
   it("装配真实 service 依赖，并让写回路径调用 LIMS adapter", async () => {
     const prisma = createPrismaClientStub();
     const limsAdapter = {
@@ -192,36 +381,33 @@ describe("production api services bootstrap", () => {
     };
 
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: {
+        ...createProductionEnvStub(),
+        providers: {
+          ...createProductionEnvStub().providers,
+          ocr: {
+            provider: "http" as const,
+            endpoint: "http://ocr.example.test/recognize",
+            apiKey: undefined
+          },
+          llm: {
+            provider: "openai-responses" as const,
+            model: "gpt-4.1-mini",
+            baseUrl: undefined,
+            apiKey: undefined,
+            openAiApiKey: "test-openai-api-key"
+          }
+        }
+      },
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      openAiResponsesClient: {
+        responses: {
+          create: vi.fn()
+        }
+      },
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
-
-    await expect(services.providerService.listProviders()).resolves.toEqual([
-      expect.objectContaining({
-        key: "mock-ocr",
-        kind: "ocr",
-        secretRefs: {}
-      }),
-      expect.objectContaining({
-        key: "mock-model",
-        kind: "llm",
-        secretRefs: {}
-      }),
-      expect.objectContaining({
-        key: "lims-writeback",
-        kind: "lims",
-        secretRefs: {
-          apiToken: "configured"
-        }
-      }),
-      expect.objectContaining({
-        key: "local-storage",
-        kind: "storage",
-        secretRefs: {}
-      })
-    ]);
 
     await expect(
       services.providerService.checkProviderHealth({
@@ -245,26 +431,80 @@ describe("production api services bootstrap", () => {
       })
     );
 
+    await expect(
+      services.providerService.checkProviderHealth({
+        key: "mock-ocr",
+        actor: {
+          actorUserId: "user-001",
+          authType: "jwt",
+          permissions: ["provider:manage"],
+          roles: ["admin"]
+        }
+      })
+    ).rejects.toMatchObject({
+      code: "PROVIDER_NOT_FOUND",
+      statusCode: 404
+    });
+
+    await expect(
+      services.providerService.setDefaultProvider({
+        key: "mock-ocr",
+        actor: {
+          actorUserId: "user-001",
+          authType: "jwt",
+          permissions: ["provider:manage"],
+          roles: ["admin"]
+        }
+      })
+    ).rejects.toMatchObject({
+      code: "PROVIDER_NOT_FOUND",
+      statusCode: 404
+    });
+
     await services.writebackService.execute({
       jobId: "job-001",
+      confirmed: true,
+      idempotencyKey: "job-001:manual",
       payload: {
         clinicalInfo: {
-          clinicalDiagnosis: "DEMO_DIAGNOSIS"
+          clinicalDiagnosis: "客户端伪造诊断"
         }
       },
-      idempotencyKey: "job-001:manual"
-    });
+      fields: [],
+      actor: {
+        actorUserId: "user-001",
+        authType: "jwt",
+        permissions: ["writeback:execute"],
+        roles: ["admin"]
+      },
+    } as never);
 
     expect(limsAdapter.execute).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "writeback-001",
         recognitionResultId: "job-001",
         limsSampleId: "job-001",
-        requestedByUserId: "system",
+        requestedByUserId: "user-001",
         idempotencyKey: "job-001:manual",
+        fields: [
+          {
+            sourceFieldKey: "clinicalDiagnosis",
+            targetFieldKey: "clinicalInfo.clinicalDiagnosis",
+            value: "服务端持久化诊断"
+          }
+        ],
         payload: {
           clinicalInfo: {
-            clinicalDiagnosis: "DEMO_DIAGNOSIS"
+            clinicalDiagnosis: "服务端持久化诊断"
+          }
+        }
+      })
+    );
+    expect(limsAdapter.execute).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: {
+          clinicalInfo: {
+            clinicalDiagnosis: "客户端伪造诊断"
           }
         }
       })
@@ -285,6 +525,107 @@ describe("production api services bootstrap", () => {
     );
   });
 
+  it("生产手工写回缺 RecognitionResult readyFields 时拒绝裸 fields，避免绕过服务端可信边界", async () => {
+    const prisma = createPrismaClientStub();
+    vi.mocked(prisma.recognitionResult.findUnique).mockResolvedValueOnce({
+      id: "result-no-ready-fields",
+      jobId: "job-001",
+      fields: [],
+      normalizedFields: [],
+      evidence: [],
+      payload: {
+        writeback: {
+          readyFields: []
+        }
+      },
+      confidence: null,
+      reviewRequired: false
+    });
+    const limsAdapter = {
+      execute: vi.fn(async () => ({
+        id: "lims-result-should-not-run",
+        requestId: "writeback-should-not-run",
+        status: "success" as const,
+        externalReceiptId: "LIMS-SHOULD-NOT-RUN",
+        retryable: false,
+        completedAt: "2026-06-05T09:00:00.000Z"
+      }))
+    };
+    const services = createProductionApiServices({
+      env: createProductionEnvWithRealProvidersStub(),
+      prisma: prisma as never,
+      limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.writebackService.execute({
+        jobId: "job-001",
+        confirmed: true,
+        fields: [
+          {
+            fieldKey: "clinicalDiagnosis",
+            targetPath: "clinicalInfo.clinicalDiagnosis",
+            value: "客户端裸 fields 不可信"
+          }
+        ],
+        actor: {
+          actorUserId: "user-001",
+          authType: "jwt",
+          permissions: ["writeback:execute"],
+          roles: ["admin"]
+        }
+      } as never)
+    ).rejects.toMatchObject({
+      code: "WRITEBACK_NOT_READY",
+      statusCode: 409
+    });
+    expect(limsAdapter.execute).not.toHaveBeenCalled();
+    expect(prisma.writebackAttempt.create).not.toHaveBeenCalled();
+  });
+
+  it("生产写回 executor 拒绝未标记为服务端 workflow 的裸 fields 输入", async () => {
+    const prisma = createPrismaClientStub();
+    const limsAdapter = {
+      execute: vi.fn(async () => ({
+        id: "lims-result-should-not-run",
+        requestId: "writeback-should-not-run",
+        status: "success" as const,
+        externalReceiptId: "LIMS-SHOULD-NOT-RUN",
+        retryable: false,
+        completedAt: "2026-06-05T09:00:00.000Z"
+      }))
+    };
+    const services = createProductionApiServices({
+      env: createProductionEnvWithRealProvidersStub(),
+      prisma: prisma as never,
+      limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.writebackService.execute({
+        jobId: "job-001",
+        fields: [
+          {
+            fieldKey: "clinicalDiagnosis",
+            targetPath: "clinicalInfo.clinicalDiagnosis",
+            value: "裸 fields 不应进入 LIMS"
+          }
+        ]
+      } as never)
+    ).rejects.toMatchObject({
+      code: "WRITEBACK_REQUIRES_SERVER_WORKFLOW_SOURCE",
+      statusCode: 403
+    });
+    expect(limsAdapter.execute).not.toHaveBeenCalled();
+    expect(prisma.writebackAttempt.create).not.toHaveBeenCalled();
+  });
+
   it("生产识别编排把状态流转写入 Prisma 任务仓库", async () => {
     const prisma = createPrismaClientStub();
     const recognitionJobUpdate = vi.mocked(prisma.recognitionJob.update);
@@ -300,20 +641,19 @@ describe("production api services bootstrap", () => {
     };
 
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     await services.jobService.create({
       schemaKey: "lims-clinical-info",
-      document: {
-        documentId: "demo-document-001",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      }
+      document: createSyntheticRecognitionDocument("demo-document-001")
     });
+    await drainProductionJobs(services);
 
     expect(recognitionJobUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -361,20 +701,19 @@ describe("production api services bootstrap", () => {
       }))
     };
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     const job = await services.jobService.create({
       schemaKey: "lims-clinical-info",
-      document: {
-        documentId: "demo-document-auto-writeback",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      }
+      document: createSyntheticRecognitionDocument("demo-document-auto-writeback")
     });
+    await drainProductionJobs(services);
 
     expect(limsAdapter.execute).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -424,7 +763,8 @@ describe("production api services bootstrap", () => {
     expect(job).toEqual(
       expect.objectContaining({
         id: "job-001",
-        status: "writeback_completed"
+        status: "queued",
+        executionMode: "asynchronous"
       })
     );
   });
@@ -432,23 +772,22 @@ describe("production api services bootstrap", () => {
   it("生产识别任务会拒绝当前环境未配置的 providerConfig，避免静默落回默认 provider", async () => {
     const prisma = createPrismaClientStub();
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     await services.jobService.create({
       schemaKey: "lims-clinical-info",
-      document: {
-        documentId: "demo-document-provider-config",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      },
+      document: createSyntheticRecognitionDocument("demo-document-provider-config"),
       providerConfig: {
         ocrProviderKey: "missing-ocr",
         providerKey: "missing-model"
       }
     });
+    await drainProductionJobs(services);
 
     expect(prisma.recognitionResult.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -465,7 +804,7 @@ describe("production api services bootstrap", () => {
     );
   });
 
-  it("生产识别任务会使用数据库中已启用的 providerConfig 运行 OCR 和 LLM", async () => {
+  it("生产识别任务会拒绝数据库中保存的 mock providerConfig", async () => {
     const prisma = createPrismaClientStub();
     const limsAdapter = {
       execute: vi.fn(async () => ({
@@ -542,37 +881,31 @@ describe("production api services bootstrap", () => {
       return null;
     });
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     await services.jobService.create({
       schemaKey: "lims-clinical-info",
-      document: {
-        documentId: "demo-document-saved-provider",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      },
+      document: createSyntheticRecognitionDocument("demo-document-saved-provider"),
       providerConfig: {
         ocrProviderKey: "saved-mock-ocr",
         providerKey: "saved-mock-model"
       }
     });
+    await drainProductionJobs(services);
 
     expect(prisma.recognitionResult.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
           payload: expect.objectContaining({
-            status: "writeback_completed",
-            extraction: expect.objectContaining({
-              candidates: [
-                expect.objectContaining({
-                  fieldKey: "clinicalDiagnosis",
-                  value: "在线配置诊断"
-                })
-              ]
+            status: "failed",
+            error: expect.objectContaining({
+              code: "PROVIDER_CONFIG_NOT_AVAILABLE"
             })
           })
         })
@@ -582,6 +915,11 @@ describe("production api services bootstrap", () => {
 
   it("生产 LangChain provider 未注入真实模型时会启动期失败，避免空候选伪成功", () => {
     const env = createProductionEnvStub();
+    env.providers.ocr = {
+      provider: "http",
+      endpoint: "http://ocr.example.test/recognize",
+      apiKey: undefined
+    };
     env.providers.llm = {
       provider: "langchain",
       model: "langchain-configured-model",
@@ -602,6 +940,11 @@ describe("production api services bootstrap", () => {
   it("生产 LangChain provider 使用注入的真实模型形状执行结构化抽取", async () => {
     const prisma = createPrismaClientStub();
     const env = createProductionEnvStub();
+    env.providers.ocr = {
+      provider: "http",
+      endpoint: "http://ocr.example.test/recognize",
+      apiKey: undefined
+    };
     env.providers.llm = {
       provider: "langchain",
       model: "langchain-configured-model",
@@ -631,6 +974,7 @@ describe("production api services bootstrap", () => {
     const services = createProductionApiServices({
       env,
       prisma: prisma as never,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
       langChainModel: {
         withStructuredOutput
       },
@@ -639,12 +983,9 @@ describe("production api services bootstrap", () => {
 
     await services.jobService.create({
       schemaKey: "lims-clinical-info",
-      document: {
-        documentId: "demo-document-langchain",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      }
+      document: createSyntheticRecognitionDocument("demo-document-langchain")
     });
+    await drainProductionJobs(services);
 
     expect(withStructuredOutput).toHaveBeenCalledTimes(1);
     expect(invoke).toHaveBeenCalledWith(expect.stringContaining("字段"));
@@ -654,6 +995,11 @@ describe("production api services bootstrap", () => {
   it("生产 OpenAI Responses provider 使用注入的真实 SDK client 形状而不是占位 throw", async () => {
     const prisma = createPrismaClientStub();
     const env = createProductionEnvStub();
+    env.providers.ocr = {
+      provider: "http",
+      endpoint: "http://ocr.example.test/recognize",
+      apiKey: undefined
+    };
     env.providers.llm = {
       provider: "openai-responses",
       model: "gpt-4.1-mini",
@@ -695,6 +1041,7 @@ describe("production api services bootstrap", () => {
       env,
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
       openAiResponsesClient: {
         responses: {
           create: responsesCreate
@@ -705,12 +1052,9 @@ describe("production api services bootstrap", () => {
 
     await services.jobService.create({
       schemaKey: "lims-clinical-info",
-      document: {
-        documentId: "demo-document-openai-responses",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      }
+      document: createSyntheticRecognitionDocument("demo-document-openai-responses")
     });
+    await drainProductionJobs(services);
 
     expect(responsesCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -726,19 +1070,18 @@ describe("production api services bootstrap", () => {
   it("生产识别任务会拒绝当前环境未启用的 schemaKey，避免静默落回 LIMS 默认 schema", async () => {
     const prisma = createPrismaClientStub();
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     await services.jobService.create({
       schemaKey: "custom-clinical-schema",
-      document: {
-        documentId: "demo-document-schema-config",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      }
+      document: createSyntheticRecognitionDocument("demo-document-schema-config")
     });
+    await drainProductionJobs(services);
 
     expect(prisma.recognitionResult.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -802,20 +1145,19 @@ describe("production api services bootstrap", () => {
       }
     });
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     await services.jobService.create({
       schemaKey: "custom-clinical-schema",
-      document: {
-        documentId: "demo-document-custom-schema",
-        fileName: "demo-record.pdf",
-        mimeType: "application/pdf"
-      }
+      document: createSyntheticRecognitionDocument("demo-document-custom-schema")
     });
+    await drainProductionJobs(services);
 
     const resultPayload = vi.mocked(prisma.recognitionResult.upsert).mock.calls.at(-1)?.[0].create.payload;
 
@@ -868,14 +1210,16 @@ describe("production api services bootstrap", () => {
   it("生产评估运行会执行 core runner、创建评估识别任务并持久化指标", async () => {
     const prisma = createPrismaClientStub();
     const services = createProductionApiServices({
-      env: createProductionEnvStub(),
+      env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
     const run = await services.evaluationService.createRun({
       datasetId: "dataset-001",
-      providerKey: "mock-model",
+      providerKey: "openai-responses-model",
       sampleLimit: 1,
       actor: {
         actorUserId: "user-001",
@@ -897,8 +1241,11 @@ describe("production api services bootstrap", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           schemaKey: "lims-clinical-info",
-          sourceFileId: "file-001",
           createdById: "user-001",
+          providerConfig: {
+            providerKey: "openai-responses-model"
+          },
+          sourceFileId: null,
           options: expect.objectContaining({
             evaluationRunId: "run-001",
             evaluationSampleId: "sample-001"
@@ -941,6 +1288,145 @@ describe("production api services bootstrap", () => {
       expect.objectContaining({
         id: "run-001",
         status: "completed"
+      })
+    );
+  });
+
+  it("生产评估运行会按 run schemaKey 解析 active schema，而不是固定使用内置 LIMS schema", async () => {
+    const prisma = createPrismaClientStub();
+    vi.mocked(prisma.schemaVersion.findUnique).mockResolvedValue({
+      id: "schema-version-custom-eval-002",
+      schemaKey: "custom-evaluation-schema",
+      version: 2,
+      displayName: "自定义评估 schema",
+      status: "active",
+      changelog: "测试 evaluation runner schema resolution",
+      publishedById: null,
+      createdAt: new Date("2026-06-05T08:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T08:00:00.000Z"),
+      definition: {
+        key: "custom-evaluation-schema",
+        label: "自定义评估 schema",
+        version: "2.0.0",
+        evidencePolicy: {
+          required: true,
+          minConfidence: 0.78,
+          requireSourceText: true,
+          requirePageReference: true
+        },
+        fields: [
+          {
+            key: "customDiagnosis",
+            label: "自定义诊断",
+            type: "string",
+            comments: ["用于证明 production evaluation runner 不再固定 clinicalDiagnosis。"],
+            adapterHints: {
+              limsTargetPath: "clinicalInfo.customDiagnosis",
+              writebackMode: "preview"
+            }
+          }
+        ]
+      }
+    });
+    const services = createProductionApiServices({
+      env: createProductionEnvWithRealProvidersStub(),
+      prisma: prisma as never,
+      providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub("customDiagnosis", "模拟诊断"),
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await services.evaluationService.createRun({
+      datasetId: "dataset-001",
+      schemaKey: "custom-evaluation-schema",
+      schemaVersionId: "schema-version-custom-eval-002",
+      providerKey: "openai-responses-model",
+      sampleLimit: 1,
+      actor: {
+        actorUserId: "user-001",
+        authType: "jwt",
+        permissions: ["evaluation:manage"],
+        roles: ["admin"]
+      }
+    });
+
+    expect(prisma.schemaVersion.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: "schema-version-custom-eval-002"
+      }
+    });
+    expect(prisma.evaluationRun.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          providerConfig: {
+            providerKey: "openai-responses-model"
+          },
+          schemaVersionId: "schema-version-custom-eval-002"
+        })
+      })
+    );
+    expect(prisma.recognitionJob.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          schemaKey: "custom-evaluation-schema",
+          schemaVersionId: "schema-version-custom-eval-002",
+          sourceFileId: null,
+          providerConfig: {
+            providerKey: "openai-responses-model"
+          },
+          options: expect.objectContaining({
+            evaluationRunId: "run-001",
+            evaluationSampleId: "sample-001"
+          })
+        })
+      })
+    );
+    expect(prisma.recognitionResult.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          fields: [
+            expect.objectContaining({
+              fieldKey: "customDiagnosis"
+            })
+          ],
+          payload: expect.objectContaining({
+            extraction: expect.objectContaining({
+              candidates: [
+                expect.objectContaining({
+                  fieldKey: "customDiagnosis"
+                })
+              ]
+            })
+          })
+        })
+      })
+    );
+    expect(prisma.recognitionResult.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          fields: [
+            expect.objectContaining({
+              fieldKey: "clinicalDiagnosis"
+            })
+          ]
+        })
+      })
+    );
+    expect(prisma.evaluationRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "completed",
+          schemaVersion: {
+            connect: {
+              id: "schema-version-custom-eval-002"
+            }
+          },
+          summary: expect.objectContaining({
+            schemaKey: "custom-evaluation-schema",
+            schemaVersionId: "schema-version-custom-eval-002",
+            schemaSource: "database"
+          })
+        })
       })
     );
   });
@@ -1187,5 +1673,777 @@ describe("production api services bootstrap", () => {
         }
       })
     );
+  });
+
+  it("env secret resolver 会按 secretRefs 解析密钥且缺失时返回明确 unresolved", async () => {
+    const resolver = createEnvSecretResolver({
+      env: {
+        OCR_VENDOR_TOKEN: "resolved-ocr-token"
+      }
+    });
+
+    await expect(resolver.resolve("OCR_VENDOR_TOKEN")).resolves.toEqual({
+      resolved: true,
+      value: "resolved-ocr-token",
+      source: "env"
+    });
+    await expect(resolver.resolve("MISSING_VENDOR_TOKEN")).resolves.toEqual({
+      resolved: false,
+      source: "env",
+      reason: "SECRET_NOT_FOUND"
+    });
+  });
+
+  it("生产 secret resolver contract 明确 env 不是 KMS/Vault 且空 ref 会 fail-fast", async () => {
+    const resolver = createEnvSecretResolver({
+      env: {
+        LLM_VENDOR_TOKEN: "resolved-llm-token"
+      }
+    });
+
+    await expect(resolver.resolve("")).resolves.toEqual({
+      resolved: false,
+      source: "env",
+      reason: "SECRET_REF_INVALID"
+    });
+    await expect(resolver.resolve("LLM_VENDOR_TOKEN")).resolves.toEqual({
+      resolved: true,
+      value: "resolved-llm-token",
+      source: "env"
+    });
+  });
+
+  it("secret resolver 工厂为 Vault/KMS/Secret Manager 预留 fail-fast 边界且不伪造真实接入", async () => {
+    expect(buildSecretResolverContract({})).toEqual({
+      provider: "env",
+      productionReady: false,
+      blockedReason: "SECRET_RESOLVER_ENV_ONLY",
+      requiredExternal: ["KMS", "Vault", "Secret Manager"],
+      redaction: {
+        secretValueExposed: false,
+        exposeRefsOnly: true,
+        frontendVisible: false
+      },
+      readiness: {
+        nextAction:
+          "配置 SECRET_RESOLVER_PROVIDER=vault|kms|secret-manager 并接入真实 client/SDK，再重跑 provider health 与 production smoke。",
+        requiredChecks: ["external-secret-resolution-smoke", "provider-health-secretRefs-smoke"]
+      },
+      config: {}
+    });
+
+    expect(
+      buildSecretResolverContract({
+        SECRET_RESOLVER_PROVIDER: "vault",
+        VAULT_ADDR: "https://vault.example.test"
+      })
+    ).toEqual(
+      expect.objectContaining({
+        provider: "vault",
+        productionReady: false,
+        blockedReason: "SECRET_RESOLVER_CONTRACT_INCOMPLETE",
+        missingKeys: ["VAULT_TOKEN"]
+      })
+    );
+
+    const resolver = createSecretResolverFromEnv({
+      SECRET_RESOLVER_PROVIDER: "kms",
+      KMS_KEY_ID: "medical-record-agent-key",
+      KMS_REGION: "cn-hangzhou"
+    });
+
+    expect(resolver.contract).toEqual(
+      expect.objectContaining({
+        provider: "kms",
+        productionReady: false,
+        blockedReason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED",
+        redaction: {
+          secretValueExposed: false,
+          exposeRefsOnly: true,
+          frontendVisible: false
+        },
+        readiness: {
+          nextAction:
+            "配置 SECRET_RESOLVER_PROVIDER=vault|kms|secret-manager 并接入真实 client/SDK，再重跑 provider health 与 production smoke。",
+          requiredChecks: ["external-secret-resolution-smoke", "provider-health-secretRefs-smoke"]
+        },
+        config: {
+          keyId: "medical-record-agent-key",
+          region: "cn-hangzhou"
+        }
+      })
+    );
+    await expect(resolver.resolve("medical/ocr/api-key")).resolves.toEqual({
+      resolved: false,
+      source: "kms",
+      reason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED"
+    });
+  });
+
+  it("Vault/KMS/Secret Manager resolver skeleton 支持注入 mock client 且失败时只返回脱敏 blocked reason", async () => {
+    const vaultClient = {
+      readSecret: vi.fn(async (ref: string) => (ref === "kv/medical/ocr" ? "vault-ocr-token" : null))
+    };
+    const kmsClient = {
+      decryptSecretRef: vi.fn(async (ref: string) => (ref === "ciphertext://medical/llm" ? "kms-llm-token" : null))
+    };
+    const secretManagerClient = {
+      accessSecretVersion: vi.fn(async (ref: string) => (ref === "lims-api-token/latest" ? "sm-lims-token" : null))
+    };
+
+    const vaultResolver = createVaultSecretResolver({
+      env: {
+        SECRET_RESOLVER_PROVIDER: "vault",
+        VAULT_ADDR: "https://vault.example.test",
+        VAULT_TOKEN: "vault-token-should-not-leak"
+      },
+      client: vaultClient
+    });
+    const kmsResolver = createKmsSecretResolver({
+      env: {
+        SECRET_RESOLVER_PROVIDER: "kms",
+        KMS_KEY_ID: "medical-record-agent-key",
+        KMS_REGION: "cn-hangzhou"
+      },
+      client: kmsClient
+    });
+    const secretManagerResolver = createSecretManagerResolver({
+      env: {
+        SECRET_RESOLVER_PROVIDER: "secret-manager",
+        SECRET_MANAGER_PROJECT: "medical-record-agent",
+        SECRET_MANAGER_REGION: "cn-hangzhou"
+      },
+      client: secretManagerClient
+    });
+
+    await expect(vaultResolver.resolve("kv/medical/ocr")).resolves.toEqual({
+      resolved: true,
+      value: "vault-ocr-token",
+      source: "vault"
+    });
+    await expect(kmsResolver.resolve("ciphertext://medical/llm")).resolves.toEqual({
+      resolved: true,
+      value: "kms-llm-token",
+      source: "kms"
+    });
+    await expect(secretManagerResolver.resolve("lims-api-token/latest")).resolves.toEqual({
+      resolved: true,
+      value: "sm-lims-token",
+      source: "secret-manager"
+    });
+    await expect(vaultResolver.resolve("kv/medical/missing")).resolves.toEqual({
+      resolved: false,
+      source: "vault",
+      reason: "SECRET_NOT_FOUND"
+    });
+
+    const blockedVaultResolver = createVaultSecretResolver({
+      env: {
+        SECRET_RESOLVER_PROVIDER: "vault",
+        VAULT_ADDR: "https://vault.example.test",
+        VAULT_TOKEN: "vault-token-should-not-leak"
+      }
+    });
+    await expect(blockedVaultResolver.resolve("kv/medical/ocr")).resolves.toEqual({
+      resolved: false,
+      source: "vault",
+      reason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED"
+    });
+    expect(JSON.stringify(blockedVaultResolver.contract)).not.toContain("vault-token-should-not-leak");
+  });
+
+  it("生产队列 contract 明确 in-process 只能用于单实例本地闭环", () => {
+    expect(buildProductionQueueContract({})).toEqual({
+      mode: "in-process",
+      productionReady: false,
+      blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
+      requiredExternal: ["broker", "lease", "retry", "deadLetter", "heartbeat", "statusResultConsistency", "multiInstanceSmoke"],
+      readiness: {
+        nextAction:
+          "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+        requiredChecks: [
+          "multi-worker-lease-smoke",
+          "retry-dead-letter-smoke",
+          "heartbeat-status-consistency-smoke",
+          "status-result-consistency-smoke",
+          "idempotency-key-deduplication-smoke"
+        ]
+      },
+      config: {},
+      configReady: false
+    });
+  });
+
+  it("生产 broker 队列缺少持久化可靠性配置时 fail-fast", () => {
+    const contract = buildProductionQueueContract({
+      QUEUE_MODE: "broker",
+      QUEUE_BROKER_PROVIDER: "redis",
+      QUEUE_BROKER_URL: "redis://queue.example.test:6379",
+      QUEUE_NAME: "medical-recognition-jobs"
+    });
+
+    expect(contract).toEqual(
+      expect.objectContaining({
+        mode: "broker",
+        productionReady: false,
+        configReady: false,
+        blockedReason: "QUEUE_BROKER_CONTRACT_INCOMPLETE",
+        missingKeys: ["QUEUE_VISIBILITY_TIMEOUT_MS", "QUEUE_RETRY_LIMIT", "QUEUE_DEAD_LETTER_QUEUE"]
+      })
+    );
+    expect(() => assertProductionQueueContract(contract)).toThrow(/QUEUE_BROKER_CONTRACT_INCOMPLETE/);
+  });
+
+  it("生产 broker 队列配置完整但没有真实 adapter 时仍保持 blocked，不伪造 broker 通过", () => {
+    const contract = buildProductionQueueContract({
+      QUEUE_MODE: "broker",
+      QUEUE_BROKER_PROVIDER: "redis",
+      QUEUE_BROKER_URL: "redis://queue.example.test:6379",
+      QUEUE_NAME: "medical-recognition-jobs",
+      QUEUE_VISIBILITY_TIMEOUT_MS: "30000",
+      QUEUE_RETRY_LIMIT: "3",
+      QUEUE_DEAD_LETTER_QUEUE: "medical-recognition-jobs-dlq",
+      WORKER_CONCURRENCY: "4"
+    });
+
+    expect(contract).toEqual({
+      mode: "broker",
+      productionReady: false,
+      configReady: true,
+      blockedReason: "QUEUE_BROKER_ADAPTER_NOT_CONNECTED",
+      requiredExternal: ["broker", "lease", "retry", "deadLetter", "heartbeat", "statusResultConsistency", "multiInstanceSmoke"],
+      readiness: {
+        nextAction:
+          "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+        requiredChecks: [
+          "multi-worker-lease-smoke",
+          "retry-dead-letter-smoke",
+          "heartbeat-status-consistency-smoke",
+          "status-result-consistency-smoke",
+          "idempotency-key-deduplication-smoke"
+        ]
+      },
+      config: {
+        brokerProvider: "redis",
+        brokerUrl: "redis://queue.example.test:6379",
+        queueName: "medical-recognition-jobs",
+        visibilityTimeoutMs: 30000,
+        retryLimit: 3,
+        deadLetterQueue: "medical-recognition-jobs-dlq",
+        workerConcurrency: 4
+      }
+    });
+    expect(() => assertProductionQueueContract(contract)).toThrow(/QUEUE_BROKER_ADAPTER_NOT_CONNECTED/);
+  });
+
+  it("生产 session invalidation store 缺集中化配置时保持 blocked", () => {
+    expect(buildProductionSessionInvalidationStoreContract({})).toEqual({
+      mode: "in-memory",
+      productionReady: false,
+      configReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_IN_MEMORY",
+      requiredExternal: ["database", "redis", "multiInstanceSmoke"],
+      readiness: {
+        nextAction:
+          "配置 SESSION_INVALIDATION_STORE_MODE=repository 与数据库/Redis adapter，并运行至少两个 API 实例的登出/轮换失效 smoke。",
+        requiredChecks: [
+          "two-instance-session-invalidation-smoke",
+          "token-hash-ttl-verification",
+          "raw-token-not-persisted-check",
+          "login-rotation-cross-instance-smoke"
+        ]
+      },
+      config: {}
+    });
+  });
+
+  it("生产 session invalidation store 配置 repository 但未接 adapter 时保持 blocked", () => {
+    const contract = buildProductionSessionInvalidationStoreContract({
+      SESSION_INVALIDATION_STORE_MODE: "repository",
+      SESSION_INVALIDATION_STORE_PROVIDER: "database",
+      SESSION_INVALIDATION_TTL_MS: "86400000"
+    });
+
+    expect(contract).toEqual({
+      mode: "repository",
+      productionReady: false,
+      configReady: true,
+      blockedReason: "SESSION_INVALIDATION_STORE_ADAPTER_NOT_CONNECTED",
+      requiredExternal: ["database", "redis", "multiInstanceSmoke"],
+      readiness: {
+        nextAction:
+          "配置 SESSION_INVALIDATION_STORE_MODE=repository 与数据库/Redis adapter，并运行至少两个 API 实例的登出/轮换失效 smoke。",
+        requiredChecks: [
+          "two-instance-session-invalidation-smoke",
+          "token-hash-ttl-verification",
+          "raw-token-not-persisted-check",
+          "login-rotation-cross-instance-smoke"
+        ]
+      },
+      config: {
+        provider: "database",
+        invalidationTtlMs: 86400000
+      }
+    });
+  });
+
+  it("生产 session invalidation store 注入 repository 后仍要求真实多实例 smoke", async () => {
+    const rows = new Map<string, { tokenHash: string; invalidatedAt: Date; expiresAt: Date }>();
+    const repository = {
+      upsertInvalidatedSession: vi.fn(async (input: { tokenHash: string; invalidatedAt: Date; expiresAt: Date }) => {
+        rows.set(input.tokenHash, input);
+      }),
+      findInvalidatedSession: vi.fn(async (input: { tokenHash: string; now: Date }) => {
+        const row = rows.get(input.tokenHash);
+        return row && row.expiresAt > input.now ? row : null;
+      })
+    };
+    const store = createProductionSessionInvalidationStore({
+      env: {
+        SESSION_INVALIDATION_STORE_MODE: "repository",
+        SESSION_INVALIDATION_STORE_PROVIDER: "database",
+        SESSION_INVALIDATION_TTL_MS: "86400000"
+      },
+      repository,
+      now: () => new Date("2026-06-09T09:00:00.000Z")
+    });
+
+    if (!store) {
+      throw new Error("Expected repository-backed session invalidation store");
+    }
+
+    await store.invalidate("raw.jwt.session");
+
+    expect(store.describe()).toEqual({
+      adapter: "repository",
+      provider: "database",
+      productionReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_SMOKE_NOT_RUN",
+      capabilities: {
+        centralized: true,
+        durable: true,
+        multiInstance: true,
+        tokenHashing: true,
+        ttl: true
+      },
+      readiness: {
+        nextAction:
+          "运行至少两个 API 实例的登出/轮换失效 smoke，确认共享 store 只保存 token hash 和 TTL。",
+        requiredChecks: [
+          "two-instance-session-invalidation-smoke",
+          "token-hash-ttl-verification",
+          "raw-token-not-persisted-check",
+          "login-rotation-cross-instance-smoke"
+        ]
+      },
+      policy: {
+        invalidationTtlMs: 86400000
+      }
+    });
+    expect(JSON.stringify([...rows.values()])).not.toContain("raw.jwt.session");
+    await expect(store.isInvalidated("raw.jwt.session")).resolves.toBe(true);
+  });
+
+  it("生产 session invalidation store 可用 database delegate 创建 adapter skeleton，但仍要求真实多实例 smoke", async () => {
+    const rows = new Map<string, { tokenHash: string; invalidatedAt: Date; expiresAt: Date }>();
+    const delegate = {
+      upsert: vi.fn(async (input) => {
+        rows.set(input.where.tokenHash, input.create);
+        return input.create;
+      }),
+      findFirst: vi.fn(async (input) => {
+        const row = rows.get(input.where.tokenHash);
+        return row && row.expiresAt > input.where.expiresAt.gt ? row : null;
+      })
+    };
+    const store = createProductionSessionInvalidationStore({
+      env: {
+        SESSION_INVALIDATION_STORE_MODE: "repository",
+        SESSION_INVALIDATION_STORE_PROVIDER: "database",
+        SESSION_INVALIDATION_TTL_MS: "60000"
+      },
+      databaseDelegate: delegate,
+      now: () => new Date("2026-06-09T09:00:00.000Z")
+    });
+
+    if (!store) {
+      throw new Error("Expected database-backed session invalidation store");
+    }
+
+    await store.invalidate("raw.jwt.database-session");
+
+    expect(delegate.upsert).toHaveBeenCalledWith({
+      where: { tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/u) },
+      create: {
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        invalidatedAt: new Date("2026-06-09T09:00:00.000Z"),
+        expiresAt: new Date("2026-06-09T09:01:00.000Z")
+      },
+      update: {
+        invalidatedAt: new Date("2026-06-09T09:00:00.000Z"),
+        expiresAt: new Date("2026-06-09T09:01:00.000Z")
+      }
+    });
+    expect(JSON.stringify([...rows.values()])).not.toContain("raw.jwt.database-session");
+    expect(store.describe()).toMatchObject({
+      adapter: "repository",
+      provider: "database",
+      productionReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_SMOKE_NOT_RUN"
+    });
+  });
+
+  it("生产 session invalidation store 可用 Redis client 创建 adapter skeleton，但仍要求真实多实例 smoke", async () => {
+    const redisRows = new Map<string, string>();
+    const redisClient = {
+      set: vi.fn(async (key: string, value: string, options?: { px?: number }) => {
+        redisRows.set(key, JSON.stringify({ value, options }));
+        return "OK" as const;
+      }),
+      get: vi.fn(async (key: string) => redisRows.get(key) ?? null)
+    };
+    const store = createProductionSessionInvalidationStore({
+      env: {
+        SESSION_INVALIDATION_STORE_MODE: "repository",
+        SESSION_INVALIDATION_STORE_PROVIDER: "redis",
+        SESSION_INVALIDATION_TTL_MS: "120000",
+        SESSION_INVALIDATION_REDIS_KEY_PREFIX: "mra:prod:test:"
+      },
+      redisClient,
+      now: () => new Date("2026-06-09T09:00:00.000Z")
+    });
+
+    if (!store) {
+      throw new Error("Expected Redis-backed session invalidation store");
+    }
+
+    await store.invalidate("raw.jwt.redis-session");
+
+    expect(redisClient.set).toHaveBeenCalledWith(expect.stringMatching(/^mra:prod:test:[a-f0-9]{64}$/u), expect.stringMatching(/^[a-f0-9]{64}$/u), {
+      px: 120000
+    });
+    expect(JSON.stringify([...redisRows.entries()])).not.toContain("raw.jwt.redis-session");
+    expect(store.describe()).toMatchObject({
+      adapter: "repository",
+      provider: "redis",
+      productionReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_SMOKE_NOT_RUN"
+    });
+  });
+
+  it("Redis broker adapter factory 有 mock client 时返回 skeleton，但真实 broker smoke 前仍不标记生产通过", () => {
+    const redisClient = {
+      rpush: vi.fn(async () => 1),
+      lpop: vi.fn(async () => null),
+      lrange: vi.fn(async () => []),
+      set: vi.fn(async () => "OK" as const),
+      get: vi.fn(async () => null),
+      del: vi.fn(async () => 0),
+      pexpire: vi.fn(async () => 1)
+    };
+
+    const adapter = createProductionJobQueueAdapter({
+      env: {
+        QUEUE_MODE: "broker",
+        QUEUE_BROKER_PROVIDER: "redis",
+        QUEUE_BROKER_URL: "redis://queue.example.test:6379",
+        QUEUE_NAME: "medical-recognition-jobs",
+        QUEUE_VISIBILITY_TIMEOUT_MS: "30000",
+        QUEUE_RETRY_LIMIT: "3",
+        QUEUE_DEAD_LETTER_QUEUE: "medical-recognition-jobs-dlq"
+      },
+      redisClient
+    });
+
+    expect(adapter?.describe()).toEqual(
+      expect.objectContaining({
+        adapter: "broker",
+        brokerProvider: "redis",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_SMOKE_NOT_RUN"
+      })
+    );
+    expect(createProductionJobQueueAdapter({ env: { QUEUE_MODE: "broker", QUEUE_BROKER_PROVIDER: "redis" } })).toBeUndefined();
+  });
+
+  it("生产服务装配可注入 Redis queue client，但 status 仍明确真实 broker smoke blocked", () => {
+    const redisQueueClient = {
+      rpush: vi.fn(async () => 1),
+      lpop: vi.fn(async () => null),
+      lrange: vi.fn(async () => []),
+      set: vi.fn(async () => "OK" as const),
+      get: vi.fn(async () => null),
+      del: vi.fn(async () => 0),
+      pexpire: vi.fn(async () => 1)
+    };
+    const services = createProductionApiServices({
+      env: createProductionEnvStub(),
+      prisma: createPrismaClientStub() as never,
+      redisQueueClient,
+      queueEnv: {
+        QUEUE_MODE: "broker",
+        QUEUE_BROKER_PROVIDER: "redis",
+        QUEUE_BROKER_URL: "redis://queue.example.test:6379",
+        QUEUE_NAME: "medical-recognition-jobs",
+        QUEUE_VISIBILITY_TIMEOUT_MS: "30000",
+        QUEUE_RETRY_LIMIT: "3",
+        QUEUE_DEAD_LETTER_QUEUE: "medical-recognition-jobs-dlq"
+      }
+    });
+
+    const queue = services.jobQueue;
+    if (!queue?.describe) {
+      throw new Error("Expected production Redis queue adapter to be configured");
+    }
+    expect(queue.describe()).toEqual(
+      expect.objectContaining({
+        adapter: "broker",
+        brokerProvider: "redis",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_SMOKE_NOT_RUN"
+      })
+    );
+  });
+
+  it("保存的 HTTP provider 健康检查在 secretRef 无法解析时只返回 provider key、secretRef 和 blocked reason", async () => {
+    const prisma = createPrismaClientStub();
+    vi.mocked(prisma.providerConfig.findUnique).mockResolvedValueOnce({
+      id: "provider-http-ocr-001",
+      key: "saved-http-ocr",
+      kind: "ocr",
+      displayName: "保存的 HTTP OCR",
+      status: "active",
+      isDefault: false,
+      config: {
+        providerKind: "http",
+        endpoint: "http://ocr.vendor.example/recognize"
+      },
+      secretRefs: {
+        apiKey: "OCR_VENDOR_TOKEN"
+      },
+      updatedById: "user-001",
+      createdAt: new Date("2026-06-05T08:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T08:00:00.000Z")
+    });
+    const healthFetch = vi.fn();
+    const services = createProductionApiServices({
+      env: createProductionEnvStub(),
+      prisma: prisma as never,
+      providerHealthFetch: healthFetch,
+      secretResolver: createEnvSecretResolver({
+        env: {}
+      }),
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    const health = await services.providerService.checkProviderHealth({
+      key: "saved-http-ocr",
+      actor: createProviderManagerActor()
+    });
+
+    expect(healthFetch).not.toHaveBeenCalled();
+    expect(JSON.stringify(health)).not.toContain("resolved-ocr-secret");
+    expect(health).toEqual(
+      expect.objectContaining({
+        key: "saved-http-ocr",
+        kind: "ocr",
+        status: "blocked",
+        blockedReason: "SECRET_NOT_FOUND",
+        secretDiagnostics: {
+          apiKey: {
+            secretRef: "OCR_VENDOR_TOKEN",
+            source: "env",
+            resolved: false,
+            blockedReason: "SECRET_NOT_FOUND"
+          }
+        },
+        secretRefs: {
+          apiKey: "OCR_VENDOR_TOKEN"
+        }
+      })
+    );
+  });
+
+  it("保存的 HTTP OCR provider 会用 secretRefs 经 resolver 注入 Authorization", async () => {
+    const prisma = createPrismaClientStub();
+    const providerRuntimeFetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          pages: [
+            {
+              page: 1,
+              text: "临床诊断：肺腺癌。",
+              confidence: 0.99,
+              blocks: [
+                {
+                  blockId: "ocr-block-1",
+                  text: "临床诊断：肺腺癌。",
+                  confidence: 0.99,
+                  coordinates: { x: 0, y: 0, width: 100, height: 20 }
+                }
+              ]
+            }
+          ]
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.mocked(prisma.providerConfig.findUnique).mockImplementation(async (input) => {
+      if (input.where.key !== "saved-http-ocr") {
+        return null;
+      }
+
+      return {
+        id: "provider-http-ocr-001",
+        key: "saved-http-ocr",
+        kind: "ocr",
+        displayName: "保存的 HTTP OCR",
+        status: "active",
+        isDefault: false,
+        config: {
+          providerKind: "http",
+          endpoint: "http://ocr.vendor.example/recognize"
+        },
+        secretRefs: {
+          apiKey: "OCR_VENDOR_TOKEN"
+        },
+        updatedById: "user-001",
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      };
+    });
+    const services = createProductionApiServices({
+      env: createProductionEnvWithRealProvidersStub(),
+      prisma: prisma as never,
+      providerRuntimeFetch: providerRuntimeFetch as unknown as typeof fetch,
+      openAiResponsesClient: createOpenAiResponsesClientStub(),
+      secretResolver: createEnvSecretResolver({
+        env: {
+          OCR_VENDOR_TOKEN: "resolved-ocr-secret"
+        }
+      }),
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await services.jobService.create({
+      schemaKey: "lims-clinical-info",
+      document: {
+        documentId: "demo-document-http-ocr-secret",
+        fileName: "demo-record.pdf",
+        mimeType: "application/pdf",
+        content: Buffer.from("DEMO_PDF_BYTES")
+      },
+      providerConfig: {
+        ocrProviderKey: "saved-http-ocr"
+      }
+    });
+    await drainProductionJobs(services);
+
+    expect(providerRuntimeFetch).toHaveBeenCalledWith(
+      "http://ocr.vendor.example/recognize",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer resolved-ocr-secret"
+        })
+      })
+    );
+    expect(JSON.stringify(prisma.recognitionResult.upsert.mock.calls)).not.toContain("resolved-ocr-secret");
+  });
+
+  it("保存的 HTTP LLM provider 会用 secretRefs 经 resolver 注入模型 apiKey", async () => {
+    const prisma = createPrismaClientStub();
+    const providerRuntimeFetch = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      if (String(url).includes("ocr.example.test")) {
+        return createProviderRuntimeFetchStub()(url, init);
+      }
+
+      const body = JSON.parse(String(init?.body ?? "{}"));
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  fields: [
+                    {
+                      fieldKey: "clinicalDiagnosis",
+                      value: "肺腺癌",
+                      rawValue: "诊断：肺腺癌",
+                      confidence: 0.96,
+                      evidence: [
+                        {
+                          snippet: "诊断：肺腺癌",
+                          startOffset: 0,
+                          endOffset: 6,
+                          pageNumber: 1
+                        }
+                      ]
+                    }
+                  ]
+                })
+              }
+            }
+          ],
+          model: body.model
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    });
+    vi.mocked(prisma.providerConfig.findUnique).mockImplementation(async (input) => {
+      if (input.where.key !== "saved-http-model") {
+        return null;
+      }
+
+      return {
+        id: "provider-http-llm-001",
+        key: "saved-http-model",
+        kind: "llm",
+        displayName: "保存的 HTTP LLM",
+        status: "active",
+        isDefault: false,
+        config: {
+          providerKind: "openai-compatible",
+          endpoint: "http://llm.vendor.example/v1/chat/completions",
+          model: "vendor-medical-model"
+        },
+        secretRefs: {
+          apiKey: "LLM_VENDOR_TOKEN"
+        },
+        updatedById: "user-001",
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      };
+    });
+    const services = createProductionApiServices({
+      env: createProductionEnvWithRealProvidersStub(),
+      prisma: prisma as never,
+      providerRuntimeFetch: providerRuntimeFetch as unknown as typeof fetch,
+      secretResolver: createEnvSecretResolver({
+        env: {
+          LLM_VENDOR_TOKEN: "resolved-llm-secret"
+        }
+      }),
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await services.jobService.create({
+      schemaKey: "lims-clinical-info",
+      document: createSyntheticRecognitionDocument("demo-document-http-llm-secret"),
+      providerConfig: {
+        providerKey: "saved-http-model"
+      }
+    });
+    await drainProductionJobs(services);
+
+    expect(providerRuntimeFetch).toHaveBeenCalledWith(
+      "http://llm.vendor.example/v1/chat/completions",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer resolved-llm-secret"
+        })
+      })
+    );
+    expect(JSON.stringify(prisma.recognitionResult.upsert.mock.calls)).not.toContain("resolved-llm-secret");
   });
 });

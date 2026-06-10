@@ -3,9 +3,15 @@ import type { FastifyInstance } from "fastify";
 import { PERMISSIONS } from "../auth/permissions";
 import type { createAuthHooks } from "../middleware/auth.middleware";
 import type { createAuditHooks } from "../middleware/audit.middleware";
+import {
+  assertRouteResponseObject,
+  fileUploadRouteInputSchema,
+  type ApiRouteResponseObject,
+  type CreateFileUploadRouteInput
+} from "./route-dtos";
 
 export interface FileRouteService {
-  createUpload(input: unknown): Promise<unknown>;
+  createUpload(input: CreateFileUploadRouteInput): Promise<ApiRouteResponseObject>;
   getContent(id: string): Promise<{
     id: string;
     originalName: string;
@@ -41,7 +47,19 @@ export async function registerFileRoutes(server: FastifyInstance, dependencies: 
           : [])
       ]
     },
-    async (request) => dependencies.fileService.createUpload(request.body)
+    async (request, reply) => {
+      const parsed = fileUploadRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid file upload payload"
+        });
+      }
+
+      const file = await dependencies.fileService.createUpload(parsed.data);
+
+      return assertRouteResponseObject(file, "FILE_UPLOAD_RESPONSE_INVALID");
+    }
   );
 
   server.get(

@@ -2,10 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createWritebackRequest,
+  describeWritebackExecutionState,
+  isExplicitDemoMode,
   loadEligibleWritebackJobs,
   normalizeApiJobToWritebackJob,
   normalizeEligibleWritebackItem
 } from "./WritebackPage";
+
+describe("isExplicitDemoMode", () => {
+  it("只有 VITE_DEMO_MODE=true 时允许静态演示数据", () => {
+    expect(isExplicitDemoMode({ VITE_DEMO_MODE: "true" })).toBe(true);
+    expect(isExplicitDemoMode({ VITE_DEMO_MODE: "false" })).toBe(false);
+    expect(isExplicitDemoMode({ VITE_DEMO_MODE: undefined })).toBe(false);
+  });
+});
 
 describe("normalizeApiJobToWritebackJob", () => {
   it("从真实识别结果的 normalizedFields 读取可写回字段数量", () => {
@@ -58,7 +68,7 @@ describe("normalizeApiJobToWritebackJob", () => {
     expect(job.extractedFields).toBe(3);
   });
 
-  it("从真实编排结果提取 readyFields，并生成生产写回 executor 可消费的请求体", () => {
+  it("生成写回请求时只提交 jobId 和 confirmed，不携带客户端 fields/payload", () => {
     const job = normalizeApiJobToWritebackJob(
       "job-003",
       {
@@ -90,18 +100,7 @@ describe("normalizeApiJobToWritebackJob", () => {
 
     expect(createWritebackRequest(job)).toEqual({
       jobId: "job-003",
-      confirmed: true,
-      fields: [
-        {
-          fieldKey: "clinicalDiagnosis",
-          targetPath: "clinicalInfo.clinicalDiagnosis",
-          value: "肺腺癌"
-        }
-      ],
-      payload: expect.objectContaining({
-        jobId: "job-003",
-        source: "api.getJob/getResult"
-      })
+      confirmed: true
     });
   });
 
@@ -150,18 +149,38 @@ describe("normalizeApiJobToWritebackJob", () => {
         })
       })
     );
-    expect(createWritebackRequest(job)).toEqual(
-      expect.objectContaining({
-        jobId: "job-eligible-001",
-        fields: [
-          {
-            fieldKey: "clinicalDiagnosis",
-            targetPath: "clinicalInfo.clinicalDiagnosis",
-            value: "肺腺癌"
-          }
-        ]
-      })
-    );
+    expect(createWritebackRequest(job)).toEqual({
+      jobId: "job-eligible-001",
+      confirmed: true
+    });
+  });
+});
+
+describe("describeWritebackExecutionState", () => {
+  it("写回执行状态提供处理中、取消、失败重试和恢复文案", () => {
+    expect(describeWritebackExecutionState({ kind: "running", jobId: "job-001", target: "LIMS" })).toEqual({
+      tone: "info",
+      title: "写回执行中",
+      message: "job-001 正在写回 LIMS，已锁定当前确认任务。",
+      canCancel: true,
+      canRetry: false
+    });
+
+    expect(describeWritebackExecutionState({ kind: "cancelled", jobId: "job-001" })).toEqual({
+      tone: "warning",
+      title: "写回已取消",
+      message: "job-001 写回已取消，任务状态已恢复，可重新确认后重跑。",
+      canCancel: false,
+      canRetry: true
+    });
+
+    expect(describeWritebackExecutionState({ kind: "failed", jobId: "job-001", errorMessage: "LIMS_TIMEOUT" })).toEqual({
+      tone: "warning",
+      title: "写回失败",
+      message: "job-001 写回失败：LIMS_TIMEOUT。请检查 LIMS Provider 健康状态后重跑。",
+      canCancel: false,
+      canRetry: true
+    });
   });
 });
 
@@ -209,34 +228,20 @@ describe("loadEligibleWritebackJobs", () => {
     expect(result.selectedJobId).toBe("WB-DEMO-001");
   });
 
-  it("API 失败时保留现有兜底列表和选中任务，并返回可展示错误", async () => {
-    const fallbackJobs = [
-      {
-        id: "WB-DEMO-001",
-        subject: "Demo 任务",
-        target: "LIMS" as const,
-        extractedFields: 1,
-        greenRules: [],
-        blockers: [],
-        status: "ready" as const,
-        permission: "allowed" as const,
-        payload: {}
-      }
-    ];
-
+  it("API 失败时不注入静态 demo 兜底，并返回可展示错误", async () => {
     const result = await loadEligibleWritebackJobs(
       {
         listEligibleWritebacks: vi.fn(async () => {
           throw new Error("ELIGIBLE_API_DOWN");
         })
       },
-      fallbackJobs,
-      "WB-DEMO-001"
+      [],
+      ""
     );
 
     expect(result).toEqual({
-      jobs: fallbackJobs,
-      selectedJobId: "WB-DEMO-001",
+      jobs: [],
+      selectedJobId: "",
       state: "error",
       errorMessage: "ELIGIBLE_API_DOWN"
     });

@@ -3,6 +3,11 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const DEV_ADMIN_PASSWORD_HASH = "$2b$10$t2Zf0Oed2yXwozTjLw8K1.ZiqCkBx.vi6uvPOk6PYhWD7eDUkeCe.";
+const legacySyntheticProviderKeys = [
+  `mock-${"ocr"}-default`,
+  `mock-${"llm"}-default`,
+  `mock-${"lims"}-writeback`
+];
 
 const permissions = {
   admin: [
@@ -208,61 +213,11 @@ async function main() {
     }
   });
 
-  await prisma.providerConfig.upsert({
-    where: { key: "mock-ocr-default" },
-    update: {
-      kind: "ocr",
-      displayName: "Mock OCR Provider",
-      status: "active",
-      isDefault: true,
-      config: {
-        provider: "mock",
-        latencyMs: 50,
-        syntheticOnly: true
-      },
-      secretRefs: {}
-    },
-    create: {
-      key: "mock-ocr-default",
-      kind: "ocr",
-      displayName: "Mock OCR Provider",
-      status: "active",
-      isDefault: true,
-      config: {
-        provider: "mock",
-        latencyMs: 50,
-        syntheticOnly: true
-      },
-      secretRefs: {}
-    }
-  });
-
-  await prisma.providerConfig.upsert({
-    where: { key: "mock-llm-default" },
-    update: {
-      kind: "llm",
-      displayName: "Mock LLM Provider",
-      status: "active",
-      isDefault: true,
-      config: {
-        provider: "mock",
-        model: "mock-medical-record-extractor",
-        syntheticOnly: true
-      },
-      secretRefs: {}
-    },
-    create: {
-      key: "mock-llm-default",
-      kind: "llm",
-      displayName: "Mock LLM Provider",
-      status: "active",
-      isDefault: true,
-      config: {
-        provider: "mock",
-        model: "mock-medical-record-extractor",
-        syntheticOnly: true
-      },
-      secretRefs: {}
+  await prisma.providerConfig.deleteMany({
+    where: {
+      key: {
+        in: legacySyntheticProviderKeys
+      }
     }
   });
 
@@ -296,10 +251,10 @@ async function main() {
   });
 
   await prisma.providerConfig.upsert({
-    where: { key: "mock-lims-writeback" },
+    where: { key: "local-lims-sandbox" },
     update: {
       kind: "lims",
-      displayName: "Mock LIMS 写回目标",
+      displayName: "本地 LIMS 沙箱写回目标",
       status: "active",
       isDefault: true,
       config: {
@@ -313,9 +268,9 @@ async function main() {
       }
     },
     create: {
-      key: "mock-lims-writeback",
+      key: "local-lims-sandbox",
       kind: "lims",
-      displayName: "Mock LIMS 写回目标",
+      displayName: "本地 LIMS 沙箱写回目标",
       status: "active",
       isDefault: true,
       config: {

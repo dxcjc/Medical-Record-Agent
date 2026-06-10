@@ -18,4 +18,22 @@ describe("blobToBase64", () => {
 
     await expect(blobSha256Hex(blob)).resolves.toBe("b66f1b66ec824925d01f389a3494722c0676af4d131cc3bd7d38b7c06bf62d61");
   });
+
+  it("base64 转换在异步读取前响应 AbortSignal", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(blobToBase64(new Blob(["DEMO_PDF_BYTES"]), controller.signal)).rejects.toMatchObject({
+      name: "AbortError"
+    });
+  });
+
+  it("SHA-256 计算在异步读取前响应 AbortSignal", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(blobSha256Hex(new Blob(["DEMO_PDF_BYTES"]), controller.signal)).rejects.toMatchObject({
+      name: "AbortError"
+    });
+  });
 });

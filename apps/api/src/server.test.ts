@@ -46,6 +46,9 @@ function createAuthService(
     })),
     authenticateJwt: vi.fn(async () => context),
     authenticateApiToken: vi.fn(async () => context),
+    isSessionTokenInvalidated: vi.fn((_token: string) => false),
+    invalidateSessionToken: vi.fn(async (_token: string) => undefined),
+    describeSessionInvalidationStore: vi.fn<() => unknown>(() => undefined),
     requirePermission: vi.fn((authContext: typeof context | null, permission: string) => {
       if (!authContext) {
         throw Object.assign(new Error("UNAUTHORIZED"), { code: "UNAUTHORIZED" });
@@ -146,6 +149,133 @@ function createServices(authService = createAuthService()): ApiServerServices {
 }
 
 describe("api server routes", () => {
+  it("所有响应带安全基线响应头，生产前端可启用 CSP、frame 和 nosniff 防护", async () => {
+    const server = await createApiServer({ services: createServices() });
+
+    const response = await server.inject({ method: "GET", url: "/health" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-security-policy"]).toContain("default-src 'none'");
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("DENY");
+    expect(response.headers["referrer-policy"]).toBe("no-referrer");
+    expect(response.headers["permissions-policy"]).toContain("camera=()");
+  });
+
+  it("登录接口按客户端来源限流，避免本地 demo 暴露后被暴力试探", async () => {
+    const server = await createApiServer({
+      services: createServices(),
+      rateLimit: {
+        login: {
+          max: 2,
+          windowMs: 60_000
+        }
+      }
+    });
+
+    for (let index = 0; index < 2; index += 1) {
+      const allowed = await server.inject({
+        method: "POST",
+        url: "/auth/login",
+        remoteAddress: "203.0.113.10",
+        payload: {
+          email: "demo@example.local",
+          password: "ChangeMe123!"
+        }
+      });
+      expect(allowed.statusCode).toBe(200);
+    }
+
+    const limited = await server.inject({
+      method: "POST",
+      url: "/auth/login",
+      remoteAddress: "203.0.113.10",
+      payload: {
+        email: "demo@example.local",
+        password: "ChangeMe123!"
+      }
+    });
+
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toEqual({ error: "RATE_LIMITED" });
+    expect(limited.headers["retry-after"]).toBe("60");
+  });
+
+  it("未显式传入配置时也启用登录限流安全基线", async () => {
+    const server = await createApiServer({ services: createServices() });
+
+    for (let index = 0; index < 20; index += 1) {
+      const allowed = await server.inject({
+        method: "POST",
+        url: "/auth/login",
+        remoteAddress: "203.0.113.11",
+        payload: {
+          email: "demo@example.local",
+          password: "ChangeMe123!"
+        }
+      });
+      expect(allowed.statusCode).toBe(200);
+    }
+
+    const limited = await server.inject({
+      method: "POST",
+      url: "/auth/login",
+      remoteAddress: "203.0.113.11",
+      payload: {
+        email: "demo@example.local",
+        password: "ChangeMe123!"
+      }
+    });
+
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toEqual({ error: "RATE_LIMITED" });
+  });
+
+  it("高风险写回接口按 actor 和来源限流，且不会影响不同来源", async () => {
+    const services = createServices();
+    const server = await createApiServer({
+      services,
+      rateLimit: {
+        writeback: {
+          max: 1,
+          windowMs: 60_000
+        }
+      }
+    });
+
+    const payload = {
+      jobId: "job-001",
+      confirmed: true
+    };
+    const first = await server.inject({
+      method: "POST",
+      url: "/writeback",
+      remoteAddress: "203.0.113.20",
+      headers: { authorization: "Bearer signed.jwt" },
+      payload
+    });
+    expect(first.statusCode).toBe(200);
+
+    const limited = await server.inject({
+      method: "POST",
+      url: "/writeback",
+      remoteAddress: "203.0.113.20",
+      headers: { authorization: "Bearer signed.jwt" },
+      payload
+    });
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toEqual({ error: "RATE_LIMITED" });
+
+    const otherSource = await server.inject({
+      method: "POST",
+      url: "/writeback",
+      remoteAddress: "203.0.113.21",
+      headers: { authorization: "Bearer signed.jwt" },
+      payload
+    });
+    expect(otherSource.statusCode).toBe(200);
+  });
+
   it("支持从登录到任务、结果、反馈、写回、Provider 和评估的主流程", async () => {
     const services = createServices();
     const server = await createApiServer({ services });
@@ -217,7 +347,10 @@ describe("api server routes", () => {
     expect(services.writebackService.execute).toHaveBeenCalledWith(
       expect.objectContaining({
         jobId: "job-001",
-        confirmed: true
+        confirmed: true,
+        actor: expect.objectContaining({
+          actorUserId: "user-001"
+        })
       })
     );
 
@@ -288,6 +421,68 @@ describe("api server routes", () => {
     );
   });
 
+  it("浏览器会话可通过 HttpOnly cookie 访问受保护路由，登出后同一 cookie 立即失效", async () => {
+    const invalidatedTokens = new Set<string>();
+    const authService = createAuthService(["job:read"]);
+    authService.login.mockResolvedValue({
+      accessToken: "cookie-session.jwt",
+      tokenType: "Bearer",
+      user: {
+        id: "user-001",
+        email: "demo@example.local",
+        displayName: "演示用户"
+      },
+      permissions: ["job:read"],
+      roles: ["operator"]
+    });
+    authService.isSessionTokenInvalidated.mockImplementation((token: string) => invalidatedTokens.has(token));
+    authService.invalidateSessionToken.mockImplementation(async (token: string) => {
+      invalidatedTokens.add(token);
+    });
+    const server = await createApiServer({ services: createServices(authService) });
+
+    const login = await server.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: {
+        email: "demo@example.local",
+        password: "ChangeMe123!"
+      }
+    });
+    const cookieHeader = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    expect(cookieHeader).toBe("mra_session=cookie-session.jwt");
+
+    const cookieAccess = await server.inject({
+      method: "GET",
+      url: "/jobs/job-001",
+      headers: {
+        cookie: cookieHeader
+      }
+    });
+    expect(cookieAccess.statusCode).toBe(200);
+    expect(authService.authenticateJwt).toHaveBeenCalledWith("cookie-session.jwt");
+
+    const logout = await server.inject({
+      method: "POST",
+      url: "/auth/logout",
+      headers: {
+        cookie: cookieHeader
+      }
+    });
+    expect(logout.statusCode).toBe(200);
+    expect(authService.invalidateSessionToken).toHaveBeenCalledWith("cookie-session.jwt");
+
+    const afterLogout = await server.inject({
+      method: "GET",
+      url: "/jobs/job-001",
+      headers: {
+        cookie: cookieHeader
+      }
+    });
+    expect(afterLogout.statusCode).toBe(401);
+    expect(afterLogout.json()).toEqual({ error: "UNAUTHORIZED" });
+  });
+
   it("受保护路由没有认证时返回结构化 401", async () => {
     const server = await createApiServer({ services: createServices() });
 
@@ -345,6 +540,176 @@ describe("api server routes", () => {
     });
     expect(response.body).not.toContain("secret");
     expect(response.body).not.toContain("apiKey");
+  });
+
+  it("状态端点在队列实现可描述时返回脱敏 queue contract", async () => {
+    const services = createServices();
+    services.jobQueue = {
+      async drain() {
+        return undefined;
+      },
+      describe: () => ({
+        adapter: "in-process",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
+        capabilities: {
+          durable: false,
+          multiInstance: false,
+          lease: true,
+          retry: true,
+          deadLetter: true,
+          heartbeat: true
+        },
+        policy: {
+          maxAttempts: 1,
+          heartbeatIntervalMs: 30000
+        }
+      })
+    };
+    const server = await createApiServer({
+      services,
+      runtimeInfo: {
+        serviceMode: "production",
+        providers: {
+          ocr: "mock",
+          llm: "mock",
+          storage: "local",
+          writeback: "lims"
+        }
+      }
+    });
+
+    const response = await server.inject({ method: "GET", url: "/status" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        runtime: expect.objectContaining({
+          queue: {
+            adapter: "in-process",
+            productionReady: false,
+            blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
+            capabilities: {
+              durable: false,
+              multiInstance: false,
+              lease: true,
+              retry: true,
+              deadLetter: true,
+              heartbeat: true
+            },
+            policy: {
+              maxAttempts: 1,
+              heartbeatIntervalMs: 30000
+            }
+          }
+        })
+      })
+    );
+    expect(response.body).not.toContain("redis://");
+    expect(response.body).not.toContain("token");
+  });
+
+  it("状态端点可返回脱敏 secret resolver contract 供 production smoke 判定 blocked", async () => {
+    const server = await createApiServer({
+      services: createServices(),
+      runtimeInfo: {
+        serviceMode: "production",
+        providers: {
+          ocr: "http",
+          llm: "openai-responses",
+          storage: "s3",
+          writeback: "lims"
+        },
+        secretResolver: {
+          provider: "vault",
+          productionReady: false,
+          blockedReason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED",
+          requiredExternal: ["KMS", "Vault", "Secret Manager"],
+          config: {
+            vaultAddress: "https://vault.example.local"
+          }
+        }
+      }
+    });
+
+    const response = await server.inject({ method: "GET", url: "/status" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        runtime: expect.objectContaining({
+          secretResolver: {
+            provider: "vault",
+            productionReady: false,
+            blockedReason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED",
+            requiredExternal: ["KMS", "Vault", "Secret Manager"],
+            config: {
+              vaultAddress: "https://vault.example.local"
+            }
+          }
+        })
+      })
+    );
+    expect(response.body).not.toContain("VAULT_TOKEN");
+    expect(response.body).not.toContain("replace-with-vault-token");
+  });
+
+  it("状态端点可返回脱敏 session invalidation store contract 供多实例部署 gate 判定 blocked", async () => {
+    const authService = createAuthService();
+    authService.describeSessionInvalidationStore.mockReturnValue({
+      adapter: "in-memory",
+      productionReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_IN_MEMORY",
+      capabilities: {
+        centralized: false,
+        durable: false,
+        multiInstance: false,
+        tokenHashing: true,
+        ttl: true
+      },
+      policy: {
+        invalidationTtlMs: 86400000
+      }
+    });
+    const server = await createApiServer({
+      services: createServices(authService),
+      runtimeInfo: {
+        serviceMode: "production",
+        providers: {
+          ocr: "http",
+          llm: "openai-responses",
+          storage: "s3",
+          writeback: "lims"
+        }
+      }
+    });
+
+    const response = await server.inject({ method: "GET", url: "/status" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        runtime: expect.objectContaining({
+          sessionInvalidationStore: {
+            adapter: "in-memory",
+            productionReady: false,
+            blockedReason: "SESSION_INVALIDATION_STORE_IN_MEMORY",
+            capabilities: {
+              centralized: false,
+              durable: false,
+              multiInstance: false,
+              tokenHashing: true,
+              ttl: true
+            },
+            policy: {
+              invalidationTtlMs: 86400000
+            }
+          }
+        })
+      })
+    );
+    expect(response.body).not.toContain("mra_session=");
+    expect(response.body).not.toContain("raw.jwt");
   });
 
   it("写回路由要求已确认任务和 writeback 权限", async () => {

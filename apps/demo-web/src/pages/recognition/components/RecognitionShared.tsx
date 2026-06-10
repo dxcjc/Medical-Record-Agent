@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Button, Card, Empty, Space, Tag } from "@arco-design/web-react";
 import { AppIcon, actionIcons, statusIcons } from "../../../icons/appIcons";
 import type { DecisionLevel, ProviderHealth, RecognitionStatus } from "./demoData";
 import { decisionLabels, providerHealthLabels, statusLabels } from "./demoData";
@@ -7,6 +8,7 @@ type PageHeaderProps = {
   eyebrow: string;
   title: string;
   description: string;
+  meta?: React.ReactNode;
   actions?: React.ReactNode;
 };
 
@@ -52,6 +54,21 @@ const toneClassMap: Record<StatusPillProps["tone"], string> = {
   neutral: "is-neutral",
 };
 
+const tagColorMap: Record<StatusPillProps["tone"], string> = {
+  queued: "gray",
+  running: "arcoblue",
+  review: "orange",
+  completed: "green",
+  failed: "red",
+  online: "green",
+  degraded: "orange",
+  offline: "red",
+  green: "green",
+  yellow: "orange",
+  red: "red",
+  neutral: "gray",
+};
+
 const metricToneClassMap: Record<MetricTone, string> = {
   neutral: "metric-card--neutral",
   success: "metric-card--success",
@@ -68,13 +85,14 @@ const metricTileToneMap: Record<MetricTone, "blue" | "green" | "orange" | "red" 
   info: "blue",
 };
 
-export function PageHeader({ eyebrow, title, description, actions }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, meta, actions }: PageHeaderProps) {
   return (
     <header className="page-header u-surface">
       <div className="u-stack">
         <p className="page-eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
         <p>{description}</p>
+        {meta}
       </div>
       {actions ? <div className="page-header__actions u-cluster">{actions}</div> : null}
     </header>
@@ -85,7 +103,7 @@ export function MetricCard({ label, value, description, icon: Icon, tone = "info
   const TrendIcon = trend?.direction === "down" ? actionIcons.trendDown : actionIcons.trendUp;
 
   return (
-    <article className={`metric-card u-surface ${metricToneClassMap[tone]}`}>
+    <Card className={`metric-card u-surface ${metricToneClassMap[tone]}`}>
       <div className="metric-card__icon" aria-hidden="true">
         <AppIcon icon={Icon} size="md" tone={metricTileToneMap[tone]} tile />
       </div>
@@ -100,16 +118,16 @@ export function MetricCard({ label, value, description, icon: Icon, tone = "info
           {trend.label}
         </div>
       ) : null}
-    </article>
+    </Card>
   );
 }
 
 export function StatusPill({ label, tone }: StatusPillProps) {
   return (
-    <span className={`status-pill ${toneClassMap[tone]}`}>
+    <Tag color={tagColorMap[tone]} className={`status-pill ${toneClassMap[tone]}`}>
       <AppIcon icon={statusIcons[tone]} size="xs" className={tone === "running" ? "is-spinning" : undefined} />
       {label}
-    </span>
+    </Tag>
   );
 }
 
@@ -127,12 +145,18 @@ export function DecisionPill({ decision }: { decision: DecisionLevel }) {
 
 export function EmptyPanel({ icon: Icon, title, description, action }: EmptyPanelProps) {
   return (
-    <section className="panel empty-panel u-surface">
-      <AppIcon icon={Icon} size="lg" tone="blue" tile />
-      <h2>{title}</h2>
-      <p>{description}</p>
-      {action}
-    </section>
+    <Card className="panel empty-panel u-surface">
+      <Empty
+        icon={<AppIcon icon={Icon} size="lg" tone="blue" tile />}
+        description={
+          <Space direction="vertical" size={4}>
+            <span className="empty-panel-title">{title}</span>
+            <span className="page-subtle-note">{description}</span>
+            {action}
+          </Space>
+        }
+      />
+    </Card>
   );
 }
 
@@ -141,10 +165,10 @@ export function SectionTitle({ title, actionLabel, action }: { title: string; ac
     <div className="section-title">
       <h2>{title}</h2>
       {action ?? (actionLabel ? (
-        <button className="secondary-button" type="button" aria-label={actionLabel}>
+        <Button type="outline" aria-label={actionLabel}>
           {actionLabel}
           <AppIcon icon={actionIcons.next} size="sm" />
-        </button>
+        </Button>
       ) : null)}
     </div>
   );

@@ -1,3 +1,4 @@
+import { Button, Card, Checkbox, Form, Input, Select, Space, Tag } from "@arco-design/web-react";
 import { AppIcon, actionIcons, dashboardMetricIcons } from "../../../icons/appIcons";
 import type { ImportFlowState } from "./evaluationData";
 
@@ -9,16 +10,24 @@ type SampleImportPanelProps = {
   ) => void;
   onValidateSamples: () => void;
   onCompleteImport: () => void;
+  onCancelImport: () => void;
+  onRetryImport: () => void;
+  isImporting: boolean;
+  canRetryImport: boolean;
 };
 
 export function SampleImportPanel({
   importFlow,
   onChange,
   onValidateSamples,
-  onCompleteImport
+  onCompleteImport,
+  onCancelImport,
+  onRetryImport,
+  isImporting,
+  canRetryImport
 }: SampleImportPanelProps) {
   return (
-    <section className="panel studio-panel" aria-labelledby="evaluation-import-title">
+    <Card className="panel studio-panel" aria-labelledby="evaluation-import-title">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-import-title">Sample Import Flow</h2>
@@ -28,108 +37,90 @@ export function SampleImportPanel({
       </div>
 
       <div className="form-grid">
-        <label>
-          来源类型
-          <select
+        <Form.Item label="来源类型">
+          <Select
             value={importFlow.sourceType}
-            onChange={(event) =>
-              onChange("sourceType", event.currentTarget.value as ImportFlowState["sourceType"])
-            }
+            onChange={(value) => onChange("sourceType", String(value) as ImportFlowState["sourceType"])}
           >
-            <option value="CSV">CSV</option>
-            <option value="JSONL">JSONL</option>
-            <option value="人工抽样">人工抽样</option>
-          </select>
-        </label>
+            <Select.Option value="CSV">CSV</Select.Option>
+            <Select.Option value="JSONL">JSONL</Select.Option>
+            <Select.Option value="人工抽样">人工抽样</Select.Option>
+          </Select>
+        </Form.Item>
 
-        <label>
-          文件名
-          <input
+        <Form.Item label="文件名">
+          <Input
             value={importFlow.fileName}
-            onChange={(event) => onChange("fileName", event.currentTarget.value)}
+            onChange={(value) => onChange("fileName", value)}
           />
-        </label>
+        </Form.Item>
 
-        <label>
-          样本导入状态
-          <select
+        <Form.Item label="样本导入状态">
+          <Select
             value={importFlow.sampleImportStatus}
-            onChange={(event) =>
-              onChange(
-                "sampleImportStatus",
-                event.currentTarget.value as ImportFlowState["sampleImportStatus"]
-              )
-            }
+            onChange={(value) => onChange("sampleImportStatus", String(value) as ImportFlowState["sampleImportStatus"])}
           >
-            <option value="未开始">未开始</option>
-            <option value="校验中">校验中</option>
-            <option value="已导入">已导入</option>
-          </select>
-        </label>
+            <Select.Option value="未开始">未开始</Select.Option>
+            <Select.Option value="校验中">校验中</Select.Option>
+            <Select.Option value="已导入">已导入</Select.Option>
+          </Select>
+        </Form.Item>
 
-        <label>
-          Ground Truth Import Status
-          <select
+        <Form.Item label="Ground Truth Import Status">
+          <Select
             value={importFlow.groundTruthStatusText}
-            onChange={(event) =>
-              onChange(
-                "groundTruthStatusText",
-                event.currentTarget.value as ImportFlowState["groundTruthStatusText"]
-              )
-            }
+            onChange={(value) => onChange("groundTruthStatusText", String(value) as ImportFlowState["groundTruthStatusText"])}
           >
-            <option value="等待导入">等待导入</option>
-            <option value="字段匹配中">字段匹配中</option>
-            <option value="已完成">已完成</option>
-          </select>
-        </label>
+            <Select.Option value="等待导入">等待导入</Select.Option>
+            <Select.Option value="字段匹配中">字段匹配中</Select.Option>
+            <Select.Option value="已完成">已完成</Select.Option>
+          </Select>
+        </Form.Item>
 
-        <label>
-          Ground Truth 字段
-          <input
+        <Form.Item label="Ground Truth 字段">
+          <Input
             value={importFlow.groundTruthFieldKey}
-            onChange={(event) => onChange("groundTruthFieldKey", event.currentTarget.value)}
+            onChange={(value) => onChange("groundTruthFieldKey", value)}
           />
-        </label>
+        </Form.Item>
 
-        <label>
-          期望值
-          <input
+        <Form.Item label="期望值">
+          <Input
             value={importFlow.groundTruthValue}
-            onChange={(event) => onChange("groundTruthValue", event.currentTarget.value)}
+            onChange={(value) => onChange("groundTruthValue", value)}
           />
-        </label>
+        </Form.Item>
 
-        <label>
-          当前预测值
-          <input
+        <Form.Item label="当前预测值">
+          <Input
             value={importFlow.predictedValue}
-            onChange={(event) => onChange("predictedValue", event.currentTarget.value)}
+            onChange={(value) => onChange("predictedValue", value)}
           />
-        </label>
+        </Form.Item>
 
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={importFlow.expectedNeedsReview}
-            onChange={(event) => onChange("expectedNeedsReview", event.currentTarget.checked)}
-          />
-          期望进入人工复核
-        </label>
+        <Form.Item label="复核策略">
+          <Checkbox checked={importFlow.expectedNeedsReview} onChange={(checked) => onChange("expectedNeedsReview", checked)}>
+            期望进入人工复核
+          </Checkbox>
+        </Form.Item>
       </div>
 
-      <div className="toolbar">
-        <span className="status-pill">{importFlow.sampleImportStatus}</span>
-        <span className="status-pill">{importFlow.groundTruthStatusText}</span>
-        <button type="button" className="secondary-button" onClick={onValidateSamples}>
-          <AppIcon icon={actionIcons.viewFlow} size="sm" />
+      <Space className="toolbar" wrap>
+        <Tag color="arcoblue">{importFlow.sampleImportStatus}</Tag>
+        <Tag color="green">{importFlow.groundTruthStatusText}</Tag>
+        <Button type="outline" onClick={onValidateSamples} disabled={isImporting} icon={<AppIcon icon={actionIcons.viewFlow} size="sm" />}>
           校验样本
-        </button>
-        <button type="button" className="action-button" onClick={onCompleteImport}>
-          <AppIcon icon={actionIcons.createRecognition} size="sm" />
-          完成导入
-        </button>
-      </div>
-    </section>
+        </Button>
+        <Button type="primary" onClick={onCompleteImport} disabled={isImporting} loading={isImporting} icon={<AppIcon icon={actionIcons.createRecognition} size="sm" />}>
+          {isImporting ? "导入中" : "完成导入"}
+        </Button>
+        <Button type="outline" onClick={onCancelImport} disabled={!isImporting}>
+          取消
+        </Button>
+        <Button type="outline" onClick={onRetryImport} disabled={isImporting || !canRetryImport}>
+          重跑
+        </Button>
+      </Space>
+    </Card>
   );
 }

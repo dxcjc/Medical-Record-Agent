@@ -180,6 +180,53 @@ describe("job orchestrator", () => {
     expect(result.autoDecision.reasons).toContainEqual(expect.objectContaining({ code: "KEY_FIELD_NOT_ACCEPTED" }));
   });
 
+  it("uses schema required and critical field metadata instead of a fixed clinicalDiagnosis key", async () => {
+    const schema = {
+      ...limsClinicalInfoSchema,
+      fields: [
+        {
+          key: "clinicalDiagnosis",
+          label: "临床诊断",
+          type: "string" as const,
+          comments: ["在这个自定义 schema 中只是普通可选字段。"]
+        },
+        {
+          key: "accessionNumber",
+          label: "受理号",
+          type: "string" as const,
+          required: true,
+          critical: true,
+          comments: ["自定义业务主键，缺失或未通过时必须阻断自动通过。"]
+        }
+      ]
+    };
+    const { orchestrator } = createBaseOrchestrator({
+      schema,
+      candidates: [
+        candidate({
+          fieldKey: "clinicalDiagnosis",
+          confidence: 0.5,
+          evidence: []
+        })
+      ]
+    });
+
+    const result = await orchestrator.start({
+      jobId: "demo-job-schema-required-critical",
+      document: demoDocument
+    });
+
+    expect(result.status).toBe("needs_review");
+    expect(result.validation.missingRequiredFieldKeys).toEqual(["accessionNumber"]);
+    expect(result.autoDecision.decision).toBe("red");
+    expect(result.autoDecision.reasons).toContainEqual(
+      expect.objectContaining({ code: "KEY_FIELD_NOT_ACCEPTED", fieldKey: "accessionNumber" })
+    );
+    expect(result.autoDecision.reasons).toContainEqual(
+      expect.objectContaining({ code: "OPTIONAL_FIELD_NEEDS_REVIEW", fieldKey: "clinicalDiagnosis" })
+    );
+  });
+
   it("marks writeback_pending when green auto writeback is enabled but executor is deferred", async () => {
     const { orchestrator } = createBaseOrchestrator({
       schema: createAutoSchema(),
@@ -235,6 +282,7 @@ describe("job orchestrator", () => {
     expect(writebackExecutor).toHaveBeenCalledWith(
       expect.objectContaining({
         jobId: "demo-job-writeback-completed",
+        source: "server-workflow",
         fields: [expect.objectContaining({ fieldKey: "sampleType", value: "tissue" })]
       })
     );

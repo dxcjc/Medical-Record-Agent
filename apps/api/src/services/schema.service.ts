@@ -3,6 +3,7 @@ import type { Prisma, SchemaDraftStatus, SchemaVersionStatus } from "@prisma/cli
 import { PERMISSIONS } from "../auth/permissions";
 import type { AuditRecordInput } from "../middleware/audit.middleware";
 import type { AuthContext } from "../middleware/auth.middleware";
+import type { ApiRouteResponseObject } from "../routes/route-dtos";
 
 export interface SchemaValidationResult {
   valid: boolean;
@@ -13,7 +14,7 @@ export interface SchemaValidationResult {
   }>;
 }
 
-export interface SchemaVersionSnapshot {
+export interface SchemaVersionSnapshot extends ApiRouteResponseObject {
   id: string;
   schemaKey: string;
   version: number;
@@ -22,7 +23,7 @@ export interface SchemaVersionSnapshot {
   status: SchemaVersionStatus | string;
 }
 
-export interface SchemaDraftSnapshot {
+export interface SchemaDraftSnapshot extends ApiRouteResponseObject {
   id: string;
   schemaKey: string;
   displayName: string;
@@ -36,19 +37,19 @@ export interface SchemaServiceRepository {
     displayName: string;
     definition: Prisma.InputJsonValue;
     createdById?: string | null;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   findDraftById(id: string): Promise<SchemaDraftSnapshot | null>;
   updateDraftDefinition(input: {
     id: string;
     definition: Prisma.InputJsonValue;
     status: SchemaDraftStatus;
     validationReport: Prisma.InputJsonValue;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   updateDraftValidation(input: {
     id: string;
     status: SchemaDraftStatus;
     validationReport: Prisma.InputJsonValue;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   findActiveVersionBySchemaKey(schemaKey: string): Promise<SchemaVersionSnapshot | null>;
   listVersions(schemaKey: string): Promise<SchemaVersionSnapshot[]>;
   createVersion(input: {
@@ -62,7 +63,7 @@ export interface SchemaServiceRepository {
   }): Promise<SchemaVersionSnapshot>;
   deactivateActiveVersions(schemaKey: string): Promise<unknown>;
   markDraftPublished(input: { id: string; publishedVersionId: string }): Promise<unknown>;
-  setVersionStatus(input: { id: string; status: SchemaVersionStatus }): Promise<unknown>;
+  setVersionStatus(input: { id: string; status: SchemaVersionStatus }): Promise<ApiRouteResponseObject>;
   findVersionById(id: string): Promise<SchemaVersionSnapshot | null>;
 }
 
@@ -206,7 +207,7 @@ export function createSchemaService(options: CreateSchemaServiceOptions) {
         validationReport: validation as unknown as Prisma.InputJsonValue
       });
 
-      return validation;
+      return { ...validation };
     },
 
     async publishDraft(input: { id: string; changelog: string; actor: AuthContext }) {

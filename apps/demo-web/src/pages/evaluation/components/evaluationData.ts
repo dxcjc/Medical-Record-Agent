@@ -38,7 +38,7 @@ export type EvaluationRun = {
   datasetName: string;
   schemaVersion: string;
   modelVersion: string;
-  status: "排队中" | "运行中" | "已完成";
+  status: "排队中" | "运行中" | "已完成" | "已失败";
   createdAt: string;
 };
 

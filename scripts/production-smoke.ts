@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto";
-import { pathToFileURL } from "node:url";
+
+export type ProductionSmokeMode = "blocked" | "failed" | "mock-production" | "real-sandbox";
 
 export interface ProductionSmokeConfig {
+  mode: Exclude<ProductionSmokeMode, "blocked" | "failed">;
   baseUrl: string;
   email: string;
   password: string;
   expectedServiceMode: string;
   runRecognition: boolean;
   runWriteback: boolean;
+  jobPollIntervalMs: number;
+  jobPollTimeoutMs: number;
   schemaKey: string;
   ocrProviderKey?: string;
   providerKey?: string;
@@ -19,19 +23,87 @@ export interface ProductionSmokeConfig {
 export interface ProductionSmokeStep {
   name: string;
   ok: boolean;
+  status?: "ok" | "failed" | "blocked" | "skipped";
   detail?: string;
+  code?: string;
+  missingKeys?: string[];
+  provider?: string;
+  adapter?: string;
+  requiredExternal?: string[];
+  nextAction?: string;
+  requiredChecks?: string[];
 }
 
 export interface ProductionSmokeReport {
+  mode: ProductionSmokeMode;
   steps: ProductionSmokeStep[];
 }
 
+export type ProductionSmokeStatus = "passed" | "blocked" | "failed";
+
+export interface ProductionSmokeMachineSummary {
+  mode: ProductionSmokeMode;
+  status: ProductionSmokeStatus;
+  blockedSteps: Array<{
+    name: string;
+    code?: string;
+    missingKeys?: string[];
+    provider?: string;
+    adapter?: string;
+    requiredExternal?: string[];
+    nextAction?: string;
+    requiredChecks?: string[];
+  }>;
+  failedSteps: Array<{
+    name: string;
+    code?: string;
+  }>;
+}
+
+export class ProductionSmokeConfigurationBlockedError extends Error {
+  readonly missingKeys: string[];
+
+  constructor(missingKeys: string[]) {
+    super(`production smoke blocked: missing required environment ${missingKeys.join(", ")}`);
+    this.name = "ProductionSmokeConfigurationBlockedError";
+    this.missingKeys = missingKeys;
+  }
+}
+
+function normalizeEntrypointPath(value: string) {
+  if (value.startsWith("file://")) {
+    try {
+      const pathname = decodeURIComponent(new URL(value).pathname);
+      return normalizeEntrypointPath(pathname);
+    } catch {
+      return value;
+    }
+  }
+
+  const normalized = value.replace(/\\/g, "/");
+
+  return /^\/[A-Za-z]:\//u.test(normalized) ? normalized.slice(1) : normalized;
+}
+
 export function isCliEntrypoint(moduleUrl: string, argvPath: string | undefined) {
-  return argvPath !== undefined && moduleUrl === pathToFileURL(argvPath).href;
+  return argvPath !== undefined && normalizeEntrypointPath(moduleUrl) === normalizeEntrypointPath(argvPath);
 }
 
 function readBoolean(value: string | undefined) {
   return value === "1" || value === "true" || value === "TRUE";
+}
+
+function readSmokeMode(env: Record<string, string | undefined>): Exclude<ProductionSmokeMode, "blocked" | "failed"> {
+  return env.PRODUCTION_SMOKE_MODE === "mock-production" ? "mock-production" : "real-sandbox";
+}
+
+function readPositiveInteger(value: string | undefined, fallback: number) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function readOptionalEnvValue(env: Record<string, string | undefined>, key: string) {
@@ -54,9 +126,128 @@ function buildDefaultSyntheticContentBase64() {
   );
 }
 
+function collectMissingProductionSmokeEnv(env: Record<string, string | undefined>) {
+  return ["PRODUCTION_SMOKE_BASE_URL", "PRODUCTION_SMOKE_EMAIL", "PRODUCTION_SMOKE_PASSWORD"].filter(
+    (key) => !readOptionalEnvValue(env, key)
+  );
+}
+
+export function buildProductionSmokeBlockedReport(env: Record<string, string | undefined> = process.env): ProductionSmokeReport | null {
+  if (readSmokeMode(env) === "mock-production") {
+    return null;
+  }
+
+  const missingKeys = collectMissingProductionSmokeEnv(env);
+  if (missingKeys.length === 0) {
+    return null;
+  }
+
+  return {
+    mode: "blocked",
+    steps: [
+      {
+        name: "configuration",
+        ok: false,
+        status: "blocked",
+        code: "PRODUCTION_SMOKE_CONFIGURATION_MISSING",
+        missingKeys,
+        nextAction:
+          "配置 PRODUCTION_SMOKE_MODE=real-sandbox、真实 sandbox base URL 与账号后重跑 corepack pnpm smoke:production。",
+        requiredChecks: [
+          "real-external-api-login",
+          "real-provider-sandbox-connectivity-smoke",
+          "real-ocr-llm-lims-sandbox-smoke",
+          "writeback-readyFields-only-smoke"
+        ],
+        detail: `external sandbox blocked: 缺少 ${missingKeys.join(", ")}；配置 PRODUCTION_SMOKE_MODE=real-sandbox 与真实 sandbox 后才会执行真实外部 API/OCR/LLM/LIMS smoke。`
+      },
+      {
+        name: "secret-resolver",
+        ok: false,
+        status: "blocked",
+        code: "SECRET_RESOLVER_ENV_ONLY",
+        provider: "env",
+        requiredExternal: ["KMS", "Vault", "Secret Manager"],
+        nextAction:
+          "配置 SECRET_RESOLVER_PROVIDER=vault|kms|secret-manager 并接入真实 client/SDK，再重跑 provider health 与 production smoke。",
+        requiredChecks: [
+          "external-secret-resolution-smoke",
+          "provider-health-secretRefs-smoke",
+          "provider-response-secret-redaction-smoke",
+          "provider-health-secret-redaction-smoke",
+          "audit-metadata-secret-redaction-smoke"
+        ],
+        detail:
+          "secret resolver blocked: SECRET_RESOLVER_ENV_ONLY；当前 env resolver 不能代表生产 KMS/Vault/Secret Manager。设置 SECRET_RESOLVER_PROVIDER=vault|kms|secret-manager 并接入真实 client/SDK 后才可解除。"
+      },
+      {
+        name: "session-invalidation-store",
+        ok: false,
+        status: "blocked",
+        code: "SESSION_INVALIDATION_STORE_IN_MEMORY",
+        adapter: "in-memory",
+        nextAction:
+          "配置 SESSION_INVALIDATION_STORE_MODE=repository 与数据库/Redis adapter，并运行至少两个 API 实例的登出/轮换失效 smoke。",
+        requiredChecks: [
+          "two-instance-session-invalidation-smoke",
+          "token-hash-ttl-verification",
+          "raw-token-not-persisted-check",
+          "login-rotation-cross-instance-smoke"
+        ],
+        detail:
+          "session invalidation store blocked: SESSION_INVALIDATION_STORE_IN_MEMORY；当前进程内失效集合不能代表生产多实例 session invalidation store。设置 SESSION_INVALIDATION_STORE_MODE=repository 并接入数据库/Redis 与多实例 smoke 后才可解除。"
+      },
+      {
+        name: "queue-broker",
+        ok: false,
+        status: "blocked",
+        code: "QUEUE_BROKER_NOT_CONFIGURED",
+        adapter: "not-configured",
+        nextAction:
+          "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency/idempotency smoke。",
+        requiredChecks: [
+          "multi-worker-lease-smoke",
+          "retry-dead-letter-smoke",
+          "heartbeat-status-consistency-smoke",
+          "status-result-consistency-smoke",
+          "idempotency-key-deduplication-smoke"
+        ],
+        detail:
+          "queue broker blocked: QUEUE_BROKER_NOT_CONFIGURED；设置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS、worker 绑定、lease/retry/dead-letter/heartbeat/status-result consistency、idempotency 和多实例 smoke 后才可解除。"
+      }
+    ]
+  };
+}
+
 export function buildProductionSmokeConfig(env: Record<string, string | undefined> = process.env): ProductionSmokeConfig {
+  const mode = readSmokeMode(env);
   const runWriteback = readBoolean(env.PRODUCTION_SMOKE_RUN_WRITEBACK);
+
+  if (mode === "mock-production") {
+    return {
+      mode,
+      baseUrl: readOptionalEnvValue(env, "PRODUCTION_SMOKE_BASE_URL")?.replace(/\/$/, "") ?? "http://mock-production.local",
+      email: readOptionalEnvValue(env, "PRODUCTION_SMOKE_EMAIL") ?? "mock-production@example.local",
+      password: readOptionalEnvValue(env, "PRODUCTION_SMOKE_PASSWORD") ?? "MockProduction123!",
+      expectedServiceMode: env.PRODUCTION_SMOKE_EXPECTED_MODE ?? "production",
+      runRecognition: true,
+      runWriteback,
+      jobPollIntervalMs: readPositiveInteger(env.PRODUCTION_SMOKE_JOB_POLL_INTERVAL_MS, 0),
+      jobPollTimeoutMs: readPositiveInteger(env.PRODUCTION_SMOKE_JOB_POLL_TIMEOUT_MS, 1000),
+      schemaKey: env.PRODUCTION_SMOKE_SCHEMA_KEY ?? "lims-clinical-info",
+      syntheticFileName: env.PRODUCTION_SMOKE_SYNTHETIC_FILE_NAME ?? "production-smoke-medical-record.txt",
+      syntheticMimeType: env.PRODUCTION_SMOKE_SYNTHETIC_MIME_TYPE ?? "text/plain",
+      syntheticContentBase64: env.PRODUCTION_SMOKE_SYNTHETIC_FILE_BASE64 ?? buildDefaultSyntheticContentBase64()
+    };
+  }
+
+  const missingKeys = collectMissingProductionSmokeEnv(env);
+  if (missingKeys.length > 0) {
+    throw new ProductionSmokeConfigurationBlockedError(missingKeys);
+  }
+
   const config: ProductionSmokeConfig = {
+    mode,
     baseUrl: requireEnvValue(env, "PRODUCTION_SMOKE_BASE_URL").replace(/\/$/, ""),
     email: requireEnvValue(env, "PRODUCTION_SMOKE_EMAIL"),
     password: requireEnvValue(env, "PRODUCTION_SMOKE_PASSWORD"),
@@ -64,6 +255,8 @@ export function buildProductionSmokeConfig(env: Record<string, string | undefine
     // 写回 smoke 只能基于本次新建的合成识别任务执行；因此打开写回时自动把识别链路纳入同一次 smoke。
     runRecognition: readBoolean(env.PRODUCTION_SMOKE_RUN_RECOGNITION) || runWriteback,
     runWriteback,
+    jobPollIntervalMs: readPositiveInteger(env.PRODUCTION_SMOKE_JOB_POLL_INTERVAL_MS, 1000),
+    jobPollTimeoutMs: readPositiveInteger(env.PRODUCTION_SMOKE_JOB_POLL_TIMEOUT_MS, 120_000),
     schemaKey: env.PRODUCTION_SMOKE_SCHEMA_KEY ?? "lims-clinical-info",
     syntheticFileName: env.PRODUCTION_SMOKE_SYNTHETIC_FILE_NAME ?? "production-smoke-medical-record.txt",
     syntheticMimeType: env.PRODUCTION_SMOKE_SYNTHETIC_MIME_TYPE ?? "text/plain",
@@ -110,6 +303,91 @@ function readNestedArray(value: unknown, path: string[]) {
   return readArray(cursor);
 }
 
+function buildStatusDependencySteps(statusPayload: Record<string, unknown>): ProductionSmokeStep[] {
+  const runtime = readRecord(statusPayload.runtime);
+  const secretResolver = readRecord(runtime.secretResolver);
+  const sessionInvalidationStore = readRecord(runtime.sessionInvalidationStore);
+  const queue = readRecord(runtime.queue);
+  const steps: ProductionSmokeStep[] = [];
+
+  if (Object.keys(secretResolver).length > 0 && secretResolver.productionReady !== true) {
+    const provider = readString(secretResolver.provider) ?? "unknown";
+    const blockedReason = readString(secretResolver.blockedReason) ?? "SECRET_RESOLVER_NOT_PRODUCTION_READY";
+    const requiredExternal = readArray(secretResolver.requiredExternal)
+      ?.filter((item): item is string => typeof item === "string" && item.length > 0)
+      .join("/");
+
+    steps.push({
+      name: "secret-resolver",
+      ok: false,
+      status: "blocked",
+      code: blockedReason,
+      provider,
+      requiredExternal: requiredExternal ? requiredExternal.split("/") : ["KMS", "Vault", "Secret Manager"],
+      nextAction:
+        "配置 SECRET_RESOLVER_PROVIDER=vault|kms|secret-manager 并接入真实 client/SDK，再重跑 provider health 与 production smoke。",
+      requiredChecks: [
+        "external-secret-resolution-smoke",
+        "provider-health-secretRefs-smoke",
+        "provider-response-secret-redaction-smoke",
+        "provider-health-secret-redaction-smoke",
+        "audit-metadata-secret-redaction-smoke"
+      ],
+      detail: `${blockedReason} provider=${provider}${
+        requiredExternal ? ` requiredExternal=${requiredExternal}` : ""
+      }；真实 KMS/Vault/Secret Manager 未验证。`
+    });
+  }
+
+  if (Object.keys(sessionInvalidationStore).length > 0 && sessionInvalidationStore.productionReady !== true) {
+    const adapter = readString(sessionInvalidationStore.adapter) ?? "unknown";
+    const blockedReason =
+      readString(sessionInvalidationStore.blockedReason) ?? "SESSION_INVALIDATION_STORE_NOT_PRODUCTION_READY";
+
+    steps.push({
+      name: "session-invalidation-store",
+      ok: false,
+      status: "blocked",
+      code: blockedReason,
+      adapter,
+      nextAction:
+        "配置 SESSION_INVALIDATION_STORE_MODE=repository 与数据库/Redis adapter，并运行至少两个 API 实例的登出/轮换失效 smoke。",
+      requiredChecks: [
+        "two-instance-session-invalidation-smoke",
+        "token-hash-ttl-verification",
+        "raw-token-not-persisted-check",
+        "login-rotation-cross-instance-smoke"
+      ],
+      detail: `${blockedReason} adapter=${adapter}；生产多实例 session invalidation store 未验证。`
+    });
+  }
+
+  if (Object.keys(queue).length > 0 && queue.productionReady !== true) {
+    const adapter = readString(queue.adapter) ?? "unknown";
+    const blockedReason = readString(queue.blockedReason) ?? "QUEUE_BROKER_NOT_PRODUCTION_READY";
+
+    steps.push({
+      name: "queue-broker",
+      ok: false,
+      status: "blocked",
+      code: blockedReason,
+      adapter,
+      nextAction:
+        "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency/idempotency smoke。",
+      requiredChecks: [
+        "multi-worker-lease-smoke",
+        "retry-dead-letter-smoke",
+        "heartbeat-status-consistency-smoke",
+        "status-result-consistency-smoke",
+        "idempotency-key-deduplication-smoke"
+      ],
+      detail: `${blockedReason} adapter=${adapter}；真实 broker 多实例 lease/retry/dead-letter/heartbeat/status-result consistency/idempotency smoke 未验证。`
+    });
+  }
+
+  return steps;
+}
+
 function createJsonAuthHeaders(token: string) {
   return new Headers({
     authorization: `Bearer ${token}`,
@@ -144,6 +422,21 @@ function extractReadyFields(resultPayload: Record<string, unknown>) {
   );
 }
 
+function isTerminalJobStatus(status: string) {
+  return [
+    "completed",
+    "partial_completed",
+    "needs_review",
+    "writeback_completed",
+    "writeback_failed",
+    "failed"
+  ].includes(status);
+}
+
+function sleep(ms: number) {
+  return ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function requestJson(
   fetchImpl: typeof fetch,
   url: string,
@@ -158,6 +451,49 @@ async function requestJson(
   }
 
   return payload;
+}
+
+async function pollRecognitionJob(input: {
+  config: ProductionSmokeConfig;
+  fetchImpl: typeof fetch;
+  baseUrl: string;
+  token: string;
+  jobId: string;
+  steps: ProductionSmokeStep[];
+}) {
+  const startedAt = Date.now();
+  let lastPayload: Record<string, unknown> = {};
+
+  while (Date.now() - startedAt <= input.config.jobPollTimeoutMs) {
+    lastPayload = readRecord(
+      await requestJson(
+        input.fetchImpl,
+        `${input.baseUrl}/jobs/${encodeURIComponent(input.jobId)}`,
+        {
+          method: "GET",
+          headers: new Headers({
+            authorization: `Bearer ${input.token}`
+          })
+        },
+        "job-read"
+      )
+    );
+    const status = readString(lastPayload.status) ?? "unknown";
+    input.steps.push({ name: "job-read", ok: true, detail: `status=${status}` });
+
+    if (status === "failed" || status === "writeback_failed") {
+      throw new Error(`job-read 任务状态为 ${status}。`);
+    }
+
+    if (isTerminalJobStatus(status)) {
+      return lastPayload;
+    }
+
+    await sleep(input.config.jobPollIntervalMs);
+  }
+
+  const status = readString(lastPayload.status) ?? "unknown";
+  throw new Error(`job-read 轮询超时，最后状态为 ${status}。`);
 }
 
 async function runRecognitionSmoke(input: {
@@ -225,24 +561,14 @@ async function runRecognitionSmoke(input: {
     detail: `jobId=${jobId}${readString(jobPayload.status) ? ` status=${readString(jobPayload.status)}` : ""}`
   });
 
-  const jobReadPayload = readRecord(
-    await requestJson(
-      input.fetchImpl,
-      `${input.baseUrl}/jobs/${encodeURIComponent(jobId)}`,
-      {
-        method: "GET",
-        headers: new Headers({
-          authorization: `Bearer ${input.token}`
-        })
-      },
-      "job-read"
-    )
-  );
-  const jobStatus = readString(jobReadPayload.status) ?? "unknown";
-  if (jobStatus === "failed" || jobStatus === "writeback_failed") {
-    throw new Error(`job-read 任务状态为 ${jobStatus}。`);
-  }
-  input.steps.push({ name: "job-read", ok: true, detail: `status=${jobStatus}` });
+  await pollRecognitionJob({
+    config: input.config,
+    fetchImpl: input.fetchImpl,
+    baseUrl: input.baseUrl,
+    token: input.token,
+    jobId,
+    steps: input.steps
+  });
 
   const resultPayload = readRecord(
     await requestJson(
@@ -288,7 +614,6 @@ async function runWritebackSmoke(input: {
         body: JSON.stringify({
           jobId: input.jobId,
           confirmed: true,
-          fields: readyFields,
           idempotencyKey: `production-smoke:${input.jobId}`
         })
       },
@@ -318,6 +643,7 @@ export async function runProductionSmoke(
     throw new Error(`status serviceMode=${serviceMode ?? "unknown"}，期望 ${config.expectedServiceMode}`);
   }
   steps.push({ name: "status", ok: true, detail: `serviceMode=${serviceMode}` });
+  steps.push(...buildStatusDependencySteps(statusPayload));
 
   const loginPayload = readRecord(
     await requestJson(
@@ -367,10 +693,20 @@ export async function runProductionSmoke(
     );
     const health = readRecord(healthPayload.health);
     const healthStatus = readString(health.status) ?? "unknown";
+    const blockedReason = readString(health.blockedReason);
     steps.push({
       name: `provider-health:${key}`,
       ok: healthStatus === "healthy" || healthStatus === "degraded",
-      detail: healthStatus
+      ...(healthStatus === "blocked"
+        ? {
+            status: "blocked" as const,
+            code: blockedReason ?? "PROVIDER_HEALTH_BLOCKED",
+            provider: key,
+            nextAction: "修复该 provider 的 secretRefs、sandbox endpoint 或外部服务连通性后重跑 provider health 与 production smoke。",
+            requiredChecks: ["provider-health-secretRefs-smoke", "real-provider-sandbox-connectivity-smoke"]
+          }
+        : {}),
+      detail: healthStatus === "blocked" ? (blockedReason ?? "blocked") : healthStatus
     });
   }
 
@@ -399,24 +735,294 @@ export async function runProductionSmoke(
     });
   }
 
-  return { steps };
+  return { mode: config.mode, steps };
+}
+
+export async function runProductionSmokeSafely(
+  config: ProductionSmokeConfig,
+  fetchImpl: typeof fetch = fetch
+): Promise<ProductionSmokeReport> {
+  try {
+    const report = await runProductionSmoke(config, fetchImpl);
+    return {
+      ...report,
+      steps: report.steps.map((step) => ({
+        status: step.ok ? ("ok" as const) : step.status ?? ("failed" as const),
+        ...step
+      }))
+    };
+  } catch (error) {
+    return {
+      mode: "failed",
+      steps: [
+        {
+          name: "production-smoke",
+          ok: false,
+          status: "failed",
+          detail: error instanceof Error ? error.message : String(error)
+        }
+      ]
+    };
+  }
+}
+
+export function classifyProductionSmokeReport(report: ProductionSmokeReport): ProductionSmokeStatus {
+  if (report.mode === "blocked" || report.steps.some((step) => step.status === "blocked")) {
+    return "blocked";
+  }
+
+  if (report.mode === "failed" || report.steps.some((step) => !step.ok || step.status === "failed")) {
+    return "failed";
+  }
+
+  return "passed";
+}
+
+function inferBlockedStepCode(step: ProductionSmokeStep) {
+  if (step.code) {
+    return step.code;
+  }
+
+  const detail = step.detail ?? "";
+  const explicitCode = detail.match(/\b[A-Z][A-Z0-9_]{2,}\b/u)?.[0];
+  return explicitCode;
+}
+
+function inferBlockedStepProvider(step: ProductionSmokeStep) {
+  if (step.provider) {
+    return step.provider;
+  }
+
+  const providerMatch = step.detail?.match(/\bprovider=([^\s；]+)/u);
+  return providerMatch?.[1];
+}
+
+function inferBlockedStepAdapter(step: ProductionSmokeStep) {
+  if (step.adapter) {
+    return step.adapter;
+  }
+
+  const adapterMatch = step.detail?.match(/\badapter=([^\s；]+)/u);
+  return adapterMatch?.[1];
+}
+
+function inferBlockedRequiredExternal(step: ProductionSmokeStep) {
+  if (step.requiredExternal) {
+    return step.requiredExternal;
+  }
+
+  const requiredExternalMatch = step.detail?.match(/\brequiredExternal=([^；]+)/u);
+  return requiredExternalMatch?.[1]?.split("/").filter((item) => item.length > 0);
+}
+
+export function buildProductionSmokeMachineSummary(report: ProductionSmokeReport): ProductionSmokeMachineSummary {
+  return {
+    mode: report.mode,
+    status: classifyProductionSmokeReport(report),
+    blockedSteps: report.steps
+      .filter((step) => step.status === "blocked")
+      .map((step) => {
+        const blockedStep: ProductionSmokeMachineSummary["blockedSteps"][number] = {
+          name: step.name
+        };
+        const code = inferBlockedStepCode(step);
+        const provider = inferBlockedStepProvider(step);
+        const adapter = inferBlockedStepAdapter(step);
+        const requiredExternal = inferBlockedRequiredExternal(step);
+
+        if (code) {
+          blockedStep.code = code;
+        }
+        if (step.missingKeys) {
+          blockedStep.missingKeys = step.missingKeys;
+        }
+        if (provider) {
+          blockedStep.provider = provider;
+        }
+        if (adapter) {
+          blockedStep.adapter = adapter;
+        }
+        if (requiredExternal) {
+          blockedStep.requiredExternal = requiredExternal;
+        }
+        if (step.nextAction) {
+          blockedStep.nextAction = step.nextAction;
+        }
+        if (step.requiredChecks) {
+          blockedStep.requiredChecks = step.requiredChecks;
+        }
+
+        return blockedStep;
+      }),
+    failedSteps: report.steps
+      .filter((step) => step.status === "failed" || (!step.ok && step.status !== "blocked"))
+      .map((step) => {
+        const failedStep: ProductionSmokeMachineSummary["failedSteps"][number] = {
+          name: step.name
+        };
+        const code = inferBlockedStepCode(step);
+        if (code) {
+          failedStep.code = code;
+        }
+
+        return failedStep;
+      })
+  };
+}
+
+export function formatProductionSmokeCliOutput(report: ProductionSmokeReport) {
+  const status = classifyProductionSmokeReport(report);
+  const lines = [`MODE ${report.mode}`, `STATUS ${status}`];
+
+  for (const step of report.steps) {
+    const label = step.status === "blocked" ? "BLOCKED" : step.status === "skipped" ? "SKIPPED" : step.ok ? "OK" : "FAIL";
+    lines.push(`${label} ${step.name}${step.detail ? ` ${step.detail}` : ""}`);
+    if (step.status === "blocked" && step.nextAction) {
+      lines.push(`NEXT ${step.name} ${step.nextAction}`);
+    }
+    if (step.status === "blocked" && step.requiredChecks && step.requiredChecks.length > 0) {
+      lines.push(`REQUIRED_CHECKS ${step.name} ${step.requiredChecks.join(",")}`);
+    }
+  }
+
+  lines.push(`SUMMARY_JSON ${JSON.stringify(buildProductionSmokeMachineSummary(report))}`);
+
+  return lines.join("\n");
+}
+
+function createMockProductionFetch(): typeof fetch {
+  let jobReadCount = 0;
+
+  return (async (url: string | URL, init?: RequestInit) => {
+    const pathname = new URL(String(url)).pathname;
+
+    if (pathname === "/status") {
+      return jsonResponse({
+        runtime: {
+          serviceMode: "production"
+        }
+      });
+    }
+
+    if (pathname === "/auth/login") {
+      return jsonResponse({
+        accessToken: "mock-production.jwt"
+      });
+    }
+
+    if (pathname === "/providers") {
+      return jsonResponse({
+        items: [
+          { key: "fixture-ocr", kind: "ocr" },
+          { key: "fixture-model", kind: "llm" }
+        ]
+      });
+    }
+
+    if (pathname === "/providers/fixture-ocr/health" || pathname === "/providers/fixture-model/health") {
+      return jsonResponse({
+        health: {
+          status: "healthy"
+        }
+      });
+    }
+
+    if (pathname === "/files") {
+      return jsonResponse({
+        id: "file-mock-production-001"
+      });
+    }
+
+    if (pathname === "/jobs") {
+      return jsonResponse({
+        id: "job-mock-production-001",
+        status: "queued",
+        executionMode: "asynchronous"
+      });
+    }
+
+    if (pathname === "/jobs/job-mock-production-001") {
+      jobReadCount += 1;
+      return jsonResponse({
+        id: "job-mock-production-001",
+        status: jobReadCount > 1 ? "completed" : "running"
+      });
+    }
+
+    if (pathname === "/results/job-mock-production-001") {
+      return jsonResponse({
+        jobId: "job-mock-production-001",
+        payload: {
+          writeback: {
+            readyFields: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                targetPath: "clinicalInfo.clinicalDiagnosis",
+                value: "肺腺癌"
+              }
+            ]
+          }
+        }
+      });
+    }
+
+    if (pathname === "/writeback") {
+      const body = readRecord(JSON.parse(String(init?.body ?? "{}")));
+      return jsonResponse({
+        id: "writeback-mock-production-001",
+        status: body.confirmed === true ? "succeeded" : "failed"
+      });
+    }
+
+    return jsonResponse({ error: "NOT_FOUND" }, 404);
+  }) as typeof fetch;
+}
+
+function jsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" }
+  });
+}
+
+export function runMockProductionContractSmoke(config: ProductionSmokeConfig): Promise<ProductionSmokeReport> {
+  return runProductionSmoke(
+    {
+      ...config,
+      mode: "mock-production",
+      runRecognition: true
+    },
+    createMockProductionFetch()
+  );
 }
 
 async function main() {
-  const report = await runProductionSmoke(buildProductionSmokeConfig());
-  const failed = report.steps.filter((step) => !step.ok);
-
-  for (const step of report.steps) {
-    console.log(`${step.ok ? "OK" : "FAIL"} ${step.name}${step.detail ? ` ${step.detail}` : ""}`);
+  const blockedReport = buildProductionSmokeBlockedReport();
+  let report: ProductionSmokeReport;
+  if (blockedReport) {
+    report = blockedReport;
+  } else {
+    const config = buildProductionSmokeConfig();
+    report =
+      config.mode === "mock-production" ? await runMockProductionContractSmoke(config) : await runProductionSmokeSafely(config);
   }
+  const status = classifyProductionSmokeReport(report);
 
-  if (failed.length > 0) {
-    process.exitCode = 1;
+  console.log(formatProductionSmokeCliOutput(report));
+
+  if (status !== "passed") {
+    process.exitCode = status === "blocked" ? 2 : 1;
   }
 }
 
 if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   void main().catch((error: unknown) => {
+    if (error instanceof ProductionSmokeConfigurationBlockedError) {
+      console.error(`BLOCKED configuration 缺少 ${error.missingKeys.join(", ")}；production smoke 未执行。`);
+      process.exitCode = 2;
+      return;
+    }
+
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });

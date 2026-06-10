@@ -125,15 +125,15 @@ Demo/Admin 前端不是营销页面，而是面向识别、配置、评估和运
 
 React 适合构建状态复杂的管理台；Vite 提供快速开发和构建体验；TanStack Query 适合处理服务端状态、轮询、缓存和错误反馈；React Router 负责多页面路由；lucide-react 提供一致的图标体系；driver.js 用于首次使用引导。
 
-### 3.9 选择 Vitest 和 Mock Provider 的原因
+### 3.9 选择 Vitest 和测试替身的原因
 
-医疗文档识别涉及外部 OCR、LLM、存储和 LIMS 系统，真实服务成本高、稳定性受环境影响，也不能在 CI 中发送敏感病历。Mock Provider 是架构必要部分，不是临时替代品。
+医疗文档识别涉及外部 OCR、LLM、存储和 LIMS 系统，真实服务成本高、稳定性受环境影响，也不能在 CI 中发送敏感病历。产品主线必须接入真实 OCR/LLM Provider；自动化测试则使用 contract test double、fixtures 和合成样本验证领域逻辑。
 
-Vitest 和 Mock Provider 的组合可以保证：
+Vitest 与测试替身的组合可以保证：
 
 - 单元测试和集成测试不依赖真实 OCR/LLM。
 - 核心状态机、字段校验、payload adapter、写回策略和评估指标可以稳定回归。
-- 真实 provider 接入后仍能保留低成本测试后备。
+- 真实 provider 接入后仍能通过低成本测试样本覆盖契约回归。
 - 错误路径可以被确定性覆盖，例如 OCR 超时、模型返回格式异常、写回失败和低置信结果。
 
 ## 4. 总体架构
@@ -229,7 +229,7 @@ Core Agent Layer 是病历识别的领域核心，建议位于 `packages/core`�
 - 生成结构化结果、warnings、payload 和 trace。
 - 提供可被 API 服务调用的稳定领域函数。
 
-Core 应保持“可测试、可替换、可独立理解”。外部服务都通过接口注入，测试默认使用 mock provider。
+Core 应保持“可测试、可替换、可独立理解”。外部服务都通过接口注入，产品运行必须使用真实 Provider；测试默认使用 contract test double 和 fixtures。
 
 ### 5.4 Job Orchestrator
 
@@ -595,11 +595,11 @@ flowchart LR
 
 ### 8.4 本地开发部署
 
-本地开发模式使用 mock provider、本地文件存储和可选测试数据库，目标是快速验证核心流程。
+本地开发模式使用本地文件存储、可选测试数据库、合成样本和测试替身，目标是快速验证页面、接口契约和领域流程。业务主线不提供可选的模拟模型提供商；没有真实 OCR/LLM Provider 时，识别创建应被阻断并提示等待配置。
 
 本地模式可以：
 
-- 使用 MockOcrProvider 和 MockModelProvider。
+- 使用 OCR/LLM contract test double 覆盖自动化测试。
 - 使用本地文件目录保存测试文件。
 - 使用合成样本跑 Vitest。
 - 使用 Demo/Admin 前端验证页面和交互。
@@ -765,7 +765,7 @@ OpenAI Agents SDK、Mastra、LlamaIndex.TS 可以作为实验区，不直接混�
 - Provider 必须有 timeout、retry、错误映射和健康检查。
 - 错误信息必须脱敏。
 - 可重试错误标记 retryable。
-- Mock Provider 保留为测试后备。
+- 测试替身只用于自动化测试、fixture 和契约回归，不作为产品或本地业务模式。
 
 ### 11.4 Schema 变更风险
 

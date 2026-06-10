@@ -1,5 +1,7 @@
 # 基于 TypeScript 的通用病历识别 Agent 设计
 
+> 历史草案说明：本文是 2026-06-04 的早期设计草案，Provider 路线已被 2026-06-09 hard remove 方案取代。当前执行方案要求用户/业务主线只接入真实 OCR/LLM Provider；自动化验证只能使用测试替身、fixture、合成样本和 contract test double，不把模拟模型提供商作为可用产品路线。
+
 ## 目标
 
 设计一个基于 TypeScript 的通用病历识别 Agent 服务。它面向病历图片、PDF、扫描件和已有 OCR 文本，输出结构化字段候选结果、字段证据、置信度、质量告警和可选业务系统 payload。
@@ -18,7 +20,7 @@
 - 部署模式：Provider 双模式，支持内网私有化和公网原型服务。
 - 输出策略：结构化候选 JSON + 可选业务 payload。
 - 人工确认：放在调用方系统，Agent 提供反馈回流 API 和受控写回 API。
-- 真实 Provider：需要接入真实 OCR provider 和真实 LLM provider，同时保留 mock provider 作为测试后备。
+- 真实 Provider：需要接入真实 OCR provider 和真实 LLM provider；自动化测试使用测试替身、fixture、合成样本和 contract test double。
 - 生产存储：需要生产级文件、OCR、结果、反馈和评估样本存储。
 - 权限登录：需要生产级登录、角色权限、审计和敏感操作控制。
 - LIMS 写回：满足高置信自动写回规则后可自动写回；未达标时输出候选并进入复核队列。
@@ -313,7 +315,7 @@ LIMS 写回、schema 发布、真实样本删除、provider 配置修改都属�
    - 文件格式检查、PDF 拆页、图片质量分析、脱敏策略判断。
 
 2. OCR Tool Node
-   - 调用真实 OCR provider 或 mock OCR provider。
+   - 调用真实 OCR provider；自动化验证在测试边界使用 OCR contract test double 或 fixture，不作为当前产品流程。
    - 输出 OCR 文本块、页码、坐标和质量告警。
 
 3. Light RAG Node
@@ -596,18 +598,18 @@ Demo 前端设计要求：
 测试层次：
 
 - 单元测试：schema 校验、normalizer、validator、payload adapter。
-- 集成测试：OCR provider mock、LLM provider mock、任务状态流转。
+- 集成测试：OCR/LLM contract test double、fixture 和任务状态流转。
 - 端到端评估：脱敏样本集跑完整任务，生成字段级评估报告。
 
 ## 实施建议
 
-第一阶段：完成基础 monorepo、核心类型、schema、mock provider、API 和精致 Demo，确保端到端闭环可运行。
+第一阶段：完成基础 monorepo、核心类型、schema、真实 Provider 接口、测试替身、API 和精致 Demo；没有真实 OCR/LLM Provider 时阻断识别创建。
 
 第二阶段：接入 LangGraph 工作流、LangChain structured output、轻量 RAG 和受控 specialist agent。
 
 第三阶段：接入生产存储、用户登录、角色权限、API token 和审计日志。
 
-第四阶段：接入真实 OCR provider、LangChainModelProvider、OpenAICompatibleProvider 和 OpenAIResponsesProvider，保留 mock provider 用于测试。
+第四阶段：接入真实 OCR provider、LangChainModelProvider、OpenAICompatibleProvider 和 OpenAIResponsesProvider；测试覆盖继续使用 fixture 和 contract test double。
 
 第五阶段：实现 Schema Studio 在线编辑、校验、发布、停用、回滚和版本对比。
 

@@ -35,7 +35,7 @@ function buildPagesFromBlocks(blocks: OcrTextBlock[]): OcrPage[] {
 }
 
 export function createMockOcrProvider(config: MockOcrProviderConfig = {}): OcrProvider {
-  const providerName = config.providerName ?? "mock-ocr";
+  const providerName = config.providerName ?? "fixture-ocr";
   const blocks = config.blocks ?? [defaultBlock];
   const pages = config.pages ?? buildPagesFromBlocks(blocks);
   const qualityWarnings = config.qualityWarnings ?? [];
@@ -43,8 +43,8 @@ export function createMockOcrProvider(config: MockOcrProviderConfig = {}): OcrPr
   return {
     providerName,
     async recognize() {
-      // Mock provider 不读取真实文件，也不根据输入内容变化输出。
-      // 这样测试和 Demo 可以稳定复现同一份 OCR 结果，避免把测试可靠性绑定到外部服务。
+      // 测试替身不读取真实文件，也不根据输入内容变化输出。
+      // 这样测试可以稳定复现同一份 OCR 结果，避免把测试可靠性绑定到外部服务。
       return {
         providerName,
         pages,

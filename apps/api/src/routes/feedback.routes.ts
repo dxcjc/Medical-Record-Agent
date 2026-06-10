@@ -3,9 +3,15 @@ import type { FastifyInstance } from "fastify";
 import { PERMISSIONS } from "../auth/permissions";
 import type { createAuthHooks } from "../middleware/auth.middleware";
 import type { createAuditHooks } from "../middleware/audit.middleware";
+import {
+  assertRouteResponseObject,
+  feedbackRouteInputSchema,
+  type ApiRouteResponseObject,
+  type CreateFeedbackRouteInput
+} from "./route-dtos";
 
 export interface FeedbackRouteService {
-  create(input: unknown): Promise<unknown>;
+  create(input: CreateFeedbackRouteInput): Promise<ApiRouteResponseObject>;
 }
 
 export interface FeedbackRoutesDependencies {
@@ -35,6 +41,23 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
           : [])
       ]
     },
-    async (request) => dependencies.feedbackService.create(request.body)
+    async (request, reply) => {
+      const parsed = feedbackRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid feedback payload"
+        });
+      }
+
+      const input: CreateFeedbackRouteInput = { ...parsed.data };
+      if (!input.fieldKey && input.field) {
+        input.fieldKey = input.field;
+      }
+
+      const feedback = await dependencies.feedbackService.create(input);
+
+      return assertRouteResponseObject(feedback, "FEEDBACK_RESPONSE_INVALID");
+    }
   );
 }

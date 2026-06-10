@@ -12,19 +12,24 @@ export interface ValidationEngineInput {
 }
 
 export interface ValidationEngineResult extends ValidationAgentResult {
+  requiredFieldKeys: string[];
   missingRequiredFieldKeys: string[];
   acceptedFieldKeys: string[];
   reviewFieldKeys: string[];
   normalizedCandidates: ModelFieldCandidate[];
 }
 
-function isRequiredFieldKey(fieldKey: string): boolean {
-  // 第一版先把临床诊断作为关键字段；后续 schema 在线编辑会把 required 配置下沉到字段级配置。
-  return fieldKey === "clinicalDiagnosis";
+function isRequiredFieldKey(field: CoreFieldDefinition): boolean {
+  return Boolean(field.required || field.critical);
 }
 
 export function getRequiredFieldKeys(schema: CoreSchemaDraft): string[] {
-  return schema.fields.filter((field) => isRequiredFieldKey(field.key)).map((field) => field.key);
+  const schemaRequiredFieldKeys = schema.fields.filter(isRequiredFieldKey).map((field) => field.key);
+  if (schemaRequiredFieldKeys.length > 0) {
+    return schemaRequiredFieldKeys;
+  }
+
+  return schema.fields.some((field) => field.key === "clinicalDiagnosis") ? ["clinicalDiagnosis"] : [];
 }
 
 function getField(schema: CoreSchemaDraft, fieldKey: string): CoreFieldDefinition | undefined {
@@ -95,7 +100,8 @@ export function runValidationEngine(input: ValidationEngineInput): ValidationEng
     candidates: normalizedCandidates
   });
   const seenFieldKeys = new Set(normalizedCandidates.map((candidate) => candidate.fieldKey));
-  const missingRequiredFieldKeys = getRequiredFieldKeys(input.schema).filter((fieldKey) => !seenFieldKeys.has(fieldKey));
+  const requiredFieldKeys = getRequiredFieldKeys(input.schema);
+  const missingRequiredFieldKeys = requiredFieldKeys.filter((fieldKey) => !seenFieldKeys.has(fieldKey));
   const fieldResults: FieldValidationResult[] = appendConflictWarnings([
     ...validation.fieldResults,
     ...missingRequiredFieldKeys.map((fieldKey) => ({
@@ -122,6 +128,7 @@ export function runValidationEngine(input: ValidationEngineInput): ValidationEng
   return {
     decision: reviewFieldKeys.length > 0 ? "needs_review" : "green",
     fieldResults,
+    requiredFieldKeys,
     missingRequiredFieldKeys,
     acceptedFieldKeys,
     reviewFieldKeys,

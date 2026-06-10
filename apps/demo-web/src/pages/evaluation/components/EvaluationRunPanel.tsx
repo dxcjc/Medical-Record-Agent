@@ -1,3 +1,5 @@
+import { Button, Card, Form, Input, Select, Space, Table, Tag } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
 import { AppIcon, actionIcons, navigationIcons } from "../../../icons/appIcons";
 import type { EvaluationRun, EvaluationRunDraft } from "./evaluationData";
 
@@ -12,7 +14,7 @@ type EvaluationRunPanelProps = {
   schemaOptions: SelectOption[];
   providerOptions: SelectOption[];
   mutationState: {
-    status: "idle" | "submitting" | "success" | "error";
+    status: "idle" | "submitting" | "success" | "error" | "cancelled";
     message: string | null;
   };
   onChange: <Key extends keyof EvaluationRunDraft>(
@@ -20,6 +22,8 @@ type EvaluationRunPanelProps = {
     value: EvaluationRunDraft[Key]
   ) => void;
   onCreateRun: () => void | Promise<void>;
+  onCancelRun: () => void;
+  onRerun: () => void | Promise<void>;
 };
 
 export function EvaluationRunPanel({
@@ -29,12 +33,22 @@ export function EvaluationRunPanel({
   providerOptions,
   mutationState,
   onChange,
-  onCreateRun
+  onCreateRun,
+  onCancelRun,
+  onRerun
 }: EvaluationRunPanelProps) {
   const isSubmitting = mutationState.status === "submitting";
+  const columns: TableColumnProps<EvaluationRun>[] = [
+    { title: "Run", dataIndex: "name" },
+    { title: "数据集", dataIndex: "datasetName" },
+    { title: "Schema", dataIndex: "schemaVersion", render: (_, run) => <span className="mono">{run.schemaVersion}</span> },
+    { title: "模型", dataIndex: "modelVersion", render: (_, run) => <span className="mono">{run.modelVersion}</span> },
+    { title: "状态", dataIndex: "status", render: (_, run) => <Tag color={run.status === "已完成" ? "green" : run.status === "运行中" ? "arcoblue" : run.status === "已失败" ? "red" : "orange"}>{run.status}</Tag> },
+    { title: "创建时间", dataIndex: "createdAt" },
+  ];
 
   return (
-    <section className="panel studio-panel" aria-labelledby="evaluation-run-title" data-guide="evaluation">
+    <Card className="panel studio-panel" aria-labelledby="evaluation-run-title" data-guide="evaluation">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-run-title">Evaluation Run Creation</h2>
@@ -44,91 +58,64 @@ export function EvaluationRunPanel({
       </div>
 
       <div className="form-grid">
-        <label>
-          Run 名称
-          <input
+        <Form.Item label="Run 名称">
+          <Input
             value={draft.name}
-            onChange={(event) => onChange("name", event.currentTarget.value)}
+            onChange={(value) => onChange("name", value)}
           />
-        </label>
-        <label>
-          Schema Version
-          <select
+        </Form.Item>
+        <Form.Item label="Schema Version">
+          <Select
             value={draft.schemaVersion}
-            onChange={(event) => onChange("schemaVersion", event.currentTarget.value)}
+            onChange={(value) => onChange("schemaVersion", String(value))}
           >
             {schemaOptions.map((option) => (
-              <option key={option.value} value={option.value}>
+              <Select.Option key={option.value} value={option.value}>
                 {option.label}
-              </option>
+              </Select.Option>
             ))}
-          </select>
-        </label>
-        <label>
-          Model Version
-          <select
+          </Select>
+        </Form.Item>
+        <Form.Item label="Model Version">
+          <Select
             value={draft.modelVersion}
-            onChange={(event) => onChange("modelVersion", event.currentTarget.value)}
+            onChange={(value) => onChange("modelVersion", String(value))}
           >
             {providerOptions.map((option) => (
-              <option key={option.value} value={option.value}>
+              <Select.Option key={option.value} value={option.value}>
                 {option.label}
-              </option>
+              </Select.Option>
             ))}
-          </select>
-        </label>
-        <label>
-          Sample Scope
-          <input
+          </Select>
+        </Form.Item>
+        <Form.Item label="Sample Scope">
+          <Input
             value={draft.sampleScope}
-            onChange={(event) => onChange("sampleScope", event.currentTarget.value)}
+            onChange={(value) => onChange("sampleScope", value)}
           />
-        </label>
+        </Form.Item>
       </div>
 
-      <div className="toolbar">
-        <button type="button" className="action-button" onClick={onCreateRun} disabled={isSubmitting}>
-          <AppIcon icon={actionIcons.next} size="sm" />
+      <Space className="toolbar" wrap>
+        <Button type="primary" onClick={onCreateRun} disabled={isSubmitting} loading={isSubmitting} icon={<AppIcon icon={actionIcons.next} size="sm" />}>
           {isSubmitting ? "创建中" : "创建评测"}
-        </button>
+        </Button>
+        <Button type="outline" onClick={onCancelRun} disabled={!isSubmitting}>
+          取消
+        </Button>
+        <Button type="outline" onClick={onRerun} disabled={isSubmitting || mutationState.status === "idle"}>
+          重跑
+        </Button>
         {mutationState.message ? (
-          <span
-            className={`status-pill ${mutationState.status === "error" ? "status-pill-danger" : "status-pill-success"}`}
-            role={mutationState.status === "error" ? "alert" : "status"}
-          >
+          <Tag color={mutationState.status === "error" ? "red" : mutationState.status === "cancelled" ? "orange" : "green"} role={mutationState.status === "error" ? "alert" : "status"}>
             {mutationState.message}
-          </span>
+          </Tag>
         ) : null}
-      </div>
+      </Space>
 
       <div className="table-scroll">
-        <table className="data-table arco-table">
-          <thead>
-            <tr>
-              <th scope="col">Run</th>
-              <th scope="col">数据集</th>
-              <th scope="col">Schema</th>
-              <th scope="col">模型</th>
-              <th scope="col">状态</th>
-              <th scope="col">创建时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.map((run) => (
-              <tr key={run.id}>
-                <td>{run.name}</td>
-                <td>{run.datasetName}</td>
-                <td className="mono">{run.schemaVersion}</td>
-                <td className="mono">{run.modelVersion}</td>
-                <td>
-                  <span className="status-pill">{run.status}</span>
-                </td>
-                <td>{run.createdAt}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Table columns={columns} data={runs} rowKey="id" pagination={false} scroll={{ x: 900 }} />
       </div>
-    </section>
+    </Card>
   );
 }

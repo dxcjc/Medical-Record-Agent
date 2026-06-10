@@ -128,7 +128,7 @@ evaluation-data
 ## Synthetic 与真实样本运行约定
 
 - CI 只运行 synthetic samples。CI 不读取 `local-deidentified`、内网对象存储或任何真实样本路径。
-- 自动化测试默认使用 mock OCR provider 和 mock model provider，确保测试稳定、低成本、无外部依赖。
+- 自动化测试默认使用合成样本和测试替身，确保测试稳定、低成本、无外部依赖。
 - 接入真实 OCR/LLM provider 的评估只能在受控本地或内网环境运行，并由显式配置开启。
 - 公网 provider 原型评估不得直接发送真实病历原文；如需实验，只允许使用合成样本或经过审批的强脱敏文本。
 - 真实脱敏样本评估运行必须记录 datasetId、schemaVersion、promptVersion、ocrProvider、modelProvider、运行人、运行时间和审计日志。
@@ -222,6 +222,6 @@ pnpm eval:manifest evaluation-data/local-deidentified/datasets/lims-clinical-inf
 - 确认 dataset 和 sample 的 `deidentified` 均为 `true`。
 - 确认真实样本不在 git staged set 中。
 - 确认 synthetic samples 才能进入 CI。
-- 确认测试和 CI 默认使用 mock provider。
+- 确认测试和 CI 默认使用合成样本和测试替身。
 - 确认每个关键字段有标准答案、匹配口径和证据标注。
 - 确认 `needsReview` 标注覆盖关键字段缺失、证据不足、低质量输入、多值冲突和业务高风险场景。

@@ -1,4 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Card, Tag } from "@arco-design/web-react";
+import {
+  normalizeEvaluationDatasets,
+  normalizeEvaluationMetrics,
+  normalizeEvaluationRuns,
+  normalizeProviderSelectOptions,
+  normalizeSchemaSelectOptions,
+  readEvaluationRunId,
+  readEvaluationRunStatus,
+  type SelectOption
+} from "../../api/normalizers";
 import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { DatasetListPanel } from "./components/DatasetListPanel";
@@ -44,11 +55,23 @@ type RunMutationState =
   | { status: "idle"; message: string | null }
   | { status: "submitting"; message: string | null }
   | { status: "success"; message: string }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  | { status: "cancelled"; message: string };
 
-type SelectOption = {
-  value: string;
+type AsyncUxTone = "info" | "success" | "warning";
+
+type EvaluationMutationDescriptor = {
+  title: string;
+  tone: AsyncUxTone;
+  canCancel: boolean;
+  canRetry: boolean;
+  message: string;
+};
+
+type EvaluationQueueDescriptor = {
+  tone: AsyncUxTone;
   label: string;
+  message: string;
 };
 
 const fallbackSchemaOptions: SelectOption[] = [
@@ -65,235 +88,15 @@ const fallbackProviderOptions: SelectOption[] = [
   }
 ];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
+export const parseEvaluationSchemaOptions = normalizeSchemaSelectOptions;
+export const parseEvaluationProviderOptions = (response: Parameters<typeof normalizeProviderSelectOptions>[0]) =>
+  normalizeProviderSelectOptions(response, "llm");
 
-function readStringField(source: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function readItems(value: unknown) {
-  return isRecord(value) && Array.isArray(value.items) ? value.items : [];
-}
-
-export function parseEvaluationSchemaOptions(response: unknown): SelectOption[] {
-  return readItems(response).flatMap((item): SelectOption[] => {
-    if (!isRecord(item)) {
-      return [];
-    }
-
-    const value = readStringField(item, ["schemaKey", "key", "id"]);
-    if (!value) {
-      return [];
-    }
-
-    const displayName = readStringField(item, ["displayName", "label", "name"]) ?? value;
-    const version = typeof item.version === "number" || typeof item.version === "string" ? ` v${item.version}` : "";
-
-    return [
-      {
-        value,
-        label: `${displayName}${version}`
-      }
-    ];
-  });
-}
-
-export function parseEvaluationProviderOptions(response: unknown): SelectOption[] {
-  return readItems(response).flatMap((item): SelectOption[] => {
-    if (!isRecord(item) || item.kind !== "llm") {
-      return [];
-    }
-
-    const value = readStringField(item, ["key", "id"]);
-    if (!value) {
-      return [];
-    }
-
-    return [
-      {
-        value,
-        label: readStringField(item, ["displayName", "name", "label"]) ?? value
-      }
-    ];
-  });
-}
-
-function readNumberField(source: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function readBooleanField(source: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === "boolean") {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function normalizeDatasetStatus(value: string | null) {
-  if (value === "ready" || value === "published" || value === "active") {
-    return "ready";
-  }
-
-  if (value === "importing" || value === "draft") {
-    return "importing";
-  }
-
-  return "blocked";
-}
-
-function normalizeGroundTruthStatus(value: string | null) {
-  if (value === "verified" || value === "ready" || value === "completed") {
-    return "verified";
-  }
-
-  if (value === "partial" || value === "importing" || value === "draft") {
-    return "partial";
-  }
-
-  return "missing";
-}
-
-function mapApiDataset(item: unknown, index: number): EvaluationDataset | null {
-  if (!item || typeof item !== "object" || Array.isArray(item)) {
-    return null;
-  }
-
-  const source = item as Record<string, unknown>;
-  const id = readStringField(source, ["id", "key"]);
-  if (!id) {
-    return null;
-  }
-
-  const metadata = source.metadata && typeof source.metadata === "object" && !Array.isArray(source.metadata)
-    ? (source.metadata as Record<string, unknown>)
-    : {};
-  const fallback = datasets[index % datasets.length] ?? datasets[0];
-  if (!fallback) {
-    return null;
-  }
-
-  const displayName = readStringField(source, ["displayName", "name", "key"]) ?? fallback.name;
-  const scenario =
-    readStringField(source, ["scenario", "description"]) ??
-    readStringField(metadata, ["scenario", "description"]) ??
-    fallback.scenario;
-  const sampleCount = readNumberField(source, ["sampleCount", "caseCount", "samplesCount"]) ?? fallback.sampleCount;
-  const deidentified = readBooleanField(source, ["deidentified"]) ?? fallback.deidentified;
-
-  return {
-    id,
-    name: displayName,
-    scenario,
-    sampleCount,
-    status: normalizeDatasetStatus(readStringField(source, ["status"])),
-    groundTruthStatus: normalizeGroundTruthStatus(readStringField(source, ["groundTruthStatus"])),
-    deidentified,
-    owner: readStringField(source, ["owner", "createdBy"]) ?? fallback.owner,
-    updatedAt: readStringField(source, ["updatedAt", "createdAt"]) ?? fallback.updatedAt
-  };
-}
-
-function mapApiDatasets(items: unknown[]) {
-  const mapped = items
-    .map((item, index) => mapApiDataset(item, index))
-    .filter((dataset): dataset is EvaluationDataset => Boolean(dataset));
-
-  return mapped.length > 0 ? mapped : datasets;
-}
-
-function mapApiRun(item: unknown, datasetNamesById: Map<string, string>, index: number): EvaluationRun | null {
-  if (!item || typeof item !== "object" || Array.isArray(item)) {
-    return null;
-  }
-
-  const source = item as Record<string, unknown>;
-  const id = readStringField(source, ["id", "runId"]);
-  if (!id) {
-    return null;
-  }
-
-  const fallback = completedRuns[index % completedRuns.length] ?? completedRuns[0];
-  const datasetId = readStringField(source, ["datasetId"]);
-  const providerKey = readStringField(source, ["providerKey", "modelVersion"]) ?? fallback?.modelVersion ?? "真实 provider";
-  const schemaVersion = readStringField(source, ["schemaVersion", "schemaKey"]) ?? fallback?.schemaVersion ?? "后端未返回";
-
-  return {
-    id,
-    name: readStringField(source, ["name", "displayName"]) ?? `评测任务 ${id}`,
-    datasetName: datasetId ? datasetNamesById.get(datasetId) ?? datasetId : fallback?.datasetName ?? "后端未返回",
-    schemaVersion,
-    modelVersion: providerKey,
-    status: normalizeRunStatus(readStringField(source, ["status"])),
-    createdAt: readStringField(source, ["createdAt", "updatedAt"]) ?? fallback?.createdAt ?? "后端未返回"
-  };
-}
-
-function mapApiRuns(items: unknown[], displayDatasets: EvaluationDataset[]) {
+function mapApiRuns(items: Parameters<typeof normalizeEvaluationRuns>[0], displayDatasets: EvaluationDataset[]) {
   const datasetNamesById = new Map(displayDatasets.map((dataset) => [dataset.id, dataset.name]));
-  const mapped = items
-    .map((item, index) => mapApiRun(item, datasetNamesById, index))
-    .filter((run): run is EvaluationRun => Boolean(run));
+  const mapped = normalizeEvaluationRuns(items, datasetNamesById);
 
   return mapped.length > 0 ? mapped : completedRuns;
-}
-
-function normalizeRunStatus(status: string | null): EvaluationRun["status"] {
-  if (status === "running") {
-    return "运行中";
-  }
-
-  if (status === "completed" || status === "succeeded") {
-    return "已完成";
-  }
-
-  return "排队中";
-}
-
-function mapApiMetrics(response: unknown): typeof metricCards {
-  const metrics =
-    response && typeof response === "object" && !Array.isArray(response)
-      ? (response as Record<string, unknown>).metrics
-      : null;
-
-  if (!Array.isArray(metrics) || metrics.length === 0) {
-    return metricCards;
-  }
-
-  return metrics.map((metric, index) => {
-    const source = metric && typeof metric === "object" && !Array.isArray(metric) ? (metric as Record<string, unknown>) : {};
-    const name = readStringField(source, ["name", "label"]) ?? `metric-${index + 1}`;
-    const value = readNumberField(source, ["value", "score"]) ?? 0;
-    const unit = readStringField(source, ["unit"]) ?? "";
-    const displayValue = unit === "ratio" ? `${(value * 100).toFixed(1)}%` : `${value}${unit ? ` ${unit}` : ""}`;
-
-    return {
-      id: name,
-      label: name,
-      value: displayValue,
-      delta: "API",
-      detail: "来自评估运行 metrics API。"
-    };
-  });
 }
 
 function formatApiError(error: unknown, fallback: string) {
@@ -302,40 +105,6 @@ function formatApiError(error: unknown, fallback: string) {
   }
 
   return fallback;
-}
-
-function extractRunId(response: unknown) {
-  if (!response || typeof response !== "object" || Array.isArray(response)) {
-    return null;
-  }
-
-  const source = response as Record<string, unknown>;
-  const directId = readStringField(source, ["id"]);
-  if (directId) {
-    return directId;
-  }
-
-  const run = source.run;
-  if (run && typeof run === "object" && !Array.isArray(run)) {
-    return readStringField(run as Record<string, unknown>, ["id"]);
-  }
-
-  return null;
-}
-
-function extractRunStatus(response: unknown) {
-  const fallbackStatus: EvaluationRun["status"] = "排队中";
-  const source =
-    response && typeof response === "object" && !Array.isArray(response)
-      ? (response as Record<string, unknown>)
-      : null;
-  const run =
-    source?.run && typeof source.run === "object" && !Array.isArray(source.run)
-      ? (source.run as Record<string, unknown>)
-      : source;
-  const status = run ? readStringField(run, ["status"]) : null;
-
-  return status ? normalizeRunStatus(status) : fallbackStatus;
 }
 
 function parseSampleLimit(sampleScope: string) {
@@ -387,6 +156,100 @@ export function buildEvaluationSampleImportPayload(importFlow: ImportFlowState) 
   ];
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+export function describeEvaluationMutationState(
+  target: "run" | "import",
+  state: RunMutationState
+): EvaluationMutationDescriptor {
+  const targetLabel = target === "run" ? "评测任务" : "样本导入";
+
+  if (state.status === "submitting") {
+    return {
+      title: target === "run" ? "评测任务提交中" : "样本导入提交中",
+      tone: "info",
+      canCancel: true,
+      canRetry: false,
+      message:
+        target === "run"
+          ? "正在创建评测任务，后端会把 run 放入评测队列。"
+          : "正在导入样本，后端会校验脱敏状态和字段级 ground truth。"
+    };
+  }
+
+  if (state.status === "success") {
+    return {
+      title: `${targetLabel}已完成`,
+      tone: "success",
+      canCancel: false,
+      canRetry: true,
+      message: state.message
+    };
+  }
+
+  if (state.status === "cancelled") {
+    return {
+      title: `${targetLabel}已取消`,
+      tone: "warning",
+      canCancel: false,
+      canRetry: true,
+      message: state.message
+    };
+  }
+
+  if (state.status === "error") {
+    return {
+      title: `${targetLabel}创建失败`,
+      tone: "warning",
+      canCancel: false,
+      canRetry: true,
+      message: state.message
+    };
+  }
+
+  return {
+    title: `${targetLabel}待提交`,
+    tone: "info",
+    canCancel: false,
+    canRetry: false,
+    message: "等待用户提交。"
+  };
+}
+
+export function describeEvaluationRunQueueState(status: EvaluationRun["status"]): EvaluationQueueDescriptor {
+  if (status === "运行中") {
+    return {
+      tone: "info",
+      label: "处理中",
+      message: "评测 worker 正在运行，可稍后刷新 metrics。"
+    };
+  }
+
+  if (status === "已完成") {
+    return {
+      tone: "success",
+      label: "已完成",
+      message: "评测 run 已完成，可查看 metrics 和版本对比。"
+    };
+  }
+
+  if (status === "已失败") {
+    return {
+      tone: "warning",
+      label: "需要重试",
+      message: "评测 run 失败，请检查 Provider、Schema 和样本脱敏状态后重跑。"
+    };
+  }
+
+  return {
+    tone: "info",
+    label: "队列等待",
+    message: "评测 run 已创建，等待 worker 读取样本并执行识别评估。"
+  };
+}
+
 export default function EvaluationPage() {
   const { api } = useAuth();
 
@@ -422,6 +285,18 @@ export default function EvaluationPage() {
     status: "idle",
     message: null
   });
+  const runAbortControllerRef = useRef<AbortController | null>(null);
+  const importAbortControllerRef = useRef<AbortController | null>(null);
+  const lastRunDraftRef = useRef<EvaluationRunDraft>(initialRunDraft);
+  const lastImportFlowRef = useRef<ImportFlowState>(initialImportFlow);
+
+  useEffect(
+    () => () => {
+      runAbortControllerRef.current?.abort();
+      importAbortControllerRef.current?.abort();
+    },
+    []
+  );
 
   useEffect(() => {
     let shouldIgnore = false;
@@ -496,7 +371,7 @@ export default function EvaluationPage() {
           return;
         }
 
-        const nextDatasets = mapApiDatasets(response.items);
+        const nextDatasets = normalizeEvaluationDatasets(response.items, datasets);
         setDisplayDatasets(nextDatasets);
         setSelectedDatasetId((currentId) => {
           const stillExists = nextDatasets.some((dataset) => dataset.id === currentId);
@@ -581,7 +456,7 @@ export default function EvaluationPage() {
           return;
         }
 
-        const nextMetrics = mapApiMetrics(response);
+        const nextMetrics = normalizeEvaluationMetrics(response, metricCards);
         setDisplayMetrics(nextMetrics);
         setMetricLoadState({ status: "success", message: `已读取 ${firstRun.id} 的真实 metrics。` });
       } catch (error) {
@@ -605,6 +480,10 @@ export default function EvaluationPage() {
   }, [api, runs]);
 
   const selectedDataset = displayDatasets.find((dataset) => dataset.id === selectedDatasetId) ?? displayDatasets[0] ?? fallbackDataset;
+  const runMutationDescriptor = describeEvaluationMutationState("run", runMutationState);
+  const importMutationDescriptor = describeEvaluationMutationState("import", importMutationState);
+  const latestRun = runs[0];
+  const latestRunQueueDescriptor = latestRun ? describeEvaluationRunQueueState(latestRun.status) : null;
 
   const dataQualitySummary = useMemo(() => {
     const totalSamples = displayDatasets.reduce((sum, dataset) => sum + dataset.sampleCount, 0);
@@ -638,19 +517,25 @@ export default function EvaluationPage() {
     }));
   };
 
-  const handleCreateRun = async () => {
+  const runEvaluationWithDraft = async (draft: EvaluationRunDraft) => {
+    runAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    runAbortControllerRef.current = controller;
+    lastRunDraftRef.current = draft;
     setRunMutationState({ status: "submitting", message: "正在创建评测任务" });
 
     try {
-      const response = await api.createEvaluationRun(buildEvaluationRunRequest(selectedDataset.id, runDraft));
-      const runId = extractRunId(response) ?? `run-${runs.length + 1000}`;
+      const response = await api.createEvaluationRun(buildEvaluationRunRequest(selectedDataset.id, draft), {
+        signal: controller.signal
+      });
+      const runId = readEvaluationRunId(response) ?? `run-${runs.length + 1000}`;
       const nextRun: EvaluationRun = {
         id: runId,
-        name: runDraft.name,
+        name: draft.name,
         datasetName: selectedDataset.name,
-        schemaVersion: runDraft.schemaVersion,
-        modelVersion: runDraft.modelVersion,
-        status: extractRunStatus(response),
+        schemaVersion: draft.schemaVersion,
+        modelVersion: draft.modelVersion,
+        status: readEvaluationRunStatus(response),
         createdAt: new Date().toLocaleString("zh-CN", { hour12: false })
       };
 
@@ -660,11 +545,35 @@ export default function EvaluationPage() {
         message: `评测任务已创建，Run ID：${runId}`
       });
     } catch (error) {
+      if (isAbortError(error)) {
+        setRunMutationState({
+          status: "cancelled",
+          message: "评测创建已取消，可重跑上一次配置。"
+        });
+        return;
+      }
+
       setRunMutationState({
         status: "error",
         message: formatApiError(error, "创建评测任务失败")
       });
+    } finally {
+      if (runAbortControllerRef.current === controller) {
+        runAbortControllerRef.current = null;
+      }
     }
+  };
+
+  const handleCreateRun = async () => {
+    await runEvaluationWithDraft(runDraft);
+  };
+
+  const handleCancelRun = () => {
+    runAbortControllerRef.current?.abort();
+  };
+
+  const handleRerun = async () => {
+    await runEvaluationWithDraft(lastRunDraftRef.current);
   };
 
   const handleValidateSamples = () => {
@@ -679,12 +588,18 @@ export default function EvaluationPage() {
     });
   };
 
-  const handleCompleteImport = async () => {
+  const importSamplesWithFlow = async (flow: ImportFlowState) => {
+    importAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    importAbortControllerRef.current = controller;
+    lastImportFlowRef.current = flow;
     setImportMutationState({ status: "submitting", message: "正在调用后端样本导入接口" });
 
     try {
       // Demo 页面先提供一条可编辑的最小字段级 ground truth，避免评估样本落库后无法参与字段指标计算。
-      await api.importEvaluationSamples(selectedDataset.id, buildEvaluationSampleImportPayload(importFlow));
+      await api.importEvaluationSamples(selectedDataset.id, buildEvaluationSampleImportPayload(flow), {
+        signal: controller.signal
+      });
       setImportFlow((currentFlow) => ({
         ...currentFlow,
         sampleImportStatus: "已导入",
@@ -695,6 +610,14 @@ export default function EvaluationPage() {
         message: "样本已通过后端 samples API 导入。"
       });
     } catch (error) {
+      if (isAbortError(error)) {
+        setImportMutationState({
+          status: "cancelled",
+          message: "样本导入已取消，可重跑上一次导入配置。"
+        });
+        return;
+      }
+
       setImportFlow((currentFlow) => ({
         ...currentFlow,
         sampleImportStatus: "校验中",
@@ -704,98 +627,122 @@ export default function EvaluationPage() {
         status: "error",
         message: formatApiError(error, "样本导入需后端接入或权限放行，当前未写入真实数据。")
       });
+    } finally {
+      if (importAbortControllerRef.current === controller) {
+        importAbortControllerRef.current = null;
+      }
     }
+  };
+
+  const handleCompleteImport = async () => {
+    await importSamplesWithFlow(importFlow);
+  };
+
+  const handleCancelImport = () => {
+    importAbortControllerRef.current?.abort();
+  };
+
+  const handleRetryImport = async () => {
+    await importSamplesWithFlow(lastImportFlowRef.current);
   };
 
   return (
     <main className="app-page">
-      <header className="toolbar">
+      <header className="page-header">
         <div>
-          <h1>Evaluation</h1>
+          <p className="eyebrow">Evaluation Center</p>
+          <h1>评测中心</h1>
           <p>管理医疗抽取评测集、样本导入、ground truth、评测任务和版本对比。</p>
+          <div className="page-header__meta" aria-label="Evaluation 数据治理摘要">
+            <span className="page-header__meta-item">
+              <strong>数据集</strong>
+              <span>{displayDatasets.length} 个评测集合</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>样本总量</strong>
+              <span>{dataQualitySummary.totalSamples} 条可管理样本</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>脱敏风险</strong>
+              <span>{dataQualitySummary.unsafeDatasets} 个数据集需确认</span>
+            </span>
+          </div>
         </div>
-        <span className="status-pill">
+        <Tag color="arcoblue" className="status-pill">
           <AppIcon icon={navigationIcons.evaluation} size="sm" />
           {selectedDataset.scenario}
-        </span>
+        </Tag>
       </header>
 
       {!selectedDataset.deidentified ? (
-        <section className="warning-box" role="alert">
-          <AppIcon icon={statusIcons.danger} tone="red" />
-          <div>
-            <strong>未标记 deidentified 的 warning</strong>
-            <p>
-              {selectedDataset.name} 未标记为已脱敏。创建评测前需要完成脱敏确认，
-              避免 PHI 数据进入离线评测链路。
-            </p>
-          </div>
-        </section>
+        <Alert
+          type="error"
+          showIcon
+          title="未标记 deidentified 的 warning"
+          content={`${selectedDataset.name} 未标记为已脱敏。创建评测前需要完成脱敏确认，避免 PHI 数据进入离线评测链路。`}
+        />
       ) : (
-        <section className="warning-box" role="note">
-          <AppIcon icon={statusIcons.warning} tone="orange" />
-          <div>
-            <strong>数据治理提示</strong>
-            <p>当前数据集已标记脱敏，仍需保留导入批次、ground truth 来源和复核记录。</p>
-          </div>
-        </section>
+        <Alert type="warning" showIcon title="数据治理提示" content="当前数据集已标记脱敏，仍需保留导入批次、ground truth 来源和复核记录。" />
       )}
 
       <div className="metric-grid">
-        <article className="metric-card">
-          <span className="status-pill">
+        <Card className="metric-card">
+          <Tag color="arcoblue">
             <AppIcon icon={dashboardMetricIcons.dataset} size="xs" />
             Dataset
-          </span>
+          </Tag>
           <h2>{displayDatasets.length}</h2>
           <p>{datasetLoadState.status === "loading" ? "正在读取真实数据集" : "评测数据集数量"}</p>
-        </article>
-        <article className="metric-card">
-          <span className="status-pill">Samples</span>
+        </Card>
+        <Card className="metric-card">
+          <Tag color="green">Samples</Tag>
           <h2>{dataQualitySummary.totalSamples}</h2>
           <p>可管理样本总量</p>
-        </article>
-        <article className="metric-card">
-          <span className="status-pill">Ready</span>
+        </Card>
+        <Card className="metric-card">
+          <Tag color="green">Ready</Tag>
           <h2>{dataQualitySummary.readyDatasets}</h2>
           <p>可直接运行评测</p>
-        </article>
-        <article className="metric-card">
-          <span className="status-pill">Risk</span>
+        </Card>
+        <Card className="metric-card">
+          <Tag color={dataQualitySummary.unsafeDatasets > 0 ? "red" : "gray"}>Risk</Tag>
           <h2>{dataQualitySummary.unsafeDatasets}</h2>
           <p>未标记脱敏数据集</p>
-        </article>
+        </Card>
       </div>
 
       {datasetLoadState.error ? (
-        <section className="warning-box" role="alert">
-          <AppIcon icon={statusIcons.warning} tone="orange" />
-          <div>
-            <strong>Evaluation Dataset 接口加载失败</strong>
-            <p>{datasetLoadState.error}。当前页面继续展示静态兜底数据，样本导入和数据集创建模拟状态不会影响页面稳定性。</p>
-          </div>
-        </section>
+        <Alert type="warning" showIcon title="Evaluation Dataset 接口加载失败" content={`${datasetLoadState.error}。当前页面继续展示静态兜底数据，样本导入和数据集创建模拟状态不会影响页面稳定性。`} />
       ) : null}
 
       {runLoadState.status === "error" || metricLoadState.status === "error" ? (
-        <section className="warning-box" role="alert">
-          <AppIcon icon={statusIcons.warning} tone="orange" />
-          <div>
-            <strong>Evaluation API 读取提示</strong>
-            <p>{runLoadState.status === "error" ? runLoadState.message : metricLoadState.message}</p>
-          </div>
-        </section>
+        <Alert type="warning" showIcon title="Evaluation API 读取提示" content={runLoadState.status === "error" ? runLoadState.message : metricLoadState.message} />
       ) : null}
 
       {configLoadState.status === "error" ? (
-        <section className="warning-box" role="alert">
-          <AppIcon icon={statusIcons.warning} tone="orange" />
-          <div>
-            <strong>评测配置读取提示</strong>
-            <p>{configLoadState.message}</p>
-          </div>
-        </section>
+        <Alert type="warning" showIcon title="评测配置读取提示" content={configLoadState.message} />
       ) : null}
+
+      <Card className="panel" aria-labelledby="evaluation-async-recovery-title">
+        <h2 id="evaluation-async-recovery-title">异步任务恢复</h2>
+        <section className="operations-status-strip" aria-label="Evaluation 异步任务状态">
+          <article>
+            <strong>{runMutationDescriptor.title}</strong>
+            <span>{runMutationDescriptor.message}</span>
+          </article>
+          <article>
+            <strong>{importMutationDescriptor.title}</strong>
+            <span>{importMutationDescriptor.message}</span>
+          </article>
+          <article>
+            <strong>{latestRunQueueDescriptor ? latestRunQueueDescriptor.label : "暂无 run"}</strong>
+            <span>{latestRunQueueDescriptor ? `${latestRun?.id ?? ""}：${latestRunQueueDescriptor.message}` : "还没有可跟踪的评测 run。"}</span>
+          </article>
+        </section>
+        {runMutationState.status === "error" || importMutationState.status === "error" ? (
+          <Alert type="warning" showIcon content="失败后可使用重跑按钮复用上一次配置；取消只中断当前前端请求，不会把真实外部集成标记为通过。" />
+        ) : null}
+      </Card>
 
       <DatasetListPanel
         datasets={displayDatasets}
@@ -808,18 +755,17 @@ export default function EvaluationPage() {
         onChange={handleImportChange}
         onValidateSamples={handleValidateSamples}
         onCompleteImport={handleCompleteImport}
+        onCancelImport={handleCancelImport}
+        onRetryImport={handleRetryImport}
+        isImporting={importMutationState.status === "submitting"}
+        canRetryImport={importMutationState.status !== "idle"}
       />
 
       {importMutationState.message ? (
-        <section className="panel" aria-labelledby="evaluation-import-state-title">
+        <Card className="panel" aria-labelledby="evaluation-import-state-title">
           <h2 id="evaluation-import-state-title">样本导入状态</h2>
-          <p
-            className={importMutationState.status === "error" ? "form-error" : undefined}
-            role={importMutationState.status === "error" ? "alert" : "status"}
-          >
-            {importMutationState.message}
-          </p>
-        </section>
+          <Alert type={importMutationState.status === "error" ? "error" : "info"} showIcon content={importMutationState.message} />
+        </Card>
       ) : null}
 
       <EvaluationRunPanel
@@ -830,14 +776,16 @@ export default function EvaluationPage() {
         mutationState={runMutationState}
         onChange={handleRunDraftChange}
         onCreateRun={handleCreateRun}
+        onCancelRun={handleCancelRun}
+        onRerun={handleRerun}
       />
 
-      <section className="panel" aria-labelledby="evaluation-api-state-title">
+      <Card className="panel" aria-labelledby="evaluation-api-state-title">
         <h2 id="evaluation-api-state-title">真实 API 状态</h2>
         <p>{configLoadState.message}</p>
         <p>{runLoadState.message}</p>
         <p>{metricLoadState.message}</p>
-      </section>
+      </Card>
 
       <MetricCardsPanel metrics={displayMetrics} />
       <VersionComparisonPanel rows={versionComparisonRows} />

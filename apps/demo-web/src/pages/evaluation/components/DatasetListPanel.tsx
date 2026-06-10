@@ -1,3 +1,5 @@
+import { Button, Card, Table, Tag } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
 import { AppIcon, dashboardMetricIcons, statusIcons } from "../../../icons/appIcons";
 import {
   datasetStatusLabel,
@@ -16,8 +18,45 @@ export function DatasetListPanel({
   selectedDatasetId,
   onSelectDataset
 }: DatasetListPanelProps) {
+  const columns: TableColumnProps<EvaluationDataset>[] = [
+    {
+      title: "数据集",
+      dataIndex: "name",
+      render: (_, dataset) => {
+        const isSelected = dataset.id === selectedDatasetId;
+        return (
+          <Button type={isSelected ? "primary" : "outline"} onClick={() => onSelectDataset(dataset.id)} aria-pressed={isSelected}>
+            {dataset.name}
+          </Button>
+        );
+      },
+    },
+    { title: "场景", dataIndex: "scenario" },
+    { title: "样本", dataIndex: "sampleCount" },
+    {
+      title: "Ground Truth",
+      dataIndex: "groundTruthStatus",
+      render: (_, dataset) => groundTruthStatusLabel[dataset.groundTruthStatus],
+    },
+    {
+      title: "脱敏",
+      dataIndex: "deidentified",
+      render: (_, dataset) => (
+        <Tag color={dataset.deidentified ? "green" : "red"}>
+          {dataset.deidentified ? <AppIcon icon={statusIcons.success} size="xs" /> : <AppIcon icon={statusIcons.danger} size="xs" />}
+          {dataset.deidentified ? "已标记" : "未标记"}
+        </Tag>
+      ),
+    },
+    {
+      title: "状态",
+      dataIndex: "status",
+      render: (_, dataset) => <Tag color={dataset.status === "ready" ? "green" : dataset.status === "importing" ? "orange" : "red"}>{datasetStatusLabel[dataset.status]}</Tag>,
+    },
+  ];
+
   return (
-    <section className="panel studio-panel" aria-labelledby="evaluation-dataset-title">
+    <Card className="panel studio-panel" aria-labelledby="evaluation-dataset-title">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-dataset-title">Dataset 列表</h2>
@@ -27,57 +66,8 @@ export function DatasetListPanel({
       </div>
 
       <div className="table-scroll">
-        <table className="data-table arco-table">
-          <thead>
-            <tr>
-              <th scope="col">数据集</th>
-              <th scope="col">场景</th>
-              <th scope="col">样本</th>
-              <th scope="col">Ground Truth</th>
-              <th scope="col">脱敏</th>
-              <th scope="col">状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            {datasets.map((dataset) => {
-              const isSelected = dataset.id === selectedDatasetId;
-
-              return (
-                <tr className={isSelected ? "is-selected" : undefined} key={dataset.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className={isSelected ? "action-button" : "secondary-button"}
-                      onClick={() => onSelectDataset(dataset.id)}
-                      aria-pressed={isSelected}
-                    >
-                      {dataset.name}
-                    </button>
-                  </td>
-                  <td>{dataset.scenario}</td>
-                  <td>{dataset.sampleCount}</td>
-                  <td>{groundTruthStatusLabel[dataset.groundTruthStatus]}</td>
-                  <td>
-                    <span className={dataset.deidentified ? "status-pill status-pill--success" : "status-pill status-pill--danger"}>
-                      {dataset.deidentified ? (
-                        <AppIcon icon={statusIcons.success} size="xs" />
-                      ) : (
-                        <AppIcon icon={statusIcons.danger} size="xs" />
-                      )}
-                      {dataset.deidentified ? "已标记" : "未标记"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-pill status-${dataset.status}`}>
-                      {datasetStatusLabel[dataset.status]}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <Table columns={columns} data={datasets} rowKey="id" pagination={false} scroll={{ x: 860 }} />
       </div>
-    </section>
+    </Card>
   );
 }

@@ -30,8 +30,20 @@ import {
   type WritebackExecutionResult
 } from "@medical-record-agent/core";
 
-import { createAuthService } from "../auth/auth.service";
+import {
+  createAuthService,
+  createRepositorySessionInvalidationStore,
+  type SessionInvalidationRepository,
+  type SessionInvalidationStore,
+  type SessionInvalidationStoreProvider
+} from "../auth/auth.service";
 import { PERMISSIONS } from "../auth/permissions";
+import {
+  createDatabaseSessionInvalidationRepository,
+  createRedisSessionInvalidationRepository,
+  type DatabaseSessionInvalidationDelegate,
+  type RedisSessionInvalidationClient
+} from "../auth/session-invalidation.repository";
 import { createSimpleJwtSigner } from "../auth/simple-jwt.signer";
 import type { AppEnv } from "../config/env";
 import type { AuditRecordInput } from "../middleware/audit.middleware";
@@ -46,9 +58,17 @@ import { createSchemaRepository } from "../repositories/schema.repository";
 import { createTokenRepository } from "../repositories/token.repository";
 import { createUserRepository } from "../repositories/user.repository";
 import { createWritebackRepository } from "../repositories/writeback.repository";
-import { createApiServices, type ApiEvaluationRunner, type ProviderRegistry } from "../services/api-services";
+import {
+  createApiServices,
+  createRedisJobQueueAdapter,
+  type ApiEvaluationRunner,
+  type JobQueueAdapter,
+  type ProviderRegistry,
+  type RedisJobQueueClient
+} from "../services/api-services";
 import { createSchemaService } from "../services/schema.service";
 import type { ApiServerServices } from "../server";
+import { assertRouteResponseObject } from "../routes/route-dtos";
 import {
   createLocalStorageProvider,
   createS3Client,
@@ -58,6 +78,7 @@ import {
 
 type ProductionEnv = Pick<AppEnv, "jwt" | "storage" | "providers" | "lims">;
 type ProviderHealthFetch = (url: string, init: RequestInit) => Promise<Pick<Response, "ok" | "status" | "statusText">>;
+type ProviderRuntimeFetch = typeof fetch;
 type ProductionProviderRepository = ReturnType<typeof createProviderRepository>;
 type ProviderKindValue = "ocr" | "llm" | "storage" | "lims";
 type ProviderRegistryItem = {
@@ -67,9 +88,21 @@ type ProviderRegistryItem = {
   displayName: string;
   enabled: boolean;
   isDefault: boolean;
+  isMock: boolean;
   config: Record<string, unknown>;
   secretRefs: Record<string, unknown>;
   status?: unknown;
+};
+type EnvironmentProviderConfig = {
+  key: string;
+  kind: ProviderKindValue;
+  displayName: string;
+  enabled: boolean;
+  isDefault: boolean;
+  isMock?: boolean;
+  config: Record<string, unknown>;
+  secretRefs: Record<string, unknown>;
+  status?: string;
 };
 
 export interface CreateProductionApiServicesOptions {
@@ -78,9 +111,765 @@ export interface CreateProductionApiServicesOptions {
   limsWritebackAdapter?: LimsWritebackAdapter;
   storageProvider?: StorageProvider;
   providerHealthFetch?: ProviderHealthFetch;
+  providerRuntimeFetch?: ProviderRuntimeFetch;
+  secretResolver?: SecretResolver;
+  sessionInvalidationRepository?: SessionInvalidationRepository;
+  sessionInvalidationDatabaseDelegate?: DatabaseSessionInvalidationDelegate;
+  sessionInvalidationRedisClient?: RedisSessionInvalidationClient;
+  redisQueueClient?: RedisJobQueueClient;
+  sessionEnv?: Record<string, string | undefined>;
+  queueEnv?: Record<string, string | undefined>;
   langChainModel?: LangChainModelLike;
   openAiResponsesClient?: OpenAiResponsesClientLike;
   now?: () => Date;
+}
+
+export type SecretResolution =
+  | {
+      resolved: true;
+      value: string;
+      source: string;
+    }
+  | {
+      resolved: false;
+      source: string;
+      reason:
+        | "SECRET_REF_INVALID"
+        | "SECRET_NOT_FOUND"
+        | "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+        | "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED";
+    };
+
+export interface SecretResolver {
+  contract?: SecretResolverContract;
+  resolve(ref: string): Promise<SecretResolution>;
+}
+
+export interface VaultSecretResolverClient {
+  readSecret(ref: string): Promise<string | null | undefined>;
+}
+
+export interface KmsSecretResolverClient {
+  decryptSecretRef(ref: string): Promise<string | null | undefined>;
+}
+
+export interface SecretManagerResolverClient {
+  accessSecretVersion(ref: string): Promise<string | null | undefined>;
+}
+
+export type SecretResolverProvider = "env" | "vault" | "kms" | "secret-manager";
+export type SecretResolverBlockedReason =
+  | "SECRET_RESOLVER_ENV_ONLY"
+  | "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+  | "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED";
+
+export interface SecretResolverContract {
+  provider: SecretResolverProvider;
+  productionReady: boolean;
+  blockedReason: SecretResolverBlockedReason;
+  requiredExternal: string[];
+  redaction: {
+    secretValueExposed: boolean;
+    exposeRefsOnly: boolean;
+    frontendVisible: boolean;
+  };
+  readiness: {
+    nextAction: string;
+    requiredChecks: string[];
+  };
+  config: {
+    vaultAddress?: string;
+    keyId?: string;
+    region?: string;
+    project?: string;
+  };
+  missingKeys?: string[];
+}
+
+export type ProductionQueueMode = "in-process" | "broker";
+export type ProductionQueueBrokerProvider = "redis" | "rabbitmq" | "sqs";
+export type ProductionQueueBlockedReason =
+  | "QUEUE_BROKER_NOT_CONFIGURED"
+  | "QUEUE_BROKER_CONTRACT_INCOMPLETE"
+  | "QUEUE_BROKER_ADAPTER_NOT_CONNECTED"
+  | "QUEUE_BROKER_SMOKE_NOT_RUN";
+
+export interface ProductionQueueContract {
+  mode: ProductionQueueMode;
+  productionReady: boolean;
+  configReady: boolean;
+  blockedReason: ProductionQueueBlockedReason | undefined;
+  requiredExternal: string[];
+  readiness: {
+    nextAction: string;
+    requiredChecks: string[];
+  };
+  config: {
+    brokerProvider?: ProductionQueueBrokerProvider;
+    brokerUrl?: string;
+    queueName?: string;
+    visibilityTimeoutMs?: number;
+    retryLimit?: number;
+    deadLetterQueue?: string;
+    workerConcurrency?: number;
+  };
+  missingKeys?: string[];
+}
+
+export type ProductionSessionInvalidationStoreMode = "in-memory" | "repository";
+export type ProductionSessionInvalidationStoreBlockedReason =
+  | "SESSION_INVALIDATION_STORE_IN_MEMORY"
+  | "SESSION_INVALIDATION_STORE_CONTRACT_INCOMPLETE"
+  | "SESSION_INVALIDATION_STORE_ADAPTER_NOT_CONNECTED"
+  | "SESSION_INVALIDATION_STORE_SMOKE_NOT_RUN";
+
+export interface ProductionSessionInvalidationStoreContract {
+  mode: ProductionSessionInvalidationStoreMode;
+  productionReady: boolean;
+  configReady: boolean;
+  blockedReason: ProductionSessionInvalidationStoreBlockedReason | undefined;
+  requiredExternal: string[];
+  readiness: {
+    nextAction: string;
+    requiredChecks: string[];
+  };
+  config: {
+    provider?: SessionInvalidationStoreProvider;
+    invalidationTtlMs?: number;
+    redisKeyPrefix?: string;
+  };
+  missingKeys?: string[];
+}
+
+export interface CreateProductionJobQueueAdapterOptions {
+  env?: Record<string, string | undefined>;
+  redisClient?: RedisJobQueueClient;
+  now?: () => Date;
+}
+
+export interface CreateProductionSessionInvalidationStoreOptions {
+  env?: Record<string, string | undefined>;
+  repository?: SessionInvalidationRepository;
+  databaseDelegate?: DatabaseSessionInvalidationDelegate;
+  redisClient?: RedisSessionInvalidationClient;
+  now?: () => Date;
+}
+
+function readSecretResolverEnvValue(env: Record<string, string | undefined>, key: string) {
+  const value = env[key];
+  return value && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readSecretResolverProvider(env: Record<string, string | undefined>): SecretResolverProvider {
+  const provider = readSecretResolverEnvValue(env, "SECRET_RESOLVER_PROVIDER")?.toLowerCase();
+  if (provider === "vault" || provider === "kms" || provider === "secret-manager") {
+    return provider;
+  }
+
+  return "env";
+}
+
+const secretResolverRedaction = {
+  secretValueExposed: false,
+  exposeRefsOnly: true,
+  frontendVisible: false
+};
+
+const secretResolverReadiness = {
+  nextAction:
+    "配置 SECRET_RESOLVER_PROVIDER=vault|kms|secret-manager 并接入真实 client/SDK，再重跑 provider health 与 production smoke。",
+  requiredChecks: ["external-secret-resolution-smoke", "provider-health-secretRefs-smoke"]
+};
+
+export function buildSecretResolverContract(
+  env: Record<string, string | undefined> = process.env
+): SecretResolverContract {
+  const provider = readSecretResolverProvider(env);
+  const requiredExternal = ["KMS", "Vault", "Secret Manager"];
+
+  if (provider === "env") {
+    return {
+      provider,
+      productionReady: false,
+      blockedReason: "SECRET_RESOLVER_ENV_ONLY",
+      requiredExternal,
+      redaction: secretResolverRedaction,
+      readiness: secretResolverReadiness,
+      config: {}
+    };
+  }
+
+  const requiredKeys =
+    provider === "vault"
+      ? ["VAULT_ADDR", "VAULT_TOKEN"]
+      : provider === "kms"
+        ? ["KMS_KEY_ID", "KMS_REGION"]
+        : ["SECRET_MANAGER_PROJECT", "SECRET_MANAGER_REGION"];
+  const missingKeys = requiredKeys.filter((key) => readSecretResolverEnvValue(env, key) === undefined);
+  const config: SecretResolverContract["config"] = {};
+  const vaultAddress = readSecretResolverEnvValue(env, "VAULT_ADDR");
+  const keyId = readSecretResolverEnvValue(env, "KMS_KEY_ID");
+  const kmsRegion = readSecretResolverEnvValue(env, "KMS_REGION");
+  const secretManagerProject = readSecretResolverEnvValue(env, "SECRET_MANAGER_PROJECT");
+  const secretManagerRegion = readSecretResolverEnvValue(env, "SECRET_MANAGER_REGION");
+
+  if (vaultAddress !== undefined) {
+    config.vaultAddress = vaultAddress;
+  }
+  if (keyId !== undefined) {
+    config.keyId = keyId;
+  }
+  const region = kmsRegion ?? secretManagerRegion;
+  if (region !== undefined) {
+    config.region = region;
+  }
+  if (secretManagerProject !== undefined) {
+    config.project = secretManagerProject;
+  }
+
+  if (missingKeys.length > 0) {
+    return {
+      provider,
+      productionReady: false,
+      blockedReason: "SECRET_RESOLVER_CONTRACT_INCOMPLETE",
+      requiredExternal,
+      redaction: secretResolverRedaction,
+      readiness: secretResolverReadiness,
+      config,
+      missingKeys
+    };
+  }
+
+  return {
+    provider,
+    productionReady: false,
+    blockedReason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED",
+    requiredExternal,
+    redaction: secretResolverRedaction,
+    readiness: secretResolverReadiness,
+    config
+  };
+}
+
+export function createEnvSecretResolver(options: { env?: Record<string, string | undefined> } = {}): SecretResolver {
+  const env = options.env ?? process.env;
+
+  return {
+    contract: buildSecretResolverContract({ ...env, SECRET_RESOLVER_PROVIDER: "env" }),
+    async resolve(ref) {
+      const key = ref.trim();
+      if (key.length === 0) {
+        return {
+          resolved: false,
+          source: "env",
+          reason: "SECRET_REF_INVALID"
+        };
+      }
+
+      const value = env[key];
+      if (!value) {
+        return {
+          resolved: false,
+          source: "env",
+          reason: "SECRET_NOT_FOUND"
+        };
+      }
+
+      return {
+        resolved: true,
+        value,
+        source: "env"
+      };
+    }
+  };
+}
+
+function toExternalSecretResolution(
+  provider: Exclude<SecretResolverProvider, "env">,
+  contract: SecretResolverContract,
+  value: string | null | undefined
+): SecretResolution {
+  if (typeof value === "string" && value.length > 0) {
+    return {
+      resolved: true,
+      value,
+      source: provider
+    };
+  }
+
+  return {
+    resolved: false,
+    source: provider,
+    reason:
+      contract.blockedReason === "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+        ? "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+        : "SECRET_NOT_FOUND"
+  };
+}
+
+function createExternalSecretResolver(
+  provider: Exclude<SecretResolverProvider, "env">,
+  options: {
+    env?: Record<string, string | undefined>;
+    readSecret?: (ref: string) => Promise<string | null | undefined>;
+  } = {}
+): SecretResolver {
+  const env = {
+    ...(options.env ?? process.env),
+    SECRET_RESOLVER_PROVIDER: provider
+  };
+  const contract = buildSecretResolverContract(env);
+
+  return {
+    contract,
+    async resolve(ref) {
+      if (ref.trim().length === 0) {
+        return {
+          resolved: false,
+          source: provider,
+          reason: "SECRET_REF_INVALID"
+        };
+      }
+
+      if (!options.readSecret) {
+        return {
+          resolved: false,
+          source: provider,
+          reason:
+            contract.blockedReason === "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+              ? "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+              : "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED"
+        };
+      }
+
+      try {
+        return toExternalSecretResolution(provider, contract, await options.readSecret(ref));
+      } catch {
+        return {
+          resolved: false,
+          source: provider,
+          reason: "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED"
+        };
+      }
+    }
+  };
+}
+
+export function createVaultSecretResolver(
+  options: { env?: Record<string, string | undefined>; client?: VaultSecretResolverClient } = {}
+): SecretResolver {
+  const resolverOptions: Parameters<typeof createExternalSecretResolver>[1] = {};
+  if (options.env !== undefined) {
+    resolverOptions.env = options.env;
+  }
+  if (options.client) {
+    const client = options.client;
+    resolverOptions.readSecret = (ref) => client.readSecret(ref);
+  }
+
+  return createExternalSecretResolver("vault", resolverOptions);
+}
+
+export function createKmsSecretResolver(
+  options: { env?: Record<string, string | undefined>; client?: KmsSecretResolverClient } = {}
+): SecretResolver {
+  const resolverOptions: Parameters<typeof createExternalSecretResolver>[1] = {};
+  if (options.env !== undefined) {
+    resolverOptions.env = options.env;
+  }
+  if (options.client) {
+    const client = options.client;
+    resolverOptions.readSecret = (ref) => client.decryptSecretRef(ref);
+  }
+
+  return createExternalSecretResolver("kms", resolverOptions);
+}
+
+export function createSecretManagerResolver(
+  options: { env?: Record<string, string | undefined>; client?: SecretManagerResolverClient } = {}
+): SecretResolver {
+  const resolverOptions: Parameters<typeof createExternalSecretResolver>[1] = {};
+  if (options.env !== undefined) {
+    resolverOptions.env = options.env;
+  }
+  if (options.client) {
+    const client = options.client;
+    resolverOptions.readSecret = (ref) => client.accessSecretVersion(ref);
+  }
+
+  return createExternalSecretResolver("secret-manager", resolverOptions);
+}
+
+export function createSecretResolverFromEnv(env: Record<string, string | undefined> = process.env): SecretResolver {
+  const contract = buildSecretResolverContract(env);
+
+  if (contract.provider === "env") {
+    return createEnvSecretResolver({ env });
+  }
+
+  if (contract.provider === "vault") {
+    return createVaultSecretResolver({ env });
+  }
+
+  if (contract.provider === "kms") {
+    return createKmsSecretResolver({ env });
+  }
+
+  if (contract.provider === "secret-manager") {
+    return createSecretManagerResolver({ env });
+  }
+
+  return {
+    contract,
+    async resolve(ref) {
+      if (ref.trim().length === 0) {
+        return {
+          resolved: false,
+          source: contract.provider,
+          reason: "SECRET_REF_INVALID"
+        };
+      }
+
+      return {
+        resolved: false,
+        source: contract.provider,
+        reason:
+          contract.blockedReason === "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+            ? "SECRET_RESOLVER_CONTRACT_INCOMPLETE"
+            : "SECRET_RESOLVER_EXTERNAL_PROVIDER_NOT_CONNECTED"
+      };
+    }
+  };
+}
+
+export function createMockSecretResolver(secrets: Record<string, string>): SecretResolver {
+  return {
+    async resolve(ref) {
+      const value = secrets[ref];
+      if (!value) {
+        return {
+          resolved: false,
+          source: "mock",
+          reason: "SECRET_NOT_FOUND"
+        };
+      }
+
+      return {
+        resolved: true,
+        value,
+        source: "mock"
+      };
+    }
+  };
+}
+
+function readQueueEnvValue(env: Record<string, string | undefined>, key: string) {
+  const value = env[key];
+  return value && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readQueueBrokerProvider(env: Record<string, string | undefined>): ProductionQueueBrokerProvider {
+  const provider = readQueueEnvValue(env, "QUEUE_BROKER_PROVIDER")?.toLowerCase();
+  if (provider === "rabbitmq" || provider === "sqs") {
+    return provider;
+  }
+
+  return "redis";
+}
+
+function readQueuePositiveInteger(env: Record<string, string | undefined>, key: string) {
+  const value = readQueueEnvValue(env, key);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function readSessionInvalidationEnvValue(env: Record<string, string | undefined>, key: string) {
+  const value = env[key];
+  return value && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readSessionInvalidationPositiveInteger(env: Record<string, string | undefined>, key: string) {
+  const value = readSessionInvalidationEnvValue(env, key);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function readSessionInvalidationStoreProvider(
+  env: Record<string, string | undefined>
+): SessionInvalidationStoreProvider | undefined {
+  const provider = readSessionInvalidationEnvValue(env, "SESSION_INVALIDATION_STORE_PROVIDER")?.toLowerCase();
+  if (provider === "database" || provider === "redis") {
+    return provider;
+  }
+
+  return undefined;
+}
+
+export function buildProductionQueueContract(
+  env: Record<string, string | undefined> = process.env
+): ProductionQueueContract {
+  const requiredExternal = ["broker", "lease", "retry", "deadLetter", "heartbeat", "statusResultConsistency", "multiInstanceSmoke"];
+  const readiness = {
+    nextAction:
+      "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+    requiredChecks: [
+      "multi-worker-lease-smoke",
+      "retry-dead-letter-smoke",
+      "heartbeat-status-consistency-smoke",
+      "status-result-consistency-smoke",
+      "idempotency-key-deduplication-smoke"
+    ]
+  };
+  const mode: ProductionQueueMode = readQueueEnvValue(env, "QUEUE_MODE") === "broker" ? "broker" : "in-process";
+
+  if (mode === "in-process") {
+    return {
+      mode,
+      productionReady: false,
+      configReady: false,
+      blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
+      requiredExternal,
+      readiness,
+      config: {}
+    };
+  }
+
+  const brokerProvider = readQueueBrokerProvider(env);
+  const requiredKeys = [
+    "QUEUE_BROKER_PROVIDER",
+    "QUEUE_BROKER_URL",
+    "QUEUE_NAME",
+    "QUEUE_VISIBILITY_TIMEOUT_MS",
+    "QUEUE_RETRY_LIMIT",
+    "QUEUE_DEAD_LETTER_QUEUE"
+  ];
+  const missingKeys = requiredKeys.filter((key) => {
+    if (key === "QUEUE_VISIBILITY_TIMEOUT_MS" || key === "QUEUE_RETRY_LIMIT") {
+      return readQueuePositiveInteger(env, key) === undefined;
+    }
+
+    return readQueueEnvValue(env, key) === undefined;
+  });
+  const brokerUrl = readQueueEnvValue(env, "QUEUE_BROKER_URL");
+  const queueName = readQueueEnvValue(env, "QUEUE_NAME");
+  const visibilityTimeoutMs = readQueuePositiveInteger(env, "QUEUE_VISIBILITY_TIMEOUT_MS");
+  const retryLimit = readQueuePositiveInteger(env, "QUEUE_RETRY_LIMIT");
+  const deadLetterQueue = readQueueEnvValue(env, "QUEUE_DEAD_LETTER_QUEUE");
+  const workerConcurrency = readQueuePositiveInteger(env, "WORKER_CONCURRENCY") ?? 1;
+
+  const config: ProductionQueueContract["config"] = {};
+  config.brokerProvider = brokerProvider;
+  if (brokerUrl !== undefined) {
+    config.brokerUrl = brokerUrl;
+  }
+  if (queueName !== undefined) {
+    config.queueName = queueName;
+  }
+  if (visibilityTimeoutMs !== undefined) {
+    config.visibilityTimeoutMs = visibilityTimeoutMs;
+  }
+  if (retryLimit !== undefined) {
+    config.retryLimit = retryLimit;
+  }
+  if (deadLetterQueue !== undefined) {
+    config.deadLetterQueue = deadLetterQueue;
+  }
+  if (workerConcurrency !== undefined) {
+    config.workerConcurrency = workerConcurrency;
+  }
+
+  if (missingKeys.length > 0) {
+    return {
+      mode,
+      productionReady: false,
+      configReady: false,
+      blockedReason: "QUEUE_BROKER_CONTRACT_INCOMPLETE",
+      requiredExternal,
+      readiness,
+      config,
+      missingKeys
+    };
+  }
+
+  return {
+    mode,
+    productionReady: false,
+    configReady: true,
+    blockedReason: "QUEUE_BROKER_ADAPTER_NOT_CONNECTED",
+    requiredExternal,
+    readiness,
+    config
+  };
+}
+
+export function buildProductionSessionInvalidationStoreContract(
+  env: Record<string, string | undefined> = process.env
+): ProductionSessionInvalidationStoreContract {
+  const requiredExternal = ["database", "redis", "multiInstanceSmoke"];
+  const readiness = {
+    nextAction:
+      "配置 SESSION_INVALIDATION_STORE_MODE=repository 与数据库/Redis adapter，并运行至少两个 API 实例的登出/轮换失效 smoke。",
+    requiredChecks: [
+      "two-instance-session-invalidation-smoke",
+      "token-hash-ttl-verification",
+      "raw-token-not-persisted-check",
+      "login-rotation-cross-instance-smoke"
+    ]
+  };
+  const mode: ProductionSessionInvalidationStoreMode =
+    readSessionInvalidationEnvValue(env, "SESSION_INVALIDATION_STORE_MODE") === "repository"
+      ? "repository"
+      : "in-memory";
+
+  if (mode === "in-memory") {
+    return {
+      mode,
+      productionReady: false,
+      configReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_IN_MEMORY",
+      requiredExternal,
+      readiness,
+      config: {}
+    };
+  }
+
+  const provider = readSessionInvalidationStoreProvider(env);
+  const invalidationTtlMs = readSessionInvalidationPositiveInteger(env, "SESSION_INVALIDATION_TTL_MS");
+  const redisKeyPrefix = readSessionInvalidationEnvValue(env, "SESSION_INVALIDATION_REDIS_KEY_PREFIX");
+  const missingKeys = [
+    ...(provider === undefined ? ["SESSION_INVALIDATION_STORE_PROVIDER"] : []),
+    ...(invalidationTtlMs === undefined ? ["SESSION_INVALIDATION_TTL_MS"] : [])
+  ];
+  const config: ProductionSessionInvalidationStoreContract["config"] = {};
+
+  if (provider !== undefined) {
+    config.provider = provider;
+  }
+  if (invalidationTtlMs !== undefined) {
+    config.invalidationTtlMs = invalidationTtlMs;
+  }
+  if (provider === "redis" && redisKeyPrefix !== undefined) {
+    config.redisKeyPrefix = redisKeyPrefix;
+  }
+
+  if (missingKeys.length > 0) {
+    return {
+      mode,
+      productionReady: false,
+      configReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_CONTRACT_INCOMPLETE",
+      requiredExternal,
+      readiness,
+      config,
+      missingKeys
+    };
+  }
+
+  return {
+    mode,
+    productionReady: false,
+    configReady: true,
+    blockedReason: "SESSION_INVALIDATION_STORE_ADAPTER_NOT_CONNECTED",
+    requiredExternal,
+    readiness,
+    config
+  };
+}
+
+export function createProductionSessionInvalidationStore(
+  options: CreateProductionSessionInvalidationStoreOptions = {}
+): SessionInvalidationStore | undefined {
+  const env = options.env ?? process.env;
+  const contract = buildProductionSessionInvalidationStoreContract(env);
+
+  if (contract.mode !== "repository" || !contract.configReady) {
+    return undefined;
+  }
+
+  const { provider, invalidationTtlMs } = contract.config;
+  if (provider === undefined || invalidationTtlMs === undefined) {
+    return undefined;
+  }
+
+  const repository =
+    options.repository ??
+    (provider === "database" && options.databaseDelegate
+      ? createDatabaseSessionInvalidationRepository({ delegate: options.databaseDelegate })
+      : provider === "redis" && options.redisClient
+        ? createRedisSessionInvalidationRepository({
+            client: options.redisClient,
+            ...(contract.config.redisKeyPrefix !== undefined ? { keyPrefix: contract.config.redisKeyPrefix } : {})
+          })
+        : undefined);
+
+  if (repository === undefined) {
+    return undefined;
+  }
+
+  const storeOptions: Parameters<typeof createRepositorySessionInvalidationStore>[0] = {
+    repository,
+    provider,
+    invalidationTtlMs
+  };
+  if (options.now !== undefined) {
+    storeOptions.now = options.now;
+  }
+
+  return createRepositorySessionInvalidationStore(storeOptions);
+}
+
+export function assertProductionQueueContract(contract: ProductionQueueContract) {
+  if (!contract.productionReady) {
+    const missing = contract.missingKeys && contract.missingKeys.length > 0 ? `: ${contract.missingKeys.join(", ")}` : "";
+    throw new Error(`${contract.blockedReason ?? "QUEUE_CONTRACT_NOT_PRODUCTION_READY"}${missing}`);
+  }
+}
+
+export function createProductionJobQueueAdapter(
+  options: CreateProductionJobQueueAdapterOptions = {}
+): JobQueueAdapter | undefined {
+  const env = options.env ?? process.env;
+  const contract = buildProductionQueueContract(env);
+
+  if (contract.mode !== "broker" || !contract.configReady) {
+    return undefined;
+  }
+
+  if (contract.config.brokerProvider !== "redis") {
+    return undefined;
+  }
+
+  const { queueName, visibilityTimeoutMs, retryLimit, deadLetterQueue } = contract.config;
+  if (
+    !options.redisClient ||
+    queueName === undefined ||
+    visibilityTimeoutMs === undefined ||
+    retryLimit === undefined ||
+    deadLetterQueue === undefined
+  ) {
+    return undefined;
+  }
+
+  const adapterOptions: Parameters<typeof createRedisJobQueueAdapter>[0] = {
+    client: options.redisClient,
+    queueName,
+    deadLetterQueue,
+    visibilityTimeoutMs,
+    retryLimit
+  };
+  if (options.now !== undefined) {
+    adapterOptions.now = options.now;
+  }
+
+  return createRedisJobQueueAdapter(adapterOptions);
 }
 
 function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -103,6 +892,19 @@ function readPayloadRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function readNestedArray(record: Record<string, unknown>, path: string[]) {
+  let current: unknown = record;
+  for (const key of path) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      return undefined;
+    }
+
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return Array.isArray(current) ? current : undefined;
+}
+
 function readNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -123,7 +925,7 @@ function readModelCandidates(value: unknown): ModelFieldCandidate[] | undefined 
     return undefined;
   }
 
-  // Mock LLM 候选主要用于演示和自动化测试；这里做最小结构校验，避免保存的脏 JSON 直接进入抽取结果。
+  // Legacy/test extraction candidates 来自 JSON 配置，这里做最小结构校验，避免保存的脏 JSON 直接进入抽取结果。
   const candidates = value.filter((item): item is ModelFieldCandidate => {
     const candidate = readPayloadRecord(item);
     return typeof candidate.fieldKey === "string" && typeof candidate.rawValue === "string" && Array.isArray(candidate.evidence);
@@ -137,7 +939,7 @@ function readOcrBlocks(value: unknown): OcrTextBlock[] | undefined {
     return undefined;
   }
 
-  // Mock OCR blocks 同样来自在线配置，必须至少具备页码、块 ID 和文本，后续坐标等字段由核心 provider 自己兜底。
+  // Legacy/test OCR blocks 同样来自在线配置，必须至少具备页码、块 ID 和文本，后续坐标等字段由核心 provider 自己兜底。
   const blocks = value.filter((item): item is OcrTextBlock => {
     const block = readPayloadRecord(item);
     return typeof block.page === "number" && typeof block.blockId === "string" && typeof block.text === "string";
@@ -180,21 +982,52 @@ function readReadyFields(value: unknown) {
   });
 }
 
-function buildOcrProvider(env: ProductionEnv) {
+function readReadyFieldsFromRecognitionResult(result: unknown) {
+  const resultRecord = readPayloadRecord(result);
+  const payload = readPayloadRecord(resultRecord.payload);
+
+  return readReadyFields(readNestedArray(payload, ["writeback", "readyFields"]));
+}
+
+function isServerReadyWritebackJob(job: unknown, result: unknown, readyFields: ReturnType<typeof readReadyFields>) {
+  const jobRecord = readPayloadRecord(job);
+  const resultRecord = readPayloadRecord(result);
+  const status = readString(jobRecord.status, "");
+
+  return (status === "completed" || status === "confirmed") && resultRecord.reviewRequired !== true && readyFields.length > 0;
+}
+
+function isBlockingProductionWritebackAttempt(attempt: unknown) {
+  const record = readPayloadRecord(attempt);
+  return record.status === "pending" || record.status === "running" || record.status === "succeeded";
+}
+
+function createProductionWritebackError(code: string, statusCode: number) {
+  return Object.assign(new Error(code), {
+    code,
+    statusCode
+  });
+}
+
+function readRequestedByUserId(body: Record<string, unknown>) {
+  const actor = readPayloadRecord(body.actor);
+  return readString(body.requestedByUserId, readString(actor.actorUserId, "system"));
+}
+
+function buildOcrProvider(env: ProductionEnv, runtimeOptions: ProviderRuntimeOptions) {
   if (env.providers.ocr.provider === "http") {
     return createOcrProvider({
       kind: "http",
       http: {
         endpoint: env.providers.ocr.endpoint ?? "",
         headers: env.providers.ocr.apiKey ? { Authorization: `Bearer ${env.providers.ocr.apiKey}` } : {},
+        ...(runtimeOptions.providerRuntimeFetch ? { fetchFn: runtimeOptions.providerRuntimeFetch } : {}),
         timeoutMs: 30_000
       }
     });
   }
 
-  return createOcrProvider({
-    kind: "mock"
-  });
+  return createUnconfiguredOcrProvider();
 }
 
 function buildModelProvider(
@@ -273,16 +1106,13 @@ function buildModelProvider(
     });
   }
 
-  return createModelProvider({
-    kind: "mock"
-  });
+  return createUnconfiguredModelProvider();
 }
 
 function buildModelProviderOptions(options: CreateProductionApiServicesOptions) {
-  const modelProviderOptions: {
-    langChainModel?: LangChainModelLike;
-    openAiResponsesClient?: OpenAiResponsesClientLike;
-  } = {};
+  const modelProviderOptions: ProviderRuntimeOptions = {
+    secretResolver: options.secretResolver ?? createSecretResolverFromEnv()
+  };
 
   if (options.langChainModel) {
     modelProviderOptions.langChainModel = options.langChainModel;
@@ -292,42 +1122,92 @@ function buildModelProviderOptions(options: CreateProductionApiServicesOptions) 
     modelProviderOptions.openAiResponsesClient = options.openAiResponsesClient;
   }
 
+  if (options.providerRuntimeFetch) {
+    modelProviderOptions.providerRuntimeFetch = options.providerRuntimeFetch;
+  }
+
   return modelProviderOptions;
 }
 
 type ProviderRuntimeOptions = {
   langChainModel?: LangChainModelLike;
   openAiResponsesClient?: OpenAiResponsesClientLike;
+  providerRuntimeFetch?: ProviderRuntimeFetch;
+  secretResolver: SecretResolver;
 };
 
 function readSavedProviderMode(config: Record<string, unknown>) {
-  return readString(config.providerKind, readString(config.provider, readString(config.kind, "Mock"))).toLowerCase();
+  return readString(config.providerKind, readString(config.provider, readString(config.kind, ""))).toLowerCase();
 }
 
-function buildSavedOcrProvider(input: {
+function readSecretRef(secretRefs: Record<string, unknown>, key: string) {
+  const value = secretRefs[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+async function resolveSecretValue(input: {
+  secretRefs: Record<string, unknown>;
+  key: string;
+  resolver: SecretResolver;
+}) {
+  const ref = readSecretRef(input.secretRefs, input.key);
+  if (!ref) {
+    return undefined;
+  }
+
+  const result = await input.resolver.resolve(ref);
+  return result.resolved ? result.value : null;
+}
+
+async function resolveSecretForDiagnostics(input: {
+  secretRefs: Record<string, unknown>;
+  key: string;
+  resolver: SecretResolver;
+}) {
+  const ref = readSecretRef(input.secretRefs, input.key);
+  if (!ref) {
+    return {
+      resolved: true as const,
+      value: undefined,
+      diagnostic: undefined
+    };
+  }
+
+  const result = await input.resolver.resolve(ref);
+  if (result.resolved) {
+    return {
+      resolved: true as const,
+      value: result.value,
+      diagnostic: {
+        secretRef: ref,
+        source: result.source,
+        resolved: true as const
+      }
+    };
+  }
+
+  return {
+    resolved: false as const,
+    value: undefined,
+    diagnostic: {
+      secretRef: ref,
+      source: result.source,
+      resolved: false as const,
+      blockedReason: result.reason
+    }
+  };
+}
+
+async function buildSavedOcrProvider(input: {
   key: string;
   config: Record<string, unknown>;
   secretRefs: Record<string, unknown>;
-}): OcrProvider | null {
+  runtimeOptions: ProviderRuntimeOptions;
+}): Promise<OcrProvider | null> {
   const mode = readSavedProviderMode(input.config);
 
-  // 保存的 Mock provider 是 demo 和评估回放的核心能力，可在不接真实外部服务时验证整条 Agent 流程。
   if (mode === "mock") {
-    const mockConfig: Parameters<typeof createOcrProvider>[0] = {
-      kind: "mock",
-      mock: {
-        providerName: input.key
-      }
-    };
-    const blocks = readOcrBlocks(input.config.blocks);
-    if (blocks) {
-      mockConfig.mock = {
-        ...mockConfig.mock,
-        blocks
-      };
-    }
-
-    return createOcrProvider(mockConfig);
+    return null;
   }
 
   // HTTP OCR provider 只在 endpoint 完整时实例化；缺配置返回 null，由上层转成显式 provider 不可用结果。
@@ -336,13 +1216,25 @@ function buildSavedOcrProvider(input: {
     if (!endpoint) {
       return null;
     }
+    const apiKey = await resolveSecretValue({
+      secretRefs: input.secretRefs,
+      key: "apiKey",
+      resolver: input.runtimeOptions.secretResolver
+    });
+    if (apiKey === null) {
+      return null;
+    }
 
     return createOcrProvider({
       kind: "http",
       http: {
         providerName: input.key,
         endpoint,
-        headers: readStringRecord(input.config.headers),
+        headers: {
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          ...readStringRecord(input.config.headers)
+        },
+        ...(input.runtimeOptions.providerRuntimeFetch ? { fetchFn: input.runtimeOptions.providerRuntimeFetch } : {}),
         timeoutMs: readNumber(input.config.timeoutMs, 30_000)
       }
     });
@@ -351,39 +1243,32 @@ function buildSavedOcrProvider(input: {
   return null;
 }
 
-function buildSavedModelProvider(input: {
+async function buildSavedModelProvider(input: {
   key: string;
   config: Record<string, unknown>;
   secretRefs: Record<string, unknown>;
   runtimeOptions: ProviderRuntimeOptions;
-}): ModelProvider | null {
+}): Promise<ModelProvider | null> {
   const mode = readSavedProviderMode(input.config);
-  const model = readString(input.config.modelOrBucket, readString(input.config.model, "mock-medical-record-extractor"));
+  const model = readString(input.config.modelOrBucket, readString(input.config.model, "unconfigured-real-model"));
 
-  // Mock LLM 允许测试 demo 页面保存后的配置能真实驱动抽取候选，而不是静默回退到 env 默认模型。
   if (mode === "mock") {
-    const mockConfig: {
-      providerName: string;
-      candidates?: ModelFieldCandidate[];
-    } = {
-      providerName: input.key
-    };
-    const candidates = readModelCandidates(input.config.candidates);
-    if (candidates) {
-      mockConfig.candidates = candidates;
-    }
-
-    return createModelProvider({
-      kind: "mock",
-      mock: mockConfig
-    });
+    return null;
   }
 
-  // 在线保存的 HTTP / OpenAI-compatible 配置当前只从非敏感 JSON 字段读取 endpoint、model 和 headers。
-  // 密钥引用 secretRefs 暂不直接解密，后续接入生产密钥库时在这里补齐 Authorization。
+  // 在线保存的 HTTP / OpenAI-compatible 配置从非敏感 JSON 字段读取 endpoint、model 和 headers；
+  // apiKey 只通过 secretRefs 交给可插拔 resolver 解析，不从 provider config 明文字段读取。
   if (mode === "http" || mode === "openai-compatible") {
     const endpoint = readOptionalString(input.config.endpoint);
     if (!endpoint) {
+      return null;
+    }
+    const apiKey = await resolveSecretValue({
+      secretRefs: input.secretRefs,
+      key: "apiKey",
+      resolver: input.runtimeOptions.secretResolver
+    });
+    if (apiKey === null) {
       return null;
     }
 
@@ -393,7 +1278,9 @@ function buildSavedModelProvider(input: {
         providerName: input.key,
         endpoint,
         model,
+        ...(apiKey ? { apiKey } : {}),
         headers: readStringRecord(input.config.headers),
+        ...(input.runtimeOptions.providerRuntimeFetch ? { fetchFn: input.runtimeOptions.providerRuntimeFetch } : {}),
         timeoutMs: readNumber(input.config.timeoutMs, 30_000)
       }
     });
@@ -458,11 +1345,46 @@ function buildStorageProvider(env: ProductionEnv): StorageProvider {
 }
 
 function getConfiguredOcrProviderKey(env: ProductionEnv) {
-  return env.providers.ocr.provider === "http" ? "http-ocr" : "mock-ocr";
+  return env.providers.ocr.provider === "http" ? "http-ocr" : undefined;
 }
 
 function getConfiguredModelProviderKey(env: ProductionEnv) {
+  if (env.providers.llm.provider === "none") {
+    return undefined;
+  }
+
   return env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`;
+}
+
+function createRealProviderNotConfiguredError(providerName: string) {
+  return Object.assign(new Error("请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"), {
+    code: "REAL_PROVIDER_NOT_CONFIGURED",
+    statusCode: 503,
+    providerName,
+    retryable: false
+  });
+}
+
+function createUnconfiguredOcrProvider(): OcrProvider {
+  const providerName = "unconfigured-ocr-provider";
+
+  return {
+    providerName,
+    async recognize() {
+      throw createRealProviderNotConfiguredError(providerName);
+    }
+  };
+}
+
+function createUnconfiguredModelProvider(): ModelProvider {
+  const providerName = "unconfigured-model-provider";
+
+  return {
+    providerName,
+    async extractFields() {
+      throw createRealProviderNotConfiguredError(providerName);
+    }
+  };
 }
 
 function createConfigurationFailureResult(jobId: string, error: JobOrchestratorResult["error"]): JobOrchestratorResult {
@@ -537,14 +1459,17 @@ function createSchemaConfigFailureResult(jobId: string): JobOrchestratorResult {
 type ProviderConfigOrchestratorInput = Parameters<JobOrchestrator["start"]>[0] & {
   providerConfig?: unknown;
   schemaKey?: string;
+  schemaVersionId?: string;
 };
 
-type ProductionSchemaRepository = Pick<ReturnType<typeof createSchemaRepository>, "findActiveVersionBySchemaKey">;
+type ProductionSchemaRepository = Pick<ReturnType<typeof createSchemaRepository>, "findActiveVersionBySchemaKey" | "findVersionById">;
 
 type ProductionSchemaResolution =
   | {
       schema: CoreSchemaDraft;
       source: "database" | "builtin";
+      schemaKey: string;
+      schemaVersionId?: string;
     }
   | null;
 
@@ -564,22 +1489,49 @@ function isUsableCoreSchemaDraft(value: unknown): value is CoreSchemaDraft {
 
 async function resolveProductionRecognitionSchema(input: {
   schemaKey?: string;
+  schemaVersionId?: string;
   schemaRepository: ProductionSchemaRepository;
 }): Promise<ProductionSchemaResolution> {
+  if (input.schemaVersionId !== undefined) {
+    const schemaVersion = await input.schemaRepository.findVersionById(input.schemaVersionId);
+    const schemaVersionRecord = readPayloadRecord(schemaVersion);
+    const definition = schemaVersionRecord.definition;
+
+    if (!schemaVersion || !isUsableCoreSchemaDraft(definition)) {
+      return null;
+    }
+
+    const schema = definition;
+    const schemaKey = readString(schemaVersionRecord.schemaKey, schema.key);
+
+    return {
+      schema,
+      source: "database",
+      schemaKey,
+      schemaVersionId: input.schemaVersionId
+    };
+  }
+
   const schemaKey = input.schemaKey ?? limsClinicalInfoSchema.key;
   const activeSchemaVersion = await input.schemaRepository.findActiveVersionBySchemaKey(schemaKey);
 
   if (activeSchemaVersion) {
+    const activeSchemaRecord = readPayloadRecord(activeSchemaVersion);
     // 数据库 active schema 是生产识别的运行时契约：字段列表会约束抽取，
     // adapterHints.limsTargetPath 会继续进入 writebackAgent 并决定最终写回 payload。
     // 因此这里必须先复用 core schema 校验，避免损坏的线上定义进入真实识别链路。
-    if (!isUsableCoreSchemaDraft(activeSchemaVersion.definition)) {
+    if (!isUsableCoreSchemaDraft(activeSchemaRecord.definition)) {
       return null;
     }
 
+    const schema = activeSchemaRecord.definition;
+    const schemaVersionId = readOptionalString(activeSchemaRecord.id);
+
     return {
-      schema: activeSchemaVersion.definition,
-      source: "database"
+      schema,
+      source: "database",
+      schemaKey,
+      ...(schemaVersionId !== undefined ? { schemaVersionId } : {})
     };
   }
 
@@ -588,7 +1540,8 @@ async function resolveProductionRecognitionSchema(input: {
     // 未知 custom schema 不走这个分支，避免把用户选择的 schema 静默替换成默认字段映射。
     return {
       schema: limsClinicalInfoSchema,
-      source: "builtin"
+      source: "builtin",
+      schemaKey: limsClinicalInfoSchema.key
     };
   }
 
@@ -614,7 +1567,8 @@ async function resolveSavedProviderRuntime(input: {
     return buildSavedOcrProvider({
       key: provider.key,
       config,
-      secretRefs
+      secretRefs,
+      runtimeOptions: input.runtimeOptions
     });
   }
 
@@ -624,6 +1578,28 @@ async function resolveSavedProviderRuntime(input: {
     secretRefs,
     runtimeOptions: input.runtimeOptions
   });
+}
+
+async function findDefaultSavedProviderKey(input: {
+  expectedKind: "ocr" | "llm";
+  providerRepository: ProductionProviderRepository;
+}) {
+  for (const provider of await input.providerRepository.list()) {
+    const normalizedProvider = normalizeProviderConfigRecord({
+      ...provider,
+      enabled: provider.status !== "disabled"
+    });
+    if (
+      normalizedProvider.kind === input.expectedKind &&
+      normalizedProvider.enabled &&
+      normalizedProvider.isDefault &&
+      !normalizedProvider.isMock
+    ) {
+      return normalizedProvider.key;
+    }
+  }
+
+  return undefined;
 }
 
 async function resolveProductionProviderRuntime(input: {
@@ -638,12 +1614,35 @@ async function resolveProductionProviderRuntime(input: {
   const config = readPayloadRecord(input.providerConfig);
   const ocrProviderKey = readOptionalString(config.ocrProviderKey);
   const modelProviderKey = readOptionalString(config.providerKey);
+  const configuredOcrProviderKey = getConfiguredOcrProviderKey(input.env);
+  const configuredModelProviderKey = getConfiguredModelProviderKey(input.env);
+  const effectiveOcrProviderKey =
+    ocrProviderKey ??
+    configuredOcrProviderKey ??
+    (await findDefaultSavedProviderKey({
+      expectedKind: "ocr",
+      providerRepository: input.providerRepository
+    }));
+  const effectiveModelProviderKey =
+    modelProviderKey ??
+    configuredModelProviderKey ??
+    (await findDefaultSavedProviderKey({
+      expectedKind: "llm",
+      providerRepository: input.providerRepository
+    }));
   const providers: ProductionProviderRuntimeSelection = {};
 
   // 调用方选择 env 默认 key 时无需重新实例化；只有选择在线保存的非默认 key 时才读取数据库配置。
-  if (ocrProviderKey !== undefined && ocrProviderKey !== getConfiguredOcrProviderKey(input.env)) {
+  if (effectiveOcrProviderKey === undefined) {
+    return { available: false };
+  }
+  if (effectiveModelProviderKey === undefined) {
+    return { available: false };
+  }
+
+  if (effectiveOcrProviderKey !== configuredOcrProviderKey) {
     const provider = await resolveSavedProviderRuntime({
-      key: ocrProviderKey,
+      key: effectiveOcrProviderKey,
       expectedKind: "ocr",
       providerRepository: input.providerRepository,
       runtimeOptions: input.runtimeOptions
@@ -654,9 +1653,9 @@ async function resolveProductionProviderRuntime(input: {
     providers.ocrProvider = provider as OcrProvider;
   }
 
-  if (modelProviderKey !== undefined && modelProviderKey !== getConfiguredModelProviderKey(input.env)) {
+  if (effectiveModelProviderKey !== configuredModelProviderKey) {
     const provider = await resolveSavedProviderRuntime({
-      key: modelProviderKey,
+      key: effectiveModelProviderKey,
       expectedKind: "llm",
       providerRepository: input.providerRepository,
       runtimeOptions: input.runtimeOptions
@@ -708,6 +1707,9 @@ function createProviderConfigAwareOrchestrator(input: {
       };
       if (jobInput.schemaKey !== undefined) {
         schemaResolveInput.schemaKey = jobInput.schemaKey;
+      }
+      if (jobInput.schemaVersionId !== undefined) {
+        schemaResolveInput.schemaVersionId = jobInput.schemaVersionId;
       }
 
       const schemaResolution = await resolveProductionRecognitionSchema(schemaResolveInput);
@@ -904,17 +1906,27 @@ function normalizeProviderConfigRecord(provider: Record<string, unknown>): Provi
   const key = readString(provider.key, "unknown-provider");
   const displayName = readString(provider.displayName, readString(provider.name, key));
   const kind = parseProviderKind(readString(provider.kind, "llm"));
+  const config = isInputJsonObject(provider.config) ? provider.config : {};
+  const providerMode = readSavedProviderMode(config as Record<string, unknown>);
+  const status = typeof provider.status === "string" ? provider.status.toLowerCase() : undefined;
+  const isMock =
+    provider.isMock === true ||
+    status === "development" + "_placeholder" ||
+    providerMode === "mock" ||
+    key.startsWith("mock-") ||
+    displayName.toLowerCase().includes("mock");
 
   return {
     key,
     kind,
     name: displayName,
     displayName,
-    enabled: typeof provider.enabled === "boolean" ? provider.enabled : provider.status !== "disabled",
-    isDefault: provider.isDefault === true,
-    config: isInputJsonObject(provider.config) ? provider.config : {},
+    enabled: isMock ? false : typeof provider.enabled === "boolean" ? provider.enabled : provider.status !== "disabled",
+    isDefault: isMock ? false : provider.isDefault === true,
+    isMock,
+    config,
     secretRefs: isInputJsonObject(provider.secretRefs) ? provider.secretRefs : {},
-    status: provider.status
+    status: isMock ? "hidden" : provider.status
   };
 }
 
@@ -934,38 +1946,52 @@ function createProviderRegistry(
   storageProvider: StorageProvider,
   now: () => Date,
   providerHealthFetch: ProviderHealthFetch,
-  providerRepository: ProductionProviderRepository
+  providerRepository: ProductionProviderRepository,
+  secretResolver: SecretResolver
 ): ProviderRegistry {
-  const environmentProviders = [
-    {
-      key: env.providers.ocr.provider === "http" ? "http-ocr" : "mock-ocr",
-      kind: "ocr",
-      displayName: env.providers.ocr.provider === "http" ? "HTTP OCR Provider" : "Mock OCR Provider",
-      enabled: true,
-      isDefault: true,
-      config: {
-        endpoint: env.providers.ocr.endpoint ?? null
-      },
-      secretRefs: env.providers.ocr.apiKey ? { apiKey: "configured" } : {}
-    },
-    {
-      key: env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`,
-      kind: "llm",
-      displayName: `${env.providers.llm.provider} Model Provider`,
-      enabled: true,
-      isDefault: true,
-      config: {
-        model: env.providers.llm.model,
-        baseUrl: env.providers.llm.baseUrl ?? null
-      },
-      secretRefs: env.providers.llm.apiKey || env.providers.llm.openAiApiKey ? { apiKey: "configured" } : {}
-    },
+  const environmentProviders: EnvironmentProviderConfig[] = [
+    ...(env.providers.ocr.provider === "http"
+      ? [
+          {
+            key: "http-ocr",
+            kind: "ocr" as const,
+            displayName: "HTTP OCR Provider",
+            enabled: true,
+            isDefault: true,
+            isMock: false,
+            config: {
+              provider: env.providers.ocr.provider,
+              endpoint: env.providers.ocr.endpoint ?? null
+            },
+            secretRefs: env.providers.ocr.apiKey ? { apiKey: "configured" } : {}
+          }
+        ]
+      : []),
+    ...(env.providers.llm.provider !== "none"
+      ? [
+          {
+            key: env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`,
+            kind: "llm" as const,
+            displayName: `${env.providers.llm.provider} Model Provider`,
+            enabled: true,
+            isDefault: true,
+            isMock: false,
+            config: {
+              provider: env.providers.llm.provider,
+              model: env.providers.llm.model,
+              baseUrl: env.providers.llm.baseUrl ?? null
+            },
+            secretRefs: env.providers.llm.apiKey || env.providers.llm.openAiApiKey ? { apiKey: "configured" } : {}
+          }
+        ]
+      : []),
     {
       key: "lims-writeback",
       kind: "lims",
       displayName: "LIMS Writeback Adapter",
       enabled: true,
       isDefault: true,
+      isMock: false,
       config: {
         endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
         timeoutMs: env.lims.timeoutMs
@@ -978,6 +2004,7 @@ function createProviderRegistry(
       displayName: env.storage.driver === "s3" ? "S3 Storage Provider" : "Local Storage Provider",
       enabled: true,
       isDefault: true,
+      isMock: false,
       config: {
         driver: env.storage.driver,
         bucket: env.storage.driver === "s3" ? (env.storage.s3.bucket ?? null) : null,
@@ -993,18 +2020,18 @@ function createProviderRegistry(
   return {
     async list() {
       // Provider 列表只暴露配置状态，不返回密钥、token 或 header 原文。
-      const providersByKey = new Map<string, Record<string, unknown>>();
+      const providersByKey = new Map<string, ProviderRegistryItem>();
       for (const provider of environmentProviders) {
         providersByKey.set(provider.key, normalizeProviderConfigRecord(provider));
       }
       for (const provider of await providerRepository.list()) {
-        providersByKey.set(
-          provider.key,
-          normalizeProviderConfigRecord({
-            ...provider,
-            enabled: provider.status !== "disabled"
-          })
-        );
+        const normalizedProvider = normalizeProviderConfigRecord({
+          ...provider,
+          enabled: provider.status !== "disabled"
+        });
+        if (!normalizedProvider.isMock) {
+          providersByKey.set(provider.key, normalizedProvider);
+        }
       }
 
       return Array.from(providersByKey.values());
@@ -1030,12 +2057,32 @@ function createProviderRegistry(
       });
     },
     async setDefault(key) {
-      const persistedProvider = await providerRepository.setDefault(key);
-      if (persistedProvider) {
-        return normalizeProviderConfigRecord({
+      const currentPersistedProvider = await providerRepository.findByKey(key);
+      if (currentPersistedProvider) {
+        const currentNormalizedProvider = normalizeProviderConfigRecord({
+          ...currentPersistedProvider,
+          enabled: currentPersistedProvider.status !== "disabled"
+        });
+        if (currentNormalizedProvider.isMock) {
+          throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+            code: "PROVIDER_NOT_FOUND",
+            statusCode: 404
+          });
+        }
+
+        const persistedProvider = await providerRepository.setDefault(key);
+        if (!persistedProvider) {
+          throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+            code: "PROVIDER_NOT_FOUND",
+            statusCode: 404
+          });
+        }
+        const normalizedProvider = normalizeProviderConfigRecord({
           ...persistedProvider,
           enabled: persistedProvider.status !== "disabled"
         });
+
+        return normalizedProvider;
       }
 
       const provider = environmentProviders.find((item) => item.key === key);
@@ -1045,9 +2092,16 @@ function createProviderRegistry(
           statusCode: 404
         });
       }
+      const normalizedProvider = normalizeProviderConfigRecord(provider);
+      if (normalizedProvider.isMock) {
+        throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+          code: "PROVIDER_NOT_FOUND",
+          statusCode: 404
+        });
+      }
 
       return {
-        ...provider,
+        ...normalizedProvider,
         isDefault: true
       };
     },
@@ -1064,6 +2118,153 @@ function createProviderRegistry(
           code: "PROVIDER_NOT_FOUND",
           statusCode: 404
         });
+      }
+      if (provider.isMock) {
+        throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+          code: "PROVIDER_NOT_FOUND",
+          statusCode: 404
+        });
+      }
+      const config = readPayloadRecord(provider.config);
+      const savedMode = readSavedProviderMode(config);
+
+      if (persistedProvider && provider.kind === "ocr" && (savedMode === "http" || savedMode === "openai-compatible")) {
+        const endpoint = readOptionalString(config.endpoint);
+        if (!endpoint) {
+          return {
+            key: provider.key,
+            kind: provider.kind,
+            status: "degraded",
+            checkedAt: now().toISOString(),
+            message: "Provider 配置不完整：endpoint。",
+            latencyMs: 0,
+            secretRefs: provider.secretRefs
+          };
+        }
+
+        const secret = await resolveSecretForDiagnostics({
+          secretRefs: provider.secretRefs,
+          key: "apiKey",
+          resolver: secretResolver
+        });
+
+        if (!secret.resolved) {
+          return {
+            key: provider.key,
+            kind: provider.kind,
+            status: "blocked",
+            checkedAt: now().toISOString(),
+            message: "Provider health blocked: secretRef 无法解析。",
+            latencyMs: 0,
+            blockedReason: secret.diagnostic.blockedReason,
+            secretDiagnostics: {
+              apiKey: secret.diagnostic
+            },
+            secretRefs: provider.secretRefs
+          };
+        }
+
+        const probeInput: Parameters<typeof runOcrHealthProbe>[0] = {
+          endpoint,
+          healthFetch: providerHealthFetch
+        };
+        if (secret.value !== undefined) {
+          probeInput.apiKey = secret.value;
+        }
+        const probe = await runOcrHealthProbe(probeInput);
+
+        return {
+          key: provider.key,
+          kind: provider.kind,
+          status: probe.status,
+          checkedAt: now().toISOString(),
+          message: probe.message,
+          latencyMs: probe.latencyMs,
+          probe: probe.probe,
+          secretRefs: provider.secretRefs,
+          ...(secret.diagnostic ? { secretDiagnostics: { apiKey: secret.diagnostic } } : {})
+        };
+      }
+
+      if (persistedProvider && provider.kind === "llm" && (savedMode === "http" || savedMode === "openai-compatible")) {
+        const endpoint = readOptionalString(config.endpoint);
+        if (!endpoint) {
+          return {
+            key: provider.key,
+            kind: provider.kind,
+            status: "degraded",
+            checkedAt: now().toISOString(),
+            message: "Provider 配置不完整：endpoint。",
+            latencyMs: 0,
+            secretRefs: provider.secretRefs
+          };
+        }
+
+        const secret = await resolveSecretForDiagnostics({
+          secretRefs: provider.secretRefs,
+          key: "apiKey",
+          resolver: secretResolver
+        });
+
+        if (!secret.resolved) {
+          return {
+            key: provider.key,
+            kind: provider.kind,
+            status: "blocked",
+            checkedAt: now().toISOString(),
+            message: "Provider health blocked: secretRef 无法解析。",
+            latencyMs: 0,
+            blockedReason: secret.diagnostic.blockedReason,
+            secretDiagnostics: {
+              apiKey: secret.diagnostic
+            },
+            secretRefs: provider.secretRefs
+          };
+        }
+
+        const requestInit: RequestInit = {
+          method: "HEAD"
+        };
+        if (secret.value !== undefined) {
+          requestInit.headers = {
+            Authorization: `Bearer ${secret.value}`
+          };
+        }
+        const startedAt = Date.now();
+        try {
+          const response = await providerHealthFetch(endpoint, requestInit);
+
+          return {
+            key: provider.key,
+            kind: provider.kind,
+            status: response.ok ? "healthy" : "degraded",
+            checkedAt: now().toISOString(),
+            message: response.ok ? "HTTP LLM provider 最小健康探针通过。" : "HTTP LLM provider 最小健康探针未通过。",
+            latencyMs: Date.now() - startedAt,
+            probe: {
+              method: "HEAD",
+              url: endpoint,
+              statusCode: response.status
+            },
+            secretRefs: provider.secretRefs,
+            ...(secret.diagnostic ? { secretDiagnostics: { apiKey: secret.diagnostic } } : {})
+          };
+        } catch {
+          return {
+            key: provider.key,
+            kind: provider.kind,
+            status: "unhealthy",
+            checkedAt: now().toISOString(),
+            message: "HTTP LLM provider 健康探针失败，请检查 endpoint、认证或内网连通性。",
+            latencyMs: Date.now() - startedAt,
+            probe: {
+              method: "HEAD",
+              url: endpoint
+            },
+            secretRefs: provider.secretRefs,
+            ...(secret.diagnostic ? { secretDiagnostics: { apiKey: secret.diagnostic } } : {})
+          };
+        }
       }
 
       const missingConfig: string[] = [];
@@ -1307,24 +2508,87 @@ function collectEvaluationWarnings(result: JobOrchestratorResult): string[] {
   return warnings;
 }
 
+function readEvaluationSchemaSelection(value: unknown) {
+  const config = readPayloadRecord(value);
+  const selection: {
+    schemaKey?: string;
+    schemaVersionId?: string;
+  } = {};
+  const schemaKey = readOptionalString(config.schemaKey);
+  const schemaVersionId = readOptionalString(config.schemaVersionId);
+
+  if (schemaKey !== undefined) {
+    selection.schemaKey = schemaKey;
+  }
+  if (schemaVersionId !== undefined) {
+    selection.schemaVersionId = schemaVersionId;
+  }
+
+  return selection;
+}
+
+function withEvaluationSchemaSummary(
+  result: Awaited<ReturnType<typeof runEvaluation>>,
+  schemaResolution: NonNullable<ProductionSchemaResolution>
+): Awaited<ReturnType<typeof runEvaluation>> {
+  const schemaMetadata = {
+    schemaKey: schemaResolution.schemaKey,
+    schemaVersionId: schemaResolution.schemaVersionId ?? null,
+    schemaSource: schemaResolution.source
+  };
+
+  return {
+    ...result,
+    summary: {
+      ...result.summary,
+      ...schemaMetadata
+    },
+    metrics: {
+      ...result.metrics,
+      schemaKey: schemaMetadata.schemaKey,
+      schemaVersionId: schemaMetadata.schemaVersionId,
+      schemaSource: schemaMetadata.schemaSource
+    } as typeof result.metrics
+  };
+}
+
 function createProductionEvaluationRunner(input: {
   jobsRepository: ReturnType<typeof createJobsRepository>;
   resultsRepository: ReturnType<typeof createResultsRepository>;
+  schemaRepository: ProductionSchemaRepository;
   recognitionOrchestrator: JobOrchestrator;
   now: () => Date;
 }): ApiEvaluationRunner {
   return {
-    run(runInput) {
-      return runEvaluation({
+    async run(runInput) {
+      const schemaSelection = readEvaluationSchemaSelection(runInput.schemaConfig);
+      const schemaResolution = await resolveProductionRecognitionSchema({
+        schemaRepository: input.schemaRepository,
+        ...schemaSelection
+      });
+
+      if (!schemaResolution) {
+        const error = Object.assign(new Error("EVALUATION_SCHEMA_CONFIG_NOT_AVAILABLE"), {
+          code: "EVALUATION_SCHEMA_CONFIG_NOT_AVAILABLE"
+        });
+        throw error;
+      }
+
+      const result = await runEvaluation({
         dataset: runInput.dataset,
-        schemaConfig: limsClinicalInfoSchema,
+        schemaConfig: {
+          schemaKey: schemaResolution.schemaKey,
+          schemaVersionId: schemaResolution.schemaVersionId ?? null,
+          schemaSource: schemaResolution.source
+        },
         providerConfig: runInput.providerConfig,
         now: () => input.now().getTime(),
         recognition: async ({ sample }) => {
           const sampleInput = readPayloadRecord(sample.input);
           const sourceFileId = readOptionalString(sampleInput.fileId);
           const job = await input.jobsRepository.create({
-            schemaKey: limsClinicalInfoSchema.key,
+            schemaKey: schemaResolution.schemaKey,
+            schemaVersionId: schemaResolution.schemaVersionId ?? null,
             sourceFileId: sourceFileId ?? null,
             createdById: runInput.actor.actorUserId,
             providerConfig: runInput.providerConfig,
@@ -1335,6 +2599,8 @@ function createProductionEvaluationRunner(input: {
           });
           const result = await input.recognitionOrchestrator.start({
             jobId: job.id,
+            schemaKey: schemaResolution.schemaKey,
+            ...(schemaResolution.schemaVersionId !== undefined ? { schemaVersionId: schemaResolution.schemaVersionId } : {}),
             document: toEvaluationDocumentInput(sample)
           });
 
@@ -1355,6 +2621,8 @@ function createProductionEvaluationRunner(input: {
           };
         }
       });
+
+      return withEvaluationSchemaSummary(result, schemaResolution);
     }
   };
 }
@@ -1378,7 +2646,21 @@ export function createProductionApiServices(options: CreateProductionApiServices
   const writebackRepository = createWritebackRepository(prisma);
   const storageProvider = options.storageProvider ?? buildStorageProvider(options.env);
   const limsWritebackAdapter = options.limsWritebackAdapter ?? createConfiguredLimsWritebackAdapter(options.env);
-  const authService = createAuthService({
+  const sessionInvalidationStoreOptions: CreateProductionSessionInvalidationStoreOptions = {
+    env: options.sessionEnv ?? process.env,
+    now
+  };
+  if (options.sessionInvalidationRepository !== undefined) {
+    sessionInvalidationStoreOptions.repository = options.sessionInvalidationRepository;
+  }
+  if (options.sessionInvalidationDatabaseDelegate !== undefined) {
+    sessionInvalidationStoreOptions.databaseDelegate = options.sessionInvalidationDatabaseDelegate;
+  }
+  if (options.sessionInvalidationRedisClient !== undefined) {
+    sessionInvalidationStoreOptions.redisClient = options.sessionInvalidationRedisClient;
+  }
+  const sessionInvalidationStore = createProductionSessionInvalidationStore(sessionInvalidationStoreOptions);
+  const authServiceOptions: Parameters<typeof createAuthService>[0] = {
     userRepository,
     tokenRepository,
     jwtSigner: createSimpleJwtSigner({
@@ -1387,7 +2669,11 @@ export function createProductionApiServices(options: CreateProductionApiServices
       now
     }),
     now
-  });
+  };
+  if (sessionInvalidationStore !== undefined) {
+    authServiceOptions.sessionInvalidationStore = sessionInvalidationStore;
+  }
+  const authService = createAuthService(authServiceOptions);
   const schemaService = createSchemaService({
     repository: schemaRepository,
     validateSchema: validateCoreSchemaDraftInput,
@@ -1398,13 +2684,20 @@ export function createProductionApiServices(options: CreateProductionApiServices
     listActive: () => schemaRepository.listActive(),
     ...schemaService
   };
-  const productionWritebackExecutor = createProductionWritebackExecutor(options.env, writebackRepository, limsWritebackAdapter, now);
+  const productionWritebackExecutor = createProductionWritebackExecutor(
+    options.env,
+    writebackRepository,
+    limsWritebackAdapter,
+    now,
+    jobsRepository,
+    resultsRepository
+  );
   const modelProviderOptions = buildModelProviderOptions(options);
   const createProductionRecognitionOrchestrator = (schema: CoreSchemaDraft, providers: ProductionProviderRuntimeSelection = {}) =>
     createJobOrchestrator({
       repository: createPrismaJobTransitionRepository(jobsRepository, now),
       schema,
-      ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env),
+      ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env, modelProviderOptions),
       modelProvider: providers.modelProvider ?? buildModelProvider(options.env, modelProviderOptions),
       knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
       permissions: Object.values(PERMISSIONS),
@@ -1423,16 +2716,39 @@ export function createProductionApiServices(options: CreateProductionApiServices
     builtinOrchestrator: builtinRecognitionOrchestrator,
     createOrchestrator: createProductionRecognitionOrchestrator
   });
-  const evaluationRecognitionOrchestrator = createJobOrchestrator({
-    repository: createPrismaJobTransitionRepository(jobsRepository, now),
-    schema: limsClinicalInfoSchema,
-    ocrProvider: buildOcrProvider(options.env),
-    modelProvider: buildModelProvider(options.env, modelProviderOptions),
-    knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
-    permissions: Object.values(PERMISSIONS),
-    autoWritebackEnabled: false,
-    schemaActive: true
+  const createProductionEvaluationRecognitionOrchestrator = (
+    schema: CoreSchemaDraft,
+    providers: ProductionProviderRuntimeSelection = {}
+  ) =>
+    createJobOrchestrator({
+      repository: createPrismaJobTransitionRepository(jobsRepository, now),
+      schema,
+      ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env, modelProviderOptions),
+      modelProvider:
+        providers.modelProvider ??
+        buildModelProvider(options.env, modelProviderOptions),
+      knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
+      permissions: Object.values(PERMISSIONS),
+      autoWritebackEnabled: false,
+      schemaActive: true
+    });
+  const builtinEvaluationRecognitionOrchestrator = createProductionEvaluationRecognitionOrchestrator(limsClinicalInfoSchema);
+  const evaluationRecognitionOrchestrator = createProviderConfigAwareOrchestrator({
+    env: options.env,
+    schemaRepository,
+    providerRepository,
+    runtimeOptions: modelProviderOptions,
+    builtinOrchestrator: builtinEvaluationRecognitionOrchestrator,
+    createOrchestrator: createProductionEvaluationRecognitionOrchestrator
   });
+  const jobQueueAdapterOptions: CreateProductionJobQueueAdapterOptions = {
+    env: options.queueEnv ?? process.env,
+    now
+  };
+  if (options.redisQueueClient !== undefined) {
+    jobQueueAdapterOptions.redisClient = options.redisQueueClient;
+  }
+  const jobQueueExecutor = createProductionJobQueueAdapter(jobQueueAdapterOptions);
 
   const services = createApiServices({
     authService,
@@ -1451,21 +2767,32 @@ export function createProductionApiServices(options: CreateProductionApiServices
       evaluationRepository: createEvaluationRepository(prisma)
     },
     recognitionOrchestrator,
-    providerRegistry: createProviderRegistry(options.env, storageProvider, now, providerHealthFetch, providerRepository),
+    providerRegistry: createProviderRegistry(
+      options.env,
+      storageProvider,
+      now,
+      providerHealthFetch,
+      providerRepository,
+      modelProviderOptions.secretResolver
+    ),
     evaluationRunner: createProductionEvaluationRunner({
       jobsRepository,
       resultsRepository,
+      schemaRepository,
       recognitionOrchestrator: evaluationRecognitionOrchestrator,
       now
     }),
     storageProvider,
+    ...(jobQueueExecutor ? { jobQueueExecutor } : {}),
     now
   });
 
   return {
     ...services,
     writebackService: {
-      execute: productionWritebackExecutor,
+      async execute(input) {
+        return assertRouteResponseObject(await productionWritebackExecutor(input), "WRITEBACK_RESPONSE_INVALID");
+      },
       listEligible: (input) => services.writebackService.listEligible(input)
     }
   };
@@ -1475,13 +2802,45 @@ export function createProductionWritebackExecutor(
   env: ProductionEnv,
   repository = createWritebackRepository(new PrismaClient()),
   adapter = createConfiguredLimsWritebackAdapter(env),
-  now: () => Date = () => new Date()
+  now: () => Date = () => new Date(),
+  jobsRepository?: ReturnType<typeof createJobsRepository>,
+  resultsRepository?: ReturnType<typeof createResultsRepository>
 ) {
   return async (input: unknown) => {
     const body = readPayloadRecord(input);
     const jobId = readString(body.jobId, "unknown-job");
-    const readyFields = readReadyFields(body.fields);
-    const payload = readyFields.length > 0 ? buildGenericJsonPayload(readyFields) : readPayloadRecord(body.payload);
+    let readyFields: ReturnType<typeof readReadyFields> = [];
+
+    if (body.confirmed === true) {
+      if (!jobsRepository || !resultsRepository) {
+        throw createProductionWritebackError("WRITEBACK_SERVER_REPOSITORIES_NOT_CONFIGURED", 500);
+      }
+
+      const [job, result] = await Promise.all([
+        jobsRepository.findById(jobId),
+        resultsRepository.findByJobId(jobId)
+      ]);
+      readyFields = readReadyFieldsFromRecognitionResult(result);
+
+      if (!isServerReadyWritebackJob(job, result, readyFields)) {
+        throw createProductionWritebackError("WRITEBACK_NOT_READY", 409);
+      }
+
+      const attempts = await repository.listByJobId(jobId);
+      if (attempts.some(isBlockingProductionWritebackAttempt)) {
+        throw createProductionWritebackError("WRITEBACK_ALREADY_RUNNING_OR_COMPLETED", 409);
+      }
+    } else if (body.source === "server-workflow") {
+      readyFields = readReadyFields(body.fields);
+    } else {
+      throw createProductionWritebackError("WRITEBACK_REQUIRES_SERVER_WORKFLOW_SOURCE", 403);
+    }
+
+    if (readyFields.length === 0) {
+      throw createProductionWritebackError("WRITEBACK_NOT_READY", 409);
+    }
+
+    const payload = buildGenericJsonPayload(readyFields);
     const fields = readyFields.map((field) => ({
       sourceFieldKey: field.fieldKey,
       targetFieldKey: field.targetPath,
@@ -1499,7 +2858,7 @@ export function createProductionWritebackExecutor(
       id: attempt.id,
       recognitionResultId: jobId,
       limsSampleId: readString(body.limsSampleId, jobId),
-      requestedByUserId: readString(body.requestedByUserId, "system"),
+      requestedByUserId: readRequestedByUserId(body),
       requestedAt: now().toISOString(),
       fields,
       payload,

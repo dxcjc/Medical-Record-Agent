@@ -2,44 +2,50 @@ import type { FastifyInstance } from "fastify";
 
 import { PERMISSIONS } from "../auth/permissions";
 import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware";
+import {
+  type ApiRouteResponseObject,
+  assertRouteResponseObject,
+  assertRouteResponseObjectList,
+  compareSchemaVersionsQuerySchema,
+  publishSchemaDraftRouteInputSchema,
+  schemaDraftRouteInputSchema,
+  updateSchemaDraftRouteInputSchema,
+  type CreateSchemaDraftRouteInput,
+  type UpdateSchemaDraftRouteInput
+} from "./route-dtos";
 
 export interface SchemaRouteService {
-  listActive(): Promise<unknown[]>;
-  createDraft(input: {
-    schemaKey: string;
-    displayName: string;
-    definition: unknown;
+  listActive(): Promise<ApiRouteResponseObject[]>;
+  createDraft(input: CreateSchemaDraftRouteInput & {
     actor: AuthContext;
-  }): Promise<unknown>;
-  updateDraft(input: {
+  }): Promise<ApiRouteResponseObject>;
+  updateDraft(input: UpdateSchemaDraftRouteInput & {
     id: string;
-    definition: unknown;
     actor: AuthContext;
-  }): Promise<unknown>;
-  validateDraft(input: {
+  }): Promise<ApiRouteResponseObject>;
+  validateDraft(input: UpdateSchemaDraftRouteInput & {
     id: string;
-    definition: unknown;
     actor: AuthContext;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   publishDraft(input: {
     id: string;
     changelog: string;
     actor: AuthContext;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   deactivateVersion(input: {
     id: string;
     actor: AuthContext;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   rollbackVersion(input: {
     id: string;
     actor: AuthContext;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
   compareVersions(input: {
     schemaKey: string;
     leftVersionId: string;
     rightVersionId: string;
     actor: AuthContext;
-  }): Promise<unknown>;
+  }): Promise<ApiRouteResponseObject>;
 }
 
 export interface SchemaRoutesDependencies {
@@ -62,7 +68,10 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
     },
     async () => {
       return {
-        items: await dependencies.schemaService.listActive()
+        items: assertRouteResponseObjectList(
+          await dependencies.schemaService.listActive(),
+          "SCHEMA_LIST_RESPONSE_INVALID"
+        )
       };
     }
   );
@@ -76,15 +85,22 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
       ]
     },
     async (request, reply) => {
-      const body = request.body as { schemaKey?: string; displayName?: string; definition?: unknown };
+      const parsed = schemaDraftRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid schema draft payload"
+        });
+      }
+
       const draft = await dependencies.schemaService.createDraft({
-        schemaKey: body.schemaKey ?? "",
-        displayName: body.displayName ?? "",
-        definition: body.definition,
+        ...parsed.data,
         actor: request.auth as AuthContext
       });
 
-      return reply.status(201).send({ draft });
+      return reply.status(201).send({
+        draft: assertRouteResponseObject(draft, "SCHEMA_DRAFT_RESPONSE_INVALID")
+      });
     }
   );
 
@@ -96,16 +112,25 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
         dependencies.authHooks.requirePermission(PERMISSIONS.schemaDraft)
       ]
     },
-    async (request) => {
+    async (request, reply) => {
       const params = request.params as { id: string };
-      const body = request.body as { definition?: unknown };
+      const parsed = updateSchemaDraftRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid schema draft update payload"
+        });
+      }
+
       const draft = await dependencies.schemaService.updateDraft({
         id: params.id,
-        definition: body.definition,
+        ...parsed.data,
         actor: request.auth as AuthContext
       });
 
-      return { draft };
+      return {
+        draft: assertRouteResponseObject(draft, "SCHEMA_DRAFT_RESPONSE_INVALID")
+      };
     }
   );
 
@@ -117,16 +142,25 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
         dependencies.authHooks.requirePermission(PERMISSIONS.schemaDraft)
       ]
     },
-    async (request) => {
+    async (request, reply) => {
       const params = request.params as { id: string };
-      const body = request.body as { definition?: unknown };
+      const parsed = updateSchemaDraftRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid schema validation payload"
+        });
+      }
+
       const validation = await dependencies.schemaService.validateDraft({
         id: params.id,
-        definition: body.definition,
+        ...parsed.data,
         actor: request.auth as AuthContext
       });
 
-      return { validation };
+      return {
+        validation: assertRouteResponseObject(validation, "SCHEMA_VALIDATION_RESPONSE_INVALID")
+      };
     }
   );
 
@@ -140,14 +174,23 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
     },
     async (request, reply) => {
       const params = request.params as { id: string };
-      const body = request.body as { changelog?: string };
+      const parsed = publishSchemaDraftRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid schema publish payload"
+        });
+      }
+
       const version = await dependencies.schemaService.publishDraft({
         id: params.id,
-        changelog: body.changelog ?? "",
+        changelog: parsed.data.changelog ?? "",
         actor: request.auth as AuthContext
       });
 
-      return reply.status(201).send({ version });
+      return reply.status(201).send({
+        version: assertRouteResponseObject(version, "SCHEMA_VERSION_RESPONSE_INVALID")
+      });
     }
   );
 
@@ -166,7 +209,9 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
         actor: request.auth as AuthContext
       });
 
-      return { version };
+      return {
+        version: assertRouteResponseObject(version, "SCHEMA_VERSION_RESPONSE_INVALID")
+      };
     }
   );
 
@@ -185,7 +230,9 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
         actor: request.auth as AuthContext
       });
 
-      return { version };
+      return {
+        version: assertRouteResponseObject(version, "SCHEMA_VERSION_RESPONSE_INVALID")
+      };
     }
   );
 
@@ -197,17 +244,26 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
         dependencies.authHooks.requirePermission(PERMISSIONS.schemaDraft)
       ]
     },
-    async (request) => {
+    async (request, reply) => {
       const params = request.params as { schemaKey: string };
-      const query = request.query as { left?: string; right?: string };
+      const parsed = compareSchemaVersionsQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid schema compare query"
+        });
+      }
+
       const comparison = await dependencies.schemaService.compareVersions({
         schemaKey: params.schemaKey,
-        leftVersionId: query.left ?? "",
-        rightVersionId: query.right ?? "",
+        leftVersionId: parsed.data.left,
+        rightVersionId: parsed.data.right,
         actor: request.auth as AuthContext
       });
 
-      return { comparison };
+      return {
+        comparison: assertRouteResponseObject(comparison, "SCHEMA_COMPARE_RESPONSE_INVALID")
+      };
     }
   );
 }

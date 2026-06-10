@@ -431,6 +431,7 @@ describe("domain repositories", () => {
       error: {
         code: "NONE"
       },
+      schemaVersionId: "schema-version-002",
       completedAt: new Date("2026-06-04T15:30:00.000Z")
     });
     expect(evaluationRun.update).toHaveBeenCalledWith({
@@ -443,6 +444,11 @@ describe("domain repositories", () => {
         completedAt: new Date("2026-06-04T15:30:00.000Z"),
         error: {
           code: "NONE"
+        },
+        schemaVersion: {
+          connect: {
+            id: "schema-version-002"
+          }
         }
       }
     });

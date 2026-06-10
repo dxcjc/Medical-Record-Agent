@@ -191,4 +191,88 @@ describe("schema routes", () => {
     expect(response.statusCode).toBe(403);
     expect(schemaService.publishDraft).not.toHaveBeenCalled();
   });
+
+  it("创建草稿只把 schema DTO 允许字段交给 service，剥离客户端伪造 actor/status 字段", async () => {
+    const schemaService = createSchemaService();
+    const { server, context } = await createServer(schemaService, ["schema:draft"]);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/schemas/drafts",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        schemaKey: "lims-clinical-info",
+        displayName: "LIMS 临床信息",
+        definition: {
+          key: "lims-clinical-info"
+        },
+        actor: {
+          actorUserId: "client-spoof"
+        },
+        status: "published",
+        createdById: "client-spoof"
+      }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(schemaService.createDraft).toHaveBeenCalledWith({
+      schemaKey: "lims-clinical-info",
+      displayName: "LIMS 临床信息",
+      definition: {
+        key: "lims-clinical-info"
+      },
+      actor: context
+    });
+  });
+
+  it("schema 草稿非法 DTO 返回 400 且不调用 service", async () => {
+    const schemaService = createSchemaService();
+    const { server } = await createServer(schemaService, ["schema:draft"]);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/schemas/drafts",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        schemaKey: "",
+        displayName: "",
+        definition: "not-object"
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "BAD_REQUEST",
+      message: "Invalid schema draft payload"
+    });
+    expect(schemaService.createDraft).not.toHaveBeenCalled();
+  });
+
+  it("schema 路由拒绝 service 返回 scalar 被包装成成功响应", async () => {
+    const schemaService = createSchemaService();
+    vi.mocked(schemaService.listActive).mockResolvedValueOnce(["not-object"] as unknown as Awaited<
+      ReturnType<SchemaRouteService["listActive"]>
+    >);
+    vi.mocked(schemaService.publishDraft).mockResolvedValueOnce("not-object" as unknown as Awaited<
+      ReturnType<SchemaRouteService["publishDraft"]>
+    >);
+    const { server } = await createServer(schemaService, ["schema:read", "schema:publish"]);
+
+    const listResponse = await server.inject({
+      method: "GET",
+      url: "/schemas",
+      headers: { authorization: "Bearer valid-jwt" }
+    });
+    const publishResponse = await server.inject({
+      method: "POST",
+      url: "/schemas/drafts/draft-001/publish",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        changelog: "release"
+      }
+    });
+
+    expect(listResponse.statusCode).toBe(500);
+    expect(publishResponse.statusCode).toBe(500);
+  });
 });

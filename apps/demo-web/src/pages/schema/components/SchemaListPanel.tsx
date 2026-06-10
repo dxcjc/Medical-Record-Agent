@@ -1,3 +1,5 @@
+import { Button, Card, Table, Tag } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
 import { AppIcon, navigationIcons } from "../../../icons/appIcons";
 import type { SchemaRecord } from "./schemaStudioData";
 
@@ -12,8 +14,30 @@ export function SchemaListPanel({
   selectedSchemaId,
   onSelectSchema
 }: SchemaListPanelProps) {
+  const columns: TableColumnProps<SchemaRecord>[] = [
+    {
+      title: "名称",
+      dataIndex: "name",
+      render: (_, schema) => {
+        const isSelected = schema.id === selectedSchemaId;
+        return (
+          <Button type={isSelected ? "primary" : "outline"} onClick={() => onSelectSchema(schema.id)} aria-pressed={isSelected}>
+            {schema.name}
+          </Button>
+        );
+      },
+    },
+    {
+      title: "业务域",
+      dataIndex: "domain",
+      render: (_, schema) => <Tag color="arcoblue">{schema.domain}</Tag>,
+    },
+    { title: "生产版本", dataIndex: "activeVersion" },
+    { title: "责任组", dataIndex: "owner" },
+  ];
+
   return (
-    <section className="panel studio-panel" aria-labelledby="schema-list-title" data-guide="schema-selection">
+    <Card className="panel studio-panel" aria-labelledby="schema-list-title" data-guide="schema-selection">
       <div className="toolbar">
         <div>
           <h2 id="schema-list-title">Schema 列表</h2>
@@ -23,40 +47,8 @@ export function SchemaListPanel({
       </div>
 
       <div className="table-scroll">
-        <table className="data-table arco-table">
-          <thead>
-            <tr>
-              <th scope="col">名称</th>
-              <th scope="col">业务域</th>
-              <th scope="col">生产版本</th>
-              <th scope="col">责任组</th>
-            </tr>
-          </thead>
-          <tbody>
-            {schemas.map((schema) => {
-              const isSelected = schema.id === selectedSchemaId;
-
-              return (
-                <tr className={isSelected ? "is-selected" : undefined} key={schema.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className={isSelected ? "action-button" : "secondary-button"}
-                      onClick={() => onSelectSchema(schema.id)}
-                      aria-pressed={isSelected}
-                    >
-                      {schema.name}
-                    </button>
-                  </td>
-                  <td><span className="status-pill status-pill--info">{schema.domain}</span></td>
-                  <td className="mono">{schema.activeVersion}</td>
-                  <td>{schema.owner}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <Table columns={columns} data={schemas} rowKey="id" pagination={false} scroll={{ x: 720 }} />
       </div>
-    </section>
+    </Card>
   );
 }

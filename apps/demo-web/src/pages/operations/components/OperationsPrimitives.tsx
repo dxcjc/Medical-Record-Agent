@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Alert, Button, Card, Input, Modal, Space, Tag, Timeline as ArcoTimeline } from "@arco-design/web-react";
 import { AppIcon, actionIcons, commonUiIcons, statusIcons } from "../../../icons/appIcons";
 
 export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral";
@@ -7,18 +8,20 @@ type SectionHeaderProps = {
   eyebrow?: string;
   title: string;
   description: string;
+  meta?: ReactNode;
   actions?: ReactNode;
 };
 
-export function SectionHeader({ eyebrow, title, description, actions }: SectionHeaderProps) {
+export function SectionHeader({ eyebrow, title, description, meta, actions }: SectionHeaderProps) {
   return (
     <header className="page-header">
       <div>
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>
         <p>{description}</p>
+        {meta}
       </div>
-      {actions ? <div className="toolbar">{actions}</div> : null}
+      {actions ? <div className="page-header__actions u-cluster">{actions}</div> : null}
     </header>
   );
 }
@@ -32,11 +35,11 @@ type MetricCardProps = {
 
 export function MetricCard({ label, value, hint, tone = "neutral" }: MetricCardProps) {
   return (
-    <article className={`metric-card metric-card--${tone}`}>
+    <Card className={`metric-card metric-card--${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{hint}</small>
-    </article>
+    </Card>
   );
 }
 
@@ -54,11 +57,19 @@ const statusIconMap: Record<StatusTone, ReactNode> = {
 };
 
 export function StatusPill({ tone, children }: StatusPillProps) {
+  const colorMap: Record<StatusTone, string> = {
+    success: "green",
+    warning: "orange",
+    danger: "red",
+    info: "arcoblue",
+    neutral: "gray",
+  };
+
   return (
-    <span className={`status-pill status-pill--${tone}`}>
+    <Tag color={colorMap[tone]} className={`status-pill status-pill--${tone}`}>
       {statusIconMap[tone]}
       {children}
-    </span>
+    </Tag>
   );
 }
 
@@ -81,30 +92,18 @@ export function ConfirmDialog({
   onCancel,
   onConfirm
 }: ConfirmDialogProps) {
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="panel confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-        <div className="confirm-dialog__header">
-          <h2 id="confirm-title">{title}</h2>
-          <button className="icon-button" type="button" aria-label="关闭确认弹窗" onClick={onCancel}>
-            <AppIcon icon={commonUiIcons.close} size="md" />
-          </button>
-        </div>
-        <p>{description}</p>
-        <div className="toolbar">
-          <button className="secondary-button" type="button" onClick={onCancel}>
-            取消
-          </button>
-          <button className={danger ? "danger-button" : "action-button"} type="button" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
-      </section>
-    </div>
+    <Modal
+      visible={open}
+      title={title}
+      okText={confirmLabel}
+      cancelText="取消"
+      {...(danger ? { okButtonProps: { status: "danger" as const } } : {})}
+      onCancel={onCancel}
+      onOk={onConfirm}
+    >
+      <p>{description}</p>
+    </Modal>
   );
 }
 
@@ -115,12 +114,12 @@ type PayloadPreviewProps = {
 
 export function PayloadPreview({ title, payload }: PayloadPreviewProps) {
   return (
-    <section className="panel">
+    <Card className="panel">
       <div className="panel-header">
         <h2>{title}</h2>
       </div>
       <pre className="payload-preview">{JSON.stringify(payload, null, 2)}</pre>
-    </section>
+    </Card>
   );
 }
 
@@ -137,15 +136,15 @@ export function SecretField({ label, value, visible, onToggle, onChange }: Secre
     <label className="secret-field">
       <span>{label}</span>
       <div>
-        <input
+        <Input
           type={visible ? "text" : "password"}
           value={value}
           autoComplete="off"
-          onChange={(event) => onChange(event.target.value)}
+          onChange={onChange}
         />
-        <button className="icon-button" type="button" aria-label={visible ? "隐藏密钥" : "显示密钥"} onClick={onToggle}>
+        <Button type="text" icon={<AppIcon icon={visible ? statusIcons.neutral : actionIcons.privacyPolicy} size="sm" />} aria-label={visible ? "隐藏密钥" : "显示密钥"} onClick={onToggle}>
           <AppIcon icon={visible ? statusIcons.neutral : actionIcons.privacyPolicy} size="sm" />
-        </button>
+        </Button>
       </div>
     </label>
   );
@@ -164,17 +163,16 @@ type TimelineProps = {
 
 export function Timeline({ items }: TimelineProps) {
   return (
-    <ol className="timeline">
+    <ArcoTimeline className="timeline">
       {items.map((item) => (
-        <li key={`${item.title}-${item.meta}`} className={`timeline__item timeline__item--${item.tone ?? "neutral"}`}>
-          <div>
+        <ArcoTimeline.Item key={`${item.title}-${item.meta}`} label={item.meta}>
+          <div className={`timeline__item timeline__item--${item.tone ?? "neutral"}`}>
             <strong>{item.title}</strong>
-            <span>{item.meta}</span>
+            <p>{item.detail}</p>
           </div>
-          <p>{item.detail}</p>
-        </li>
+        </ArcoTimeline.Item>
       ))}
-    </ol>
+    </ArcoTimeline>
   );
 }
 
@@ -185,11 +183,10 @@ type InlineNoticeProps = {
 };
 
 export function InlineNotice({ tone, title, children }: InlineNoticeProps) {
+  const alertType = tone === "warning" ? "warning" : tone === "success" ? "success" : "info";
+
   return (
-    <aside className={`warning-box warning-box--${tone}`}>
-      <strong>{title}</strong>
-      <p>{children}</p>
-    </aside>
+    <Alert className={`warning-box warning-box--${tone}`} type={alertType} showIcon title={title} content={children} />
   );
 }
 
@@ -202,15 +199,16 @@ type RowActionButtonProps = {
 
 export function RowActionButton({ disabled = false, title, children, onClick }: RowActionButtonProps) {
   return (
-    <button
-      className="action-button action-button--compact"
-      type="button"
+    <Button
+      type="primary"
       disabled={disabled}
       title={title}
       onClick={onClick}
     >
-      {children}
-      <AppIcon icon={commonUiIcons.arrowRight} size="sm" />
-    </button>
+      <Space size={6}>
+        {children}
+        <AppIcon icon={commonUiIcons.arrowRight} size="sm" />
+      </Space>
+    </Button>
   );
 }

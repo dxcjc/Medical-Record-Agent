@@ -157,6 +157,7 @@ describe("evaluation routes", () => {
       payload: {
         datasetId: "dataset-001",
         schemaKey: "custom-clinical-schema",
+        schemaVersionId: "schema-version-custom-002",
         providerKey: "openai",
         sampleLimit: 5
       }
@@ -166,6 +167,7 @@ describe("evaluation routes", () => {
     expect(evaluationService.createRun).toHaveBeenCalledWith({
       datasetId: "dataset-001",
       schemaKey: "custom-clinical-schema",
+      schemaVersionId: "schema-version-custom-002",
       providerKey: "openai",
       sampleLimit: 5,
       actor: context
@@ -370,6 +372,112 @@ describe("evaluation routes", () => {
     });
   });
 
+  it("POST /evaluations/datasets/:id/samples 拒绝空样本数组和非对象样本", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      importSamples: vi.fn()
+    });
+    const server = await createServer(authService, evaluationService);
+
+    const emptyResponse = await server.inject({
+      method: "POST",
+      url: "/evaluations/datasets/dataset-001/samples",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        samples: []
+      }
+    });
+    const scalarResponse = await server.inject({
+      method: "POST",
+      url: "/evaluations/datasets/dataset-001/samples",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        samples: ["not-an-object"]
+      }
+    });
+
+    expect(emptyResponse.statusCode).toBe(400);
+    expect(scalarResponse.statusCode).toBe(400);
+    expect(evaluationService.importSamples).not.toHaveBeenCalled();
+  });
+
+  it("POST /evaluations/datasets/:id/samples 剥离样本外层未知字段后交给 service", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      importSamples: vi.fn(async () => [])
+    });
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/evaluations/datasets/dataset-001/samples",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        samples: [
+          {
+            externalId: "synthetic-001",
+            fileId: "file-001",
+            recognitionJobId: "job-001",
+            metadata: {
+              sourceType: "synthetic"
+            },
+            input: {
+              text: "病历摘要"
+            },
+            groundTruth: [
+              {
+                fieldKey: "clinicalDiagnosis",
+                value: "肺腺癌"
+              }
+            ],
+            adminOverride: true
+          }
+        ]
+      }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(evaluationService.importSamples).toHaveBeenCalledWith({
+      datasetId: "dataset-001",
+      actor: context,
+      samples: [
+        {
+          externalId: "synthetic-001",
+          fileId: "file-001",
+          recognitionJobId: "job-001",
+          metadata: {
+            sourceType: "synthetic"
+          },
+          input: {
+            text: "病历摘要"
+          },
+          groundTruth: [
+            {
+              fieldKey: "clinicalDiagnosis",
+              value: "肺腺癌"
+            }
+          ]
+        }
+      ]
+    });
+  });
+
   it("GET /evaluations/runs 支持按 dataset 查询评估运行列表", async () => {
     const context = createAuthorizedContext();
     const authService: AuthLayerService = {
@@ -452,5 +560,231 @@ describe("evaluation routes", () => {
         }
       ]
     });
+  });
+
+  it("GET /evaluations/datasets 拒绝非对象列表项 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      listDatasets: vi.fn(async () => ["not-object"])
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/evaluations/datasets",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_DATASET_LIST_RESPONSE_INVALID",
+        message: "EVALUATION_DATASET_LIST_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("POST /evaluations/datasets 拒绝非对象 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      createDataset: vi.fn(async () => "not-object")
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/evaluations/datasets",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        key: "lims-ci-v1",
+        displayName: "LIMS 合成评估集",
+        deidentified: true
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_DATASET_RESPONSE_INVALID",
+        message: "EVALUATION_DATASET_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("POST /evaluations/datasets/:id/samples 拒绝非对象列表项 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      importSamples: vi.fn(async () => ["not-object"])
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/evaluations/datasets/dataset-001/samples",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        samples: [
+          {
+            externalId: "synthetic-001"
+          }
+        ]
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_SAMPLE_IMPORT_RESPONSE_INVALID",
+        message: "EVALUATION_SAMPLE_IMPORT_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("GET /evaluations/runs 拒绝非对象列表项 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      listRuns: vi.fn(async () => ["not-object"])
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/evaluations/runs",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_RUN_LIST_RESPONSE_INVALID",
+        message: "EVALUATION_RUN_LIST_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("POST /evaluations/runs 拒绝非对象 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      createRun: vi.fn(async () => "not-object")
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/evaluations/runs",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      },
+      payload: {
+        datasetId: "dataset-001",
+        providerKey: "openai"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_RUN_RESPONSE_INVALID",
+        message: "EVALUATION_RUN_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("GET /evaluations/runs/:id 拒绝非对象 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      getRun: vi.fn(async () => "not-object")
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/evaluations/runs/run-001",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_RUN_RESPONSE_INVALID",
+        message: "EVALUATION_RUN_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("GET /evaluations/runs/:id/metrics 拒绝非对象列表项 service 响应", async () => {
+    const context = createAuthorizedContext();
+    const authService: AuthLayerService = {
+      authenticateJwt: vi.fn(async () => context),
+      authenticateApiToken: vi.fn(),
+      requirePermission: vi.fn()
+    };
+    const evaluationService = createEvaluationService({
+      listRunMetrics: vi.fn(async () => ["not-object"])
+    } as unknown as Partial<EvaluationRouteService>);
+    const server = await createServer(authService, evaluationService);
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/evaluations/runs/run-001/metrics",
+      headers: {
+        authorization: "Bearer valid-jwt"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "EVALUATION_METRIC_LIST_RESPONSE_INVALID",
+        message: "EVALUATION_METRIC_LIST_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
   });
 });

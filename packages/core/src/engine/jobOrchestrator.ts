@@ -41,6 +41,7 @@ export interface InMemoryJobRepository extends JobRepository {
 export interface WritebackExecutionInput {
   jobId: string;
   fields: WritebackReadyField[];
+  source: "server-workflow";
 }
 
 export interface WritebackExecutionResult {

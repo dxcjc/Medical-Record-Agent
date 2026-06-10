@@ -1,5 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Alert, Button, Card, Form, Input, Select, Space, Table } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
 import { useNavigate, useParams } from "react-router-dom";
+import type { CreateFeedbackInput } from "../../api/client";
+import {
+  normalizeRecognitionDetail,
+  type RecognitionDetailState
+} from "../../api/normalizers";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
 import {
   decisionCards,
@@ -41,366 +48,21 @@ const initialFeedback: FeedbackState = {
 type LoadState = "idle" | "loading" | "success" | "error";
 type SubmitState = "idle" | "loading" | "success" | "error";
 
-type ApiDetailState = {
-  jobId?: string;
-  sourceFileId?: string;
-  ocrText?: string;
-  fields?: FieldCandidate[];
-  evidence?: EvidenceItem[];
-  trace?: TraceStep[];
-  payload?: unknown;
-};
-
 type DocumentPreviewState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "success"; url: string; fileName: string; mimeType: string }
   | { status: "error"; message: string };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+type DemoModeEnv = {
+  readonly [key: string]: string | boolean | undefined;
+};
+
+export function isExplicitDemoMode(env: DemoModeEnv = import.meta.env) {
+  return env.VITE_DEMO_MODE === "true";
 }
 
-function readString(record: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-function readNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-function readDisplayValue(record: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return String(value);
-    }
-
-    if (typeof value === "boolean") {
-      return value ? "是" : "否";
-    }
-
-    if (Array.isArray(value) && value.length > 0) {
-      return value
-        .map((item) => {
-          if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
-            return String(item);
-          }
-
-          return undefined;
-        })
-        .filter((item): item is string => Boolean(item))
-        .join("、");
-    }
-  }
-
-  return undefined;
-}
-
-function readArray(value: unknown): unknown[] | undefined {
-  return Array.isArray(value) ? value : undefined;
-}
-
-function readFirstRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined;
-}
-
-function normalizeDecision(value: unknown, confidence: number): FieldCandidate["decision"] {
-  if (value === "green" || value === "accepted") {
-    return "green";
-  }
-
-  if (value === "red" || value === "rejected" || value === "blocked") {
-    return "red";
-  }
-
-  if (value === "yellow" || value === "needs_review") {
-    return "yellow";
-  }
-
-  if (confidence >= 0.9) {
-    return "green";
-  }
-
-  return confidence >= 0.75 ? "yellow" : "red";
-}
-
-function normalizeTraceStatus(value: unknown): TraceStep["status"] {
-  return value === "done" || value === "active" || value === "blocked" ? value : "done";
-}
-
-function findFirstArray(record: Record<string, unknown>, keys: string[]): unknown[] | undefined {
-  for (const key of keys) {
-    const value = readArray(record[key]);
-    if (value && value.length > 0) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-function findCandidateItems(result: Record<string, unknown>): unknown[] | undefined {
-  const payload = readFirstRecord(result.payload);
-  const extraction = readFirstRecord(result.extraction);
-  const payloadExtraction = readFirstRecord(payload?.extraction);
-
-  // 后端可能返回数据库 result.fields，也可能直接返回 core RecognitionResult.fieldCandidates。
-  // 这里把几种真实链路的候选数组统一成一个来源，避免页面只认识静态 demo 的字段形状。
-  return (
-    findFirstArray(result, ["fields", "fieldCandidates", "candidates"]) ??
-    (extraction ? findFirstArray(extraction, ["fields", "fieldCandidates", "candidates"]) : undefined) ??
-    (payload ? findFirstArray(payload, ["fields", "fieldCandidates", "candidates"]) : undefined) ??
-    (payloadExtraction ? findFirstArray(payloadExtraction, ["fields", "fieldCandidates", "candidates"]) : undefined)
-  );
-}
-
-function readCandidateEvidence(item: Record<string, unknown>): Record<string, unknown>[] {
-  const evidence = readArray(item.evidence) ?? [];
-  return evidence.filter((entry): entry is Record<string, unknown> => isRecord(entry));
-}
-
-function formatEvidenceSource(evidence: Record<string, unknown> | undefined): string | undefined {
-  if (!evidence) {
-    return undefined;
-  }
-
-  const page = readNumber(evidence, ["page", "pageNumber"]);
-  const blockId = readString(evidence, ["ocrBlockId", "blockId", "id"]);
-
-  if (page !== undefined && blockId) {
-    return `第 ${page} 页 ${blockId}`;
-  }
-
-  if (page !== undefined) {
-    return `第 ${page} 页`;
-  }
-
-  return blockId;
-}
-
-function parseFieldCandidates(result: unknown): FieldCandidate[] | undefined {
-  if (!isRecord(result)) {
-    return undefined;
-  }
-
-  const sourceItems = findCandidateItems(result);
-
-  const parsed = sourceItems
-    ?.map((item): FieldCandidate | null => {
-      if (!isRecord(item)) {
-        return null;
-      }
-
-      const field = readString(item, ["field", "name", "label", "fieldKey"]);
-      const value = readDisplayValue(item, ["value", "candidateValue", "text", "rawValue"]);
-
-      if (!field || !value) {
-        return null;
-      }
-
-      const confidence = readNumber(item, ["confidence", "score"]) ?? 0;
-      const firstEvidence = readCandidateEvidence(item)[0];
-
-      return {
-        field,
-        value,
-        confidence,
-        source: readString(item, ["source", "evidenceSource", "location"]) ?? formatEvidenceSource(firstEvidence) ?? "真实接口返回",
-        decision: normalizeDecision(item.decision, confidence),
-      };
-    })
-    .filter((item): item is FieldCandidate => Boolean(item));
-
-  return parsed && parsed.length > 0 ? parsed : undefined;
-}
-
-function parseNestedEvidenceItems(result: Record<string, unknown>): EvidenceItem[] | undefined {
-  const candidates = findCandidateItems(result);
-  const parsed = candidates
-    ?.flatMap((candidate, candidateIndex): EvidenceItem[] => {
-      if (!isRecord(candidate)) {
-        return [];
-      }
-
-      const field = readString(candidate, ["field", "fieldName", "label", "fieldKey"]);
-      if (!field) {
-        return [];
-      }
-
-      const candidateConfidence = readNumber(candidate, ["confidence", "score"]) ?? 0;
-      return readCandidateEvidence(candidate)
-        .map((item, evidenceIndex): EvidenceItem | null => {
-          const quote = readString(item, ["quote", "text", "snippet"]);
-          if (!quote) {
-            return null;
-          }
-
-          return {
-            id: readString(item, ["id", "evidenceId", "ocrBlockId", "blockId"]) ?? `API-E-${candidateIndex + 1}-${evidenceIndex + 1}`,
-            field,
-            quote,
-            page: readNumber(item, ["page", "pageNumber"]) ?? 1,
-            confidence: readNumber(item, ["confidence", "score"]) ?? candidateConfidence,
-          };
-        })
-        .filter((item): item is EvidenceItem => Boolean(item));
-    });
-
-  return parsed && parsed.length > 0 ? parsed : undefined;
-}
-
-function parseEvidenceItems(result: unknown): EvidenceItem[] | undefined {
-  if (!isRecord(result)) {
-    return undefined;
-  }
-
-  const sourceItems =
-    findFirstArray(result, ["evidence", "evidenceItems"]) ??
-    (isRecord(result.payload) ? findFirstArray(result.payload, ["evidence", "evidenceItems"]) : undefined);
-
-  const parsed = sourceItems
-    ?.map((item, index): EvidenceItem | null => {
-      if (!isRecord(item)) {
-        return null;
-      }
-
-      const field = readString(item, ["field", "fieldName", "label", "fieldKey"]);
-      const quote = readString(item, ["quote", "text", "snippet"]);
-
-      if (!field || !quote) {
-        return null;
-      }
-
-      return {
-        id: readString(item, ["id", "evidenceId"]) ?? `API-E-${index + 1}`,
-        field,
-        quote,
-        page: readNumber(item, ["page", "pageNumber"]) ?? 1,
-        confidence: readNumber(item, ["confidence", "score"]) ?? 0,
-      };
-    })
-    .filter((item): item is EvidenceItem => Boolean(item));
-
-  if (parsed && parsed.length > 0) {
-    return parsed;
-  }
-
-  return parseNestedEvidenceItems(result);
-}
-
-function parseTraceSteps(result: unknown): TraceStep[] | undefined {
-  if (!isRecord(result)) {
-    return undefined;
-  }
-
-  const sourceItems =
-    findFirstArray(result, ["trace", "traceSteps", "steps"]) ??
-    (isRecord(result.payload) ? findFirstArray(result.payload, ["trace", "traceSteps", "steps"]) : undefined);
-
-  const parsed = sourceItems
-    ?.map((item, index): TraceStep | null => {
-      if (!isRecord(item)) {
-        return null;
-      }
-
-      const node = readString(item, ["node", "name", "step"]);
-
-      if (!node) {
-        return null;
-      }
-
-      return {
-        id: readString(item, ["id", "traceId"]) ?? `API-T-${index + 1}`,
-        node,
-        status: normalizeTraceStatus(item.status),
-        durationMs: readNumber(item, ["durationMs", "duration", "elapsedMs"]) ?? 0,
-        detail: readString(item, ["detail", "message", "description"]) ?? "真实接口返回的流程节点。",
-      };
-    })
-    .filter((item): item is TraceStep => Boolean(item));
-
-  return parsed && parsed.length > 0 ? parsed : undefined;
-}
-
-function parseOcrText(result: unknown): string | undefined {
-  if (!isRecord(result)) {
-    return undefined;
-  }
-
-  const directText = readString(result, ["ocrText", "text", "rawText"]);
-  if (directText) {
-    return directText;
-  }
-
-  if (isRecord(result.payload)) {
-    return readString(result.payload, ["ocrText", "text", "rawText"]);
-  }
-
-  return undefined;
-}
-
-export function parseApiDetail(job: unknown, result: unknown): ApiDetailState {
-  const jobRecord = isRecord(job) ? job : undefined;
-  const resultRecord = isRecord(result) ? result : undefined;
-  const detail: ApiDetailState = {};
-  const jobId = jobRecord ? readString(jobRecord, ["id", "jobId"]) : undefined;
-  const sourceFileId = jobRecord ? readString(jobRecord, ["sourceFileId", "fileId"]) : undefined;
-  const ocrText = parseOcrText(result);
-  const fields = parseFieldCandidates(result);
-  const evidence = parseEvidenceItems(result);
-  const trace = parseTraceSteps(result);
-  const payload = resultRecord && "payload" in resultRecord ? resultRecord.payload : undefined;
-
-  // 后端当前仍可能调整返回结构，所以这里只做宽松读取；读不到的部分继续使用静态 demo 数据兜底。
-  if (jobId) {
-    detail.jobId = jobId;
-  }
-
-  if (sourceFileId) {
-    detail.sourceFileId = sourceFileId;
-  }
-
-  if (ocrText) {
-    detail.ocrText = ocrText;
-  }
-
-  if (fields) {
-    detail.fields = fields;
-  }
-
-  if (evidence) {
-    detail.evidence = evidence;
-  }
-
-  if (trace) {
-    detail.trace = trace;
-  }
-
-  if (payload !== undefined) {
-    detail.payload = payload;
-  }
-
-  return detail;
-}
+export const parseApiDetail = normalizeRecognitionDetail;
 
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -413,14 +75,32 @@ export default function JobDetailPage() {
   const [submitError, setSubmitError] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [loadError, setLoadError] = useState("");
-  const [apiDetail, setApiDetail] = useState<ApiDetailState>({});
+  const [apiDetail, setApiDetail] = useState<RecognitionDetailState>({});
   const [documentPreview, setDocumentPreview] = useState<DocumentPreviewState>({ status: "idle" });
+  const demoMode = isExplicitDemoMode();
   const routeJobId = jobId ?? "demo";
   const displayJobId = apiDetail.jobId ?? routeJobId;
-  const displayFields = apiDetail.fields ?? fieldCandidates;
-  const displayEvidenceItems = apiDetail.evidence ?? evidenceItems;
-  const displayTraceSteps = apiDetail.trace ?? traceSteps;
-  const displayPayload = apiDetail.payload ?? { ...payloadPreview, jobId: displayJobId };
+  const showDemoData = demoMode && routeJobId === "demo";
+  const displayFields = apiDetail.fields ?? (showDemoData ? fieldCandidates : []);
+  const displayEvidenceItems = apiDetail.evidence ?? (showDemoData ? evidenceItems : []);
+  const displayTraceSteps = apiDetail.trace ?? (showDemoData ? traceSteps : []);
+  const displayPayload = apiDetail.payload ?? (showDemoData ? { ...payloadPreview, jobId: displayJobId } : {});
+  const displayOcrText = apiDetail.ocrText ?? (showDemoData ? demoOcrText : "");
+  const fieldColumns: TableColumnProps<FieldCandidate>[] = [
+    { title: "字段", dataIndex: "field" },
+    { title: "候选值", dataIndex: "value" },
+    {
+      title: "置信度",
+      dataIndex: "confidence",
+      render: (_, candidate) => formatPercent(candidate.confidence),
+    },
+    { title: "来源", dataIndex: "source" },
+    {
+      title: "自动决策",
+      dataIndex: "decision",
+      render: (_, candidate) => <DecisionPill decision={candidate.decision} />,
+    },
+  ];
 
   useEffect(() => {
     if (routeJobId === "demo") {
@@ -452,7 +132,7 @@ export default function JobDetailPage() {
 
         setApiDetail({});
         setLoadState("error");
-        setLoadError(error instanceof Error ? error.message : "真实接口暂不可用，已展示 demo 兜底数据。");
+        setLoadError(error instanceof Error ? error.message : "真实接口暂不可用，请稍后重试。");
       }
     }
 
@@ -509,7 +189,7 @@ export default function JobDetailPage() {
     setSubmittedMessage("");
 
     try {
-      await api.createFeedback({
+      const feedbackInput: CreateFeedbackInput = {
         jobId: displayJobId,
         field: candidate.field,
         originalValue: candidate.value,
@@ -518,9 +198,17 @@ export default function JobDetailPage() {
         reason: feedback.note.trim() || "页面人工复核提交",
         reviewer: feedback.reviewer.trim() || "未填写复核人",
         confidence: candidate.confidence,
-        evidenceId: selectedEvidence?.id,
-        evidenceQuote: selectedEvidence?.quote,
-      });
+      };
+
+      if (selectedEvidence?.id) {
+        feedbackInput.evidenceId = selectedEvidence.id;
+      }
+
+      if (selectedEvidence?.quote) {
+        feedbackInput.evidenceQuote = selectedEvidence.quote;
+      }
+
+      await api.createFeedback(feedbackInput);
 
       setSubmitState("success");
       setSubmittedMessage(`${candidate.field} 的反馈已提交，决策为 ${feedback.decision}。`);
@@ -531,6 +219,10 @@ export default function JobDetailPage() {
   }
 
   function handleGoWriteback() {
+    if (showDemoData) {
+      return;
+    }
+
     const search = new URLSearchParams({ jobId: displayJobId });
     navigate(`/writeback?${search.toString()}`);
   }
@@ -578,54 +270,60 @@ export default function JobDetailPage() {
         description="查看文档预览、OCR 文本、字段候选、证据、Payload、LangGraph trace 与人工反馈。"
         actions={
           <>
-            <button
-              className="secondary-button"
-              type="button"
+            <Button
+              type="outline"
               aria-label="打开原始文档"
               disabled={documentPreview.status === "loading"}
               onClick={handleOpenDocument}
+              icon={<AppIcon icon={actionIcons.createRecognition} size="sm" />}
             >
-              <AppIcon icon={actionIcons.createRecognition} size="sm" />
               {documentPreview.status === "loading" ? "读取中" : "原始文档"}
-            </button>
-            <button className="action-button" type="button" aria-label="确认绿色字段写回" onClick={handleGoWriteback}>
-              <AppIcon icon={dashboardMetricIcons.writeback} size="sm" />
-              确认写回
-            </button>
+            </Button>
+            <Button type="primary" aria-label="确认绿色字段写回" onClick={handleGoWriteback} icon={<AppIcon icon={dashboardMetricIcons.writeback} size="sm" />}>
+              {showDemoData ? "演示不可写回" : "确认写回"}
+            </Button>
           </>
         }
       />
 
-      <div
-        role={loadState === "error" ? "alert" : "status"}
-        className={`inline-notice recognition-state-note ${loadState === "error" ? "is-danger" : loadState === "loading" ? "is-loading" : ""}`}
-      >
-        <AppIcon
-          icon={
-            routeJobId === "demo"
-              ? statusIcons.info
-              : loadState === "loading"
-                ? commonUiIcons.loading
-                : loadState === "error"
-                  ? statusIcons.danger
-                  : statusIcons.success
-          }
-          size="sm"
-          className={loadState === "loading" ? "is-spinning" : undefined}
-        />
-        <span>
-          {routeJobId === "demo"
-            ? "当前为 demo 任务，展示静态识别样例。"
+      <Alert
+        type={loadState === "error" ? "warning" : loadState === "loading" ? "info" : "success"}
+        showIcon
+        content={
+          routeJobId === "demo"
+            ? demoMode
+              ? "当前为 demo 任务，展示静态识别样例。演示数据，不可写回。"
+              : "当前未指定真实任务，请从识别任务列表进入详情页。"
             : loadState === "loading"
-              ? `正在加载任务 ${routeJobId} 的真实识别数据，静态样例会作为兜底保留。`
+              ? `正在加载任务 ${routeJobId} 的真实识别数据。`
               : loadState === "error"
-                ? `真实接口读取失败：${loadError} 当前继续展示 demo 兜底数据。`
-                : `已尝试加载任务 ${displayJobId} 的真实数据，缺失部分继续使用 demo 兜底。`}
-        </span>
-      </div>
+                ? `真实接口读取失败：${loadError}`
+                : `已加载任务 ${displayJobId} 的真实数据。`
+        }
+      />
+
+      {loadState === "error" && !showDemoData ? (
+        <Card className="panel">
+          <EmptyPanel icon={statusIcons.danger} title="真实接口读取失败" description="当前不会展示静态演示数据，请重试或返回重新选择任务。" />
+          <Space className="toolbar" wrap>
+            <Button
+              type="primary"
+              onClick={() => {
+                setLoadState("idle");
+                setApiDetail({});
+                void Promise.resolve().then(() => {
+                  window.location.reload();
+                });
+              }}
+            >
+              重试
+            </Button>
+          </Space>
+        </Card>
+      ) : null}
 
       <div className="detail-grid">
-        <section className="panel document-preview" aria-label="文档预览占位">
+        <Card className="panel document-preview" aria-label="文档预览占位">
           <SectionTitle title="文档预览" />
           {documentPreview.status === "success" ? (
             <div className="document-preview-frame">
@@ -654,65 +352,45 @@ export default function JobDetailPage() {
               </span>
             </div>
           )}
-        </section>
+        </Card>
 
-        <section className="panel">
+        <Card className="panel">
           <SectionTitle title="OCR 文本" />
-          <pre className="ocr-text">{apiDetail.ocrText ?? demoOcrText}</pre>
-        </section>
+          {displayOcrText ? (
+            <pre className="ocr-text">{displayOcrText}</pre>
+          ) : (
+            <EmptyPanel icon={statusIcons.neutral} title="暂无 OCR 文本" description="当前任务还没有返回 OCR 文本。" />
+          )}
+        </Card>
       </div>
 
-      <section className="panel">
+      <Card className="panel">
         <SectionTitle title="字段候选表" />
         {displayFields.length > 0 ? (
           <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>字段</th>
-                  <th>候选值</th>
-                  <th>置信度</th>
-                  <th>来源</th>
-                  <th>自动决策</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayFields.map((candidate) => (
-                  <tr key={candidate.field}>
-                    <td>{candidate.field}</td>
-                    <td>{candidate.value}</td>
-                    <td>{formatPercent(candidate.confidence)}</td>
-                    <td>{candidate.source}</td>
-                    <td>
-                      <DecisionPill decision={candidate.decision} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table columns={fieldColumns} data={displayFields} rowKey="field" pagination={false} scroll={{ x: 760 }} />
           </div>
         ) : (
           <EmptyPanel icon={statusIcons.neutral} title="暂无字段候选" description="当前任务还没有返回可复核的字段结果。" />
         )}
-      </section>
+      </Card>
 
       <div className="detail-grid">
-        <section className="evidence-panel u-surface" data-guide="field-evidence">
+        <Card className="evidence-panel u-surface" data-guide="field-evidence">
           <SectionTitle title="证据面板" />
           {displayEvidenceItems.length > 0 ? (
             <>
               <div className="trace-list evidence-tabs" role="list" aria-label="证据列表">
                 {displayEvidenceItems.map((item) => (
-                  <button
+                  <Button
                     key={item.id}
-                    className="secondary-button"
-                    type="button"
+                    type={item.id === selectedEvidenceId ? "primary" : "outline"}
                     aria-label={`查看 ${item.field} 的证据`}
                     aria-pressed={item.id === selectedEvidenceId}
                     onClick={() => setSelectedEvidenceId(item.id)}
                   >
                     {item.field}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {selectedEvidence ? (
@@ -728,16 +406,16 @@ export default function JobDetailPage() {
           ) : (
             <EmptyPanel icon={actionIcons.createRecognition} title="暂无证据" description="当前任务没有可展示证据。" />
           )}
-        </section>
+        </Card>
 
-        <section className="panel">
+        <Card className="panel">
           <SectionTitle title="Payload Preview" />
           <pre className="payload-preview">{JSON.stringify(displayPayload, null, 2)}</pre>
-        </section>
+        </Card>
       </div>
 
       <div className="detail-grid">
-        <section className="panel" data-guide="langgraph-workflow">
+        <Card className="panel" data-guide="langgraph-workflow">
           <SectionTitle title="LangGraph Trace" />
           {displayTraceSteps.length > 0 ? (
             <ol className="trace-list">
@@ -758,9 +436,9 @@ export default function JobDetailPage() {
           ) : (
             <EmptyPanel icon={statusIcons.neutral} title="暂无 Trace" description="当前任务还没有返回流程节点。" />
           )}
-        </section>
+        </Card>
 
-        <section className="panel" data-guide="auto-decision">
+        <Card className="panel" data-guide="auto-decision">
           <SectionTitle title="自动决策" />
           <div className="decision-grid">
             {decisionCards.map((card) => (
@@ -768,90 +446,85 @@ export default function JobDetailPage() {
                 <DecisionPill decision={card.level} />
                 <h3>{card.title}</h3>
                 <p>{card.description}</p>
-                <button className="secondary-button" type="button" aria-label={card.action}>
+                <Button type="outline" aria-label={card.action} disabled title="该决策动作需要接入复核策略 API 后启用">
                   {card.action}
-                </button>
+                </Button>
               </article>
             ))}
           </div>
-        </section>
+        </Card>
       </div>
 
-      <form className="panel" data-guide="feedback" onSubmit={handleFeedbackSubmit}>
+      <Card className="panel" data-guide="feedback">
+      <form onSubmit={handleFeedbackSubmit}>
         <SectionTitle title="反馈提交" />
         <div className="form-grid">
-          <label className="field-row">
-            <span>复核人</span>
-            <input
+          <Form.Item label="复核人">
+            <Input
               aria-label="复核人"
               value={feedback.reviewer}
-              onChange={(event) => setFeedback({ ...feedback, reviewer: event.target.value })}
+              onChange={(value) => setFeedback({ ...feedback, reviewer: value })}
             />
-          </label>
+          </Form.Item>
 
-          <label className="field-row">
-            <span>字段</span>
-            <select
+          <Form.Item label="字段">
+            <Select
               aria-label="选择反馈字段"
               value={feedback.field}
-              onChange={(event) => setFeedback({ ...feedback, field: event.target.value })}
+              onChange={(value) => setFeedback({ ...feedback, field: String(value) })}
             >
               {displayFields.map((candidate) => (
-                <option key={candidate.field} value={candidate.field}>
+                <Select.Option key={candidate.field} value={candidate.field}>
                   {candidate.field}
-                </option>
+                </Select.Option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Form.Item>
 
-          <label className="field-row">
-            <span>反馈结论</span>
-            <select
+          <Form.Item label="反馈结论">
+            <Select
               aria-label="选择反馈结论"
               value={feedback.decision}
-              onChange={(event) =>
-                setFeedback({ ...feedback, decision: event.target.value as FeedbackState["decision"] })
-              }
+              onChange={(value) => setFeedback({ ...feedback, decision: String(value) as FeedbackState["decision"] })}
             >
-              <option value="accept">采纳候选值</option>
-              <option value="reject">驳回候选值</option>
-              <option value="needs_more_evidence">需要更多证据</option>
-            </select>
-          </label>
+              <Select.Option value="accept">采纳候选值</Select.Option>
+              <Select.Option value="reject">驳回候选值</Select.Option>
+              <Select.Option value="needs_more_evidence">需要更多证据</Select.Option>
+            </Select>
+          </Form.Item>
 
-          <label className="field-row">
-            <span>修正值</span>
-            <input
+          <Form.Item label="修正值">
+            <Input
               aria-label="修正值"
               placeholder="不填写则沿用候选值"
               value={feedback.correctedValue}
-              onChange={(event) => setFeedback({ ...feedback, correctedValue: event.target.value })}
+              onChange={(value) => setFeedback({ ...feedback, correctedValue: value })}
             />
-          </label>
+          </Form.Item>
         </div>
 
-        <label className="field-row">
-          <span>反馈说明</span>
-          <textarea
+        <Form.Item label="反馈说明">
+          <Input.TextArea
             aria-label="反馈说明"
             rows={4}
             value={feedback.note}
-            onChange={(event) => setFeedback({ ...feedback, note: event.target.value })}
+            onChange={(value) => setFeedback({ ...feedback, note: value })}
           />
-        </label>
+        </Form.Item>
 
-        <div className="toolbar">
-          <button className="action-button" type="submit" aria-label="提交复核反馈" disabled={submitState === "loading"}>
-            <AppIcon
-              icon={submitState === "loading" ? commonUiIcons.loading : actionIcons.next}
-              size="sm"
-              className={submitState === "loading" ? "is-spinning" : undefined}
-            />
+        <Space className="toolbar" wrap>
+          <Button
+            type="primary"
+            htmlType="submit"
+            aria-label="提交复核反馈"
+            disabled={submitState === "loading"}
+            loading={submitState === "loading"}
+            icon={<AppIcon icon={submitState === "loading" ? commonUiIcons.loading : actionIcons.next} size="sm" className={submitState === "loading" ? "is-spinning" : undefined} />}
+          >
             {submitState === "loading" ? "提交中" : "提交反馈"}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
+          </Button>
+          <Button
+            type="outline"
             aria-label="插入证据说明"
             onClick={() =>
               setFeedback({
@@ -859,25 +532,16 @@ export default function JobDetailPage() {
                 note: selectedEvidence ? `参考证据：${selectedEvidence.quote}` : feedback.note,
               })
             }
+            icon={<AppIcon icon={dashboardMetricIcons.reviewQueue} size="sm" />}
           >
-            <AppIcon icon={dashboardMetricIcons.reviewQueue} size="sm" />
             引用证据
-          </button>
-        </div>
+          </Button>
+        </Space>
 
-        {submittedMessage ? (
-          <div className="inline-notice recognition-state-note is-success" role="status">
-            <AppIcon icon={statusIcons.success} size="sm" />
-            <span>{submittedMessage}</span>
-          </div>
-        ) : null}
-        {submitState === "error" ? (
-          <div className="form-error recognition-state-note" role="alert">
-            <AppIcon icon={statusIcons.danger} size="sm" />
-            <span>反馈提交失败：{submitError}</span>
-          </div>
-        ) : null}
+        {submittedMessage ? <Alert type="success" showIcon content={submittedMessage} /> : null}
+        {submitState === "error" ? <Alert type="error" showIcon content={`反馈提交失败：${submitError}`} /> : null}
       </form>
+      </Card>
     </main>
   );
 }

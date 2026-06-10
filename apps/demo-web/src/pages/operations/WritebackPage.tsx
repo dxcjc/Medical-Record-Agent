@@ -1,6 +1,14 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Button, Card, Form, Input, Space, Table } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
 import { useSearchParams } from "react-router-dom";
 import type { ApiClient } from "../../api/client";
+import {
+  normalizeEligibleWritebackJob,
+  normalizeRecognitionWritebackJob,
+  type WritebackJobView
+} from "../../api/normalizers";
+import type { ExecuteWritebackInput } from "../../api/types";
 import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { ConfirmDialog, InlineNotice, MetricCard, PayloadPreview, RowActionButton, SectionHeader, StatusPill } from "./components";
@@ -10,22 +18,25 @@ type WritebackResultTone = "success" | "warning" | "info";
 type ApiLoadState = "idle" | "loading" | "success" | "error";
 type EligibleLoadState = "idle" | "loading" | "success" | "error";
 
-type WritebackJob = {
-  id: string;
-  subject: string;
-  target: "LIMS" | "EMR" | "Archive";
-  extractedFields: number;
-  greenRules: string[];
-  blockers: string[];
-  status: WritebackStatus;
-  permission: "allowed" | "readonly";
-  payload: Record<string, unknown>;
+type WritebackJob = WritebackJobView;
+
+type WritebackExecutionSnapshot =
+  | { kind: "idle" }
+  | { kind: "running"; jobId: string; target: string }
+  | { kind: "succeeded"; jobId: string; target: string }
+  | { kind: "cancelled"; jobId: string }
+  | { kind: "failed"; jobId: string; errorMessage: string };
+
+type WritebackExecutionDescriptor = {
+  tone: "info" | "success" | "warning";
+  title: string;
+  message: string;
+  canCancel: boolean;
+  canRetry: boolean;
 };
 
-type WritebackReadyField = {
-  fieldKey: string;
-  targetPath: string;
-  value: string | number | boolean | string[] | null;
+type DemoModeEnv = {
+  readonly [key: string]: string | boolean | undefined;
 };
 
 const initialJobs: WritebackJob[] = [
@@ -79,6 +90,10 @@ const initialJobs: WritebackJob[] = [
   }
 ];
 
+export function isExplicitDemoMode(env: DemoModeEnv = import.meta.env) {
+  return env.VITE_DEMO_MODE === "true";
+}
+
 const statusToneMap: Record<WritebackStatus, "success" | "warning" | "danger" | "info"> = {
   ready: "success",
   blocked: "danger",
@@ -93,65 +108,6 @@ const statusLabelMap: Record<WritebackStatus, string> = {
   done: "已完成"
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function readString(record: Record<string, unknown> | undefined, keys: string[]) {
-  if (!record) {
-    return undefined;
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-function readArray(value: unknown): unknown[] | undefined {
-  return Array.isArray(value) ? value : undefined;
-}
-
-function isWritebackFieldValue(value: unknown): value is WritebackReadyField["value"] {
-  return (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean" ||
-    (Array.isArray(value) && value.every((item) => typeof item === "string"))
-  );
-}
-
-function getPayloadObject(result: unknown) {
-  if (!isRecord(result)) {
-    return {};
-  }
-
-  const payload = result.payload;
-  if (isRecord(payload)) {
-    return payload;
-  }
-
-  return result;
-}
-
-function readNestedArray(record: Record<string, unknown>, path: string[]): unknown[] | undefined {
-  let current: unknown = record;
-  for (const key of path) {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-
-    current = current[key];
-  }
-
-  return readArray(current);
-}
-
 export function readWritebackApiErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.length > 0) {
     return error.message;
@@ -160,126 +116,70 @@ export function readWritebackApiErrorMessage(error: unknown) {
   return "写回 API 调用失败，请稍后重试或查看审计日志。";
 }
 
-function getFieldCount(result: unknown) {
-  if (!isRecord(result)) {
-    return 0;
-  }
-
-  const fields = readArray(result.fields) ?? readNestedArray(result, ["payload", "fields"]);
-  const normalizedFields =
-    readArray(result.normalizedFields) ??
-    readNestedArray(result, ["payload", "normalizedFields"]) ??
-    readNestedArray(result, ["payload", "validation", "normalizedCandidates"]);
-
-  return fields?.length ?? normalizedFields?.length ?? 0;
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
-function readReadyFields(result: unknown): WritebackReadyField[] {
-  if (!isRecord(result)) {
-    return [];
-  }
-
-  // 写回字段在不同阶段会有三种形状：
-  // 1. 后端编排 payload.writeback.readyFields，来自 core WritebackAgent；
-  // 2. 页面归一化后的 job.payload.fields，供 /writeback 顶层 fields 直接复用；
-  // 3. 兼容未来 API 直接返回 writeback.readyFields 或 readyFields 的扁平结构。
-  // 这里只接受同时具备 fieldKey、targetPath 和合法 value 的字段，避免把普通 normalizedCandidates 误当成可执行写回字段。
-  const candidates =
-    readNestedArray(result, ["payload", "writeback", "readyFields"]) ??
-    readArray(result.fields) ??
-    readNestedArray(result, ["writeback", "readyFields"]) ??
-    readArray(result.readyFields) ??
-    [];
-
-  return candidates.flatMap((item) => {
-    if (!isRecord(item)) {
-      return [];
-    }
-
-    const fieldKey = readString(item, ["fieldKey"]);
-    const targetPath = readString(item, ["targetPath"]);
-
-    if (!fieldKey || !targetPath || !isWritebackFieldValue(item.value)) {
-      return [];
-    }
-
-    return [
-      {
-        fieldKey,
-        targetPath,
-        value: item.value
-      }
-    ];
-  });
-}
-
-export function normalizeApiJobToWritebackJob(jobId: string, job: unknown, result: unknown): WritebackJob {
-  const jobRecord = isRecord(job) ? job : undefined;
-  const resultRecord = isRecord(result) ? result : undefined;
-  const status = readString(jobRecord, ["status"]) ?? "completed";
-  const reviewRequired = resultRecord?.reviewRequired === true;
-  const blockers = reviewRequired ? ["识别结果仍标记为需人工复核"] : [];
-  const readyFields = readReadyFields(result);
-
-  if (status !== "completed" && status !== "confirmed") {
-    blockers.push(`任务状态为 ${status}，服务端写回要求 completed 或 confirmed`);
-  }
-
-  // 后端暂未提供 eligible list，这里只把按 jobId 读到的真实任务转换为可写回候选；静态 demo 仍保留在列表下方兜底。
-  return {
-    id: readString(jobRecord, ["id", "jobId"]) ?? jobId,
-    subject: readString(jobRecord, ["subject", "title", "sourceFileId", "schemaKey"]) ?? `真实任务 ${jobId}`,
-    target: "LIMS",
-    extractedFields: getFieldCount(result),
-    greenRules: ["已通过 jobId 加载真实任务", "写回前仍会由服务端校验 confirmed=true 和任务状态"],
-    blockers,
-    status: blockers.length > 0 ? "blocked" : "ready",
-    permission: "allowed",
-    payload: {
-      jobId,
-      source: "api.getJob/getResult",
-      fields: readyFields,
-      result: getPayloadObject(result),
-    },
-  };
-}
+export const normalizeApiJobToWritebackJob = normalizeRecognitionWritebackJob;
 
 export function createWritebackRequest(job: WritebackJob) {
-  const fields = readReadyFields(job.payload);
-
-  return {
+  const request: ExecuteWritebackInput = {
     jobId: job.id,
-    confirmed: true,
-    ...(fields.length > 0 ? { fields } : {}),
-    payload: job.payload
+    confirmed: true
   };
+
+  return request;
 }
 
-export function normalizeEligibleWritebackItem(item: unknown): WritebackJob {
-  const record = isRecord(item) ? item : {};
-  const id = readString(record, ["id", "jobId"]) ?? "eligible-job";
-  const schemaKey = readString(record, ["schemaKey"]) ?? "unknown-schema";
-  const sourceFileId = readString(record, ["sourceFileId"]) ?? "unknown-file";
-  const blockers = readArray(record.blockers)?.filter((blocker): blocker is string => typeof blocker === "string") ?? [];
-  const readyFields = readReadyFields(record);
-  const payload = isRecord(record.payload)
-    ? record.payload
-    : {
-        jobId: id,
-        source: "writeback.eligible",
-        fields: readyFields
-      };
+export const normalizeEligibleWritebackItem = normalizeEligibleWritebackJob;
+
+export function describeWritebackExecutionState(snapshot: WritebackExecutionSnapshot): WritebackExecutionDescriptor {
+  if (snapshot.kind === "running") {
+    return {
+      tone: "info",
+      title: "写回执行中",
+      message: `${snapshot.jobId} 正在写回 ${snapshot.target}，已锁定当前确认任务。`,
+      canCancel: true,
+      canRetry: false
+    };
+  }
+
+  if (snapshot.kind === "succeeded") {
+    return {
+      tone: "success",
+      title: "写回已完成",
+      message: `${snapshot.jobId} 已完成写回，目标系统 ${snapshot.target} 返回成功。`,
+      canCancel: false,
+      canRetry: true
+    };
+  }
+
+  if (snapshot.kind === "cancelled") {
+    return {
+      tone: "warning",
+      title: "写回已取消",
+      message: `${snapshot.jobId} 写回已取消，任务状态已恢复，可重新确认后重跑。`,
+      canCancel: false,
+      canRetry: true
+    };
+  }
+
+  if (snapshot.kind === "failed") {
+    return {
+      tone: "warning",
+      title: "写回失败",
+      message: `${snapshot.jobId} 写回失败：${snapshot.errorMessage}。请检查 LIMS Provider 健康状态后重跑。`,
+      canCancel: false,
+      canRetry: true
+    };
+  }
 
   return {
-    id,
-    subject: `${sourceFileId} / ${schemaKey}`,
-    target: "LIMS",
-    extractedFields: typeof record.extractedFields === "number" ? record.extractedFields : readyFields.length,
-    greenRules: ["来自后端 eligible writeback 列表", "服务端已过滤需复核或无 readyFields 的任务"],
-    blockers,
-    status: blockers.length > 0 ? "blocked" : "ready",
-    permission: "allowed",
-    payload
+    tone: "info",
+    title: "等待写回",
+    message: "选择满足 green 条件的任务后执行写回。",
+    canCancel: false,
+    canRetry: false
   };
 }
 
@@ -326,9 +226,12 @@ export async function loadEligibleWritebackJobs(
 export function WritebackPage() {
   const { api, hasPermission } = useAuth();
   const [searchParams] = useSearchParams();
+  const demoMode = isExplicitDemoMode();
   const routeJobId = searchParams.get("jobId") ?? "";
-  const [jobs, setJobs] = useState<WritebackJob[]>(initialJobs);
-  const [selectedJobId, setSelectedJobId] = useState<string>(initialJobs[0]?.id ?? "");
+  const [jobs, setJobs] = useState<WritebackJob[]>(
+    () => demoMode ? initialJobs.map((job) => ({ ...job, permission: "readonly" as const })) : []
+  );
+  const [selectedJobId, setSelectedJobId] = useState<string>(() => (demoMode ? initialJobs[0]?.id ?? "" : ""));
   const [jobIdInput, setJobIdInput] = useState(routeJobId);
   const [apiLoadState, setApiLoadState] = useState<ApiLoadState>("idle");
   const [eligibleLoadState, setEligibleLoadState] = useState<EligibleLoadState>("idle");
@@ -338,6 +241,9 @@ export function WritebackPage() {
   const [resultMessage, setResultMessage] = useState<string>("等待执行写回任务");
   const [resultTone, setResultTone] = useState<WritebackResultTone>("info");
   const [executingJobId, setExecutingJobId] = useState<string | null>(null);
+  const [executionSnapshot, setExecutionSnapshot] = useState<WritebackExecutionSnapshot>({ kind: "idle" });
+  const writebackAbortControllerRef = useRef<AbortController | null>(null);
+  const lastWritebackJobIdRef = useRef<string | null>(null);
 
   const canExecuteWriteback = hasPermission("writeback:execute");
 
@@ -350,6 +256,63 @@ export function WritebackPage() {
       jobs.filter((job) => job.status === "ready" && job.permission === "allowed" && canExecuteWriteback).length,
     [canExecuteWriteback, jobs]
   );
+  const executionDescriptor = describeWritebackExecutionState(executionSnapshot);
+  const jobColumns: TableColumnProps<WritebackJob>[] = [
+    {
+      title: "Job",
+      dataIndex: "id",
+      render: (_, job) => (
+        <Button type="text" onClick={() => setSelectedJobId(job.id)}>
+          {job.id}
+        </Button>
+      ),
+    },
+    { title: "患者", dataIndex: "subject" },
+    { title: "目标", dataIndex: "target" },
+    { title: "字段", dataIndex: "extractedFields" },
+    {
+      title: "状态",
+      dataIndex: "status",
+      render: (_, job) => <StatusPill tone={statusToneMap[job.status]}>{statusLabelMap[job.status]}</StatusPill>,
+    },
+    {
+      title: "操作",
+      dataIndex: "operations",
+      render: (_, job) => {
+        const readonly = job.permission === "readonly";
+        const blocked = job.blockers.length > 0 || job.status === "blocked";
+        const running = executingJobId === job.id || job.status === "running";
+        const disabled = !canExecuteWriteback || readonly || blocked || running || job.status === "done";
+        const disabledReason = !canExecuteWriteback
+          ? "当前账号缺少 writeback:execute 权限，不能执行真实写回"
+          : readonly
+            ? "当前账号权限不足，隐藏真实写回能力"
+            : blocked
+              ? job.blockers.join("；")
+              : job.status === "done"
+                ? "任务已完成"
+                : undefined;
+
+        return readonly ? (
+          <Button type="outline" disabled title={disabledReason} icon={<AppIcon icon={actionIcons.privacyPolicy} size="sm" />}>
+            只读
+          </Button>
+        ) : (
+          <RowActionButton
+            disabled={disabled}
+            title={disabledReason}
+            onClick={() => {
+              setSelectedJobId(job.id);
+              setConfirmJobId(job.id);
+            }}
+          >
+            <AppIcon icon={running ? dashboardMetricIcons.rollback : actionIcons.next} size="sm" className={running ? "is-spinning" : undefined} />
+            {running ? "写回中" : "写回"}
+          </RowActionButton>
+        );
+      },
+    },
+  ];
 
   function readErrorMessage(error: unknown) {
     if (error instanceof Error && error.message.length > 0) {
@@ -383,7 +346,11 @@ export function WritebackPage() {
       setApiLoadState("error");
       setApiLoadError(readErrorMessage(error));
       setResultTone("warning");
-      setResultMessage(`真实任务加载失败：${readErrorMessage(error)} 静态 demo 列表继续保留。`);
+      setResultMessage(
+        demoMode
+          ? `真实任务加载失败：${readErrorMessage(error)} 当前仅显示只读演示数据。`
+          : `真实任务加载失败：${readErrorMessage(error)}`
+      );
     }
   }
 
@@ -405,25 +372,66 @@ export function WritebackPage() {
       return;
     }
 
+    writebackAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    writebackAbortControllerRef.current = controller;
+    lastWritebackJobIdRef.current = jobId;
     setJobs((current) => current.map((item) => (item.id === jobId ? { ...item, status: "running" } : item)));
-    setResultMessage(`${job.id} 正在写回 ${job.target}`);
+    const runningDescriptor = describeWritebackExecutionState({ kind: "running", jobId, target: job.target });
+    setExecutionSnapshot({ kind: "running", jobId, target: job.target });
+    setResultMessage(runningDescriptor.message);
     setResultTone("info");
     setExecutingJobId(jobId);
     setConfirmJobId(null);
 
     try {
-      // 后端会用 confirmed=true 区分二次确认后的危险动作，否则会返回 409。
-      await api.executeWriteback(createWritebackRequest(job));
+      // 后端会用 confirmed=true 区分二次确认后的危险动作，实际写回字段只从服务端 RecognitionResult 读取。
+      await api.executeWriteback(createWritebackRequest(job), {
+        signal: controller.signal
+      });
       setJobs((current) => current.map((item) => (item.id === jobId ? { ...item, status: "done" } : item)));
       setResultTone("success");
-      setResultMessage(`${job.id} 已完成写回，目标系统 ${job.target} 返回成功`);
+      const successDescriptor = describeWritebackExecutionState({ kind: "succeeded", jobId, target: job.target });
+      setExecutionSnapshot({ kind: "succeeded", jobId, target: job.target });
+      setResultMessage(successDescriptor.message);
     } catch (error) {
-      // API 失败时只回滚当前 Job 的本地状态，静态列表和 payload 预览继续保留，方便用户重新确认后再试。
+      if (isAbortError(error)) {
+        setJobs((current) => current.map((item) => (item.id === jobId ? { ...item, status: job.status } : item)));
+        setResultTone("warning");
+        const cancelledDescriptor = describeWritebackExecutionState({ kind: "cancelled", jobId });
+        setExecutionSnapshot({ kind: "cancelled", jobId });
+        setResultMessage(cancelledDescriptor.message);
+        return;
+      }
+
       setJobs((current) => current.map((item) => (item.id === jobId ? { ...item, status: job.status } : item)));
       setResultTone("warning");
-      setResultMessage(`${job.id} 写回失败：${readErrorMessage(error)}`);
+      const failedDescriptor = describeWritebackExecutionState({
+        kind: "failed",
+        jobId,
+        errorMessage: readErrorMessage(error)
+      });
+      setExecutionSnapshot({
+        kind: "failed",
+        jobId,
+        errorMessage: readErrorMessage(error)
+      });
+      setResultMessage(failedDescriptor.message);
     } finally {
+      if (writebackAbortControllerRef.current === controller) {
+        writebackAbortControllerRef.current = null;
+      }
       setExecutingJobId(null);
+    }
+  }
+
+  function cancelWriteback() {
+    writebackAbortControllerRef.current?.abort();
+  }
+
+  function rerunWriteback() {
+    if (lastWritebackJobIdRef.current) {
+      setConfirmJobId(lastWritebackJobIdRef.current);
     }
   }
 
@@ -465,12 +473,45 @@ export function WritebackPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
+  useEffect(
+    () => () => {
+      writebackAbortControllerRef.current?.abort();
+    },
+    []
+  );
+
   return (
     <main className="app-page">
       <SectionHeader
         eyebrow="Operations / Task 19"
-        title="Writeback"
+        title="写回中心"
         description="展示可写回任务、结构化 payload、绿色条件和权限约束，危险写回动作必须二次确认。"
+        meta={
+          <div className="page-header__meta" aria-label="写回队列摘要">
+            <span className="page-header__meta-item">
+              <strong>可执行</strong>
+              <span>{runnableCount} 个任务满足 green 条件</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>复核阻断</strong>
+              <span>{jobs.filter((job) => job.blockers.length > 0).length} 个任务存在 blocker</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>权限</strong>
+              <span>{canExecuteWriteback ? "当前账号可执行写回" : "当前账号只读"}</span>
+            </span>
+          </div>
+        }
+        actions={
+          <>
+            <Button type="outline" disabled={executingJobId === null} onClick={cancelWriteback}>
+              取消写回
+            </Button>
+            <Button type="outline" disabled={executingJobId !== null || lastWritebackJobIdRef.current === null} onClick={rerunWriteback}>
+              重跑上次写回
+            </Button>
+          </>
+        }
       />
 
       <section className="metric-grid" aria-label="写回指标">
@@ -485,7 +526,33 @@ export function WritebackPage() {
           : "当前账号缺少 writeback:execute 权限，页面保留静态列表和 payload 预览，但不会允许执行真实写回。"}
       </InlineNotice>
 
-      <form className="panel" onSubmit={handleLoadJob}>
+      <section className="operations-status-strip" aria-label="写回操作状态">
+        <article>
+          <strong>候选来源</strong>
+          <span>{eligibleLoadState === "success" ? "真实候选已读取" : eligibleLoadState === "loading" ? "候选读取中" : "等待候选任务"}</span>
+        </article>
+        <article>
+          <strong>当前目标</strong>
+          <span>{selectedJob ? `${selectedJob.target} / ${selectedJob.id}` : "未选择任务"}</span>
+        </article>
+        <article>
+          <strong>执行状态</strong>
+          <span>{executingJobId ? `${executingJobId} 写回中` : resultMessage}</span>
+        </article>
+      </section>
+
+      {executionSnapshot.kind !== "idle" ? (
+        <InlineNotice tone={executionDescriptor.tone === "warning" ? "warning" : executionDescriptor.tone === "success" ? "success" : "info"} title={executionDescriptor.title}>
+          {executionDescriptor.message}
+        </InlineNotice>
+      ) : null}
+
+      {demoMode ? (
+        <Alert type="warning" showIcon content="当前展示演示数据，不可写回；只有真实 API 返回的任务会进入执行确认。" />
+      ) : null}
+
+      <Card className="panel">
+      <form onSubmit={handleLoadJob}>
         <div className="panel-header">
           <h2>加载真实 Job</h2>
           <StatusPill tone={apiLoadState === "success" ? "success" : apiLoadState === "error" ? "danger" : "info"}>
@@ -499,110 +566,58 @@ export function WritebackPage() {
           </StatusPill>
         </div>
         <div className="form-grid">
-          <label className="field-row">
-            <span>Job ID</span>
-            <input
+          <Form.Item label="Job ID">
+            <Input
               aria-label="按 Job ID 加载真实写回任务"
               value={jobIdInput}
-              onChange={(event) => setJobIdInput(event.target.value)}
+              onChange={setJobIdInput}
               placeholder="例如 job-demo-1"
             />
-          </label>
+          </Form.Item>
           <div className="field-row">
             <span>操作</span>
-            <button className="action-button" type="submit" disabled={apiLoadState === "loading"}>
-              <AppIcon icon={actionIcons.next} size="sm" />
+            <Button type="primary" htmlType="submit" disabled={apiLoadState === "loading"} loading={apiLoadState === "loading"} icon={<AppIcon icon={actionIcons.next} size="sm" />}>
               {apiLoadState === "loading" ? "加载中" : "加载任务"}
-            </button>
+            </Button>
           </div>
         </div>
-        {apiLoadState === "error" ? <p role="alert">真实 API 加载失败：{apiLoadError}</p> : null}
-        {apiLoadState === "success" ? <p role="status">已加载真实任务，列表会优先展示该任务。</p> : null}
+        {apiLoadState === "error" ? <Alert type="error" showIcon content={`真实 API 加载失败：${apiLoadError}`} /> : null}
+        {apiLoadState === "success" ? <Alert type="success" showIcon content="已加载真实任务，列表会优先展示该任务。" /> : null}
       </form>
+      </Card>
 
       <section className="operations-split">
-        <section className="panel" data-guide="writeback">
+        <Card className="panel" data-guide="writeback">
           <div className="panel-header">
             <h2>可写回 Job</h2>
             <StatusPill tone={apiLoadState === "success" ? "success" : "info"}>
-              {eligibleLoadState === "success" || apiLoadState === "success" ? "真实数据优先" : "Demo 兜底"}
+              {eligibleLoadState === "success" || apiLoadState === "success"
+                ? "真实数据"
+                : demoMode
+                  ? "演示数据"
+                  : "等待真实数据"}
             </StatusPill>
           </div>
           {eligibleLoadState === "error" ? (
             <InlineNotice tone="warning" title="真实候选加载失败">
-              {`已保留 Demo 兜底和手动 Job ID 加载能力。${eligibleLoadError}`}
+              {demoMode
+                ? `当前仅保留只读演示数据。${eligibleLoadError}`
+                : `未展示演示候选，请检查 API 后重试。${eligibleLoadError}`}
             </InlineNotice>
           ) : null}
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Job</th>
-                <th>患者</th>
-                <th>目标</th>
-                <th>字段</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => {
-                const readonly = job.permission === "readonly";
-                const blocked = job.blockers.length > 0 || job.status === "blocked";
-                const running = executingJobId === job.id || job.status === "running";
-                const disabled = !canExecuteWriteback || readonly || blocked || running || job.status === "done";
-                const disabledReason = !canExecuteWriteback
-                  ? "当前账号缺少 writeback:execute 权限，不能执行真实写回"
-                  : readonly
-                  ? "当前账号权限不足，隐藏真实写回能力"
-                  : blocked
-                    ? job.blockers.join("；")
-                    : job.status === "done"
-                      ? "任务已完成"
-                      : undefined;
-                return (
-                  <tr key={job.id} className={selectedJob?.id === job.id ? "is-selected" : undefined}>
-                    <td>
-                      <button className="link-button" type="button" onClick={() => setSelectedJobId(job.id)}>
-                        {job.id}
-                      </button>
-                    </td>
-                    <td>{job.subject}</td>
-                    <td>{job.target}</td>
-                    <td>{job.extractedFields}</td>
-                    <td>
-                      <StatusPill tone={statusToneMap[job.status]}>{statusLabelMap[job.status]}</StatusPill>
-                    </td>
-                    <td>
-                      {readonly ? (
-                        <button className="secondary-button" type="button" disabled title={disabledReason}>
-                          <AppIcon icon={actionIcons.privacyPolicy} size="sm" />
-                          只读
-                        </button>
-                      ) : (
-                        <RowActionButton
-                          disabled={disabled}
-                          title={disabledReason}
-                          onClick={() => {
-                            setSelectedJobId(job.id);
-                            setConfirmJobId(job.id);
-                          }}
-                        >
-                          <AppIcon icon={running ? dashboardMetricIcons.rollback : actionIcons.next} size="sm" className={running ? "is-spinning" : undefined} />
-                          {running ? "写回中" : "写回"}
-                        </RowActionButton>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
+          {jobs.length > 0 ? (
+            <Table columns={jobColumns} data={jobs} rowKey="id" pagination={false} scroll={{ x: 940 }} />
+          ) : (
+            <InlineNotice tone="warning" title="暂无可写回任务">
+              真实 API 未返回可写回候选。请重试或按 Job ID 加载已完成任务。
+            </InlineNotice>
+          )}
+        </Card>
 
         <div className="stack">
           {selectedJob ? (
             <>
-              <section className="panel">
+              <Card className="panel">
                 <div className="panel-header">
                   <h2>
                     <AppIcon icon={navigationIcons.writeback} size="md" />
@@ -626,7 +641,7 @@ export function WritebackPage() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Card>
               <PayloadPreview title="Payload Preview" payload={selectedJob.payload} />
             </>
           ) : null}

@@ -1,7 +1,62 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { SchemaRouteService } from "../routes/schemas.routes";
-import { createApiServices, type ApiServiceRepositories } from "./api-services";
+import {
+  createApiServices,
+  createInProcessJobQueueExecutor,
+  createRedisJobQueueAdapter,
+  type ApiServiceRepositories,
+  type JobQueueAdapter,
+  type RedisJobQueueClient
+} from "./api-services";
+
+function createRedisClientMock(): RedisJobQueueClient {
+  const lists = new Map<string, string[]>();
+  const values = new Map<string, string>();
+
+  return {
+    rpush: vi.fn(async (key, ...items) => {
+      const list = lists.get(key) ?? [];
+      list.push(...items);
+      lists.set(key, list);
+      return list.length;
+    }),
+    lpop: vi.fn(async (key) => {
+      const list = lists.get(key) ?? [];
+      const item = list.shift() ?? null;
+      lists.set(key, list);
+      return item;
+    }),
+    lrange: vi.fn(async (key, start, stop) => {
+      const list = lists.get(key) ?? [];
+      const normalizedStop = stop < 0 ? list.length + stop : stop;
+      return list.slice(start, normalizedStop + 1);
+    }),
+    set: vi.fn(async (key, value, options) => {
+      if (options?.nx && values.has(key)) {
+        return null;
+      }
+
+      values.set(key, value);
+      return "OK";
+    }),
+    get: vi.fn(async (key) => values.get(key) ?? null),
+    del: vi.fn(async (...keys) => {
+      let deleted = 0;
+      for (const key of keys) {
+        if (values.delete(key)) {
+          deleted += 1;
+        }
+        if (lists.delete(key)) {
+          deleted += 1;
+        }
+      }
+
+      return deleted;
+    }),
+    pexpire: vi.fn(async (key) => (values.has(key) ? 1 : 0))
+  };
+}
 
 function createRepositories(): ApiServiceRepositories {
   return {
@@ -20,6 +75,7 @@ function createRepositories(): ApiServiceRepositories {
     jobsRepository: {
       create: vi.fn(async (input) => ({ id: "job-001", status: "queued", ...input })),
       findById: vi.fn(async () => ({ id: "job-001", status: "completed", sourceFileId: "file-001" })),
+      updateStatus: vi.fn(async (input) => ({ id: input.id, ...input })),
       listEligibleForWriteback: vi.fn(async () => [])
     },
     resultsRepository: {
@@ -31,7 +87,8 @@ function createRepositories(): ApiServiceRepositories {
     },
     writebackRepository: {
       create: vi.fn(async (input) => ({ id: "writeback-001", ...input })),
-      complete: vi.fn(async (_id, input) => ({ id: "writeback-001", ...input }))
+      complete: vi.fn(async (_id, input) => ({ id: "writeback-001", ...input })),
+      listByJobId: vi.fn(async () => [])
     },
     evaluationRepository: {
       listDatasets: vi.fn(async () => [{ id: "dataset-001", displayName: "评估集" }]),
@@ -125,6 +182,32 @@ function createEvaluationServiceForTest(repositories = createRepositories()) {
   };
 }
 
+function createRealProviderRegistryForTest() {
+  return {
+    list: vi.fn(async () => [
+      {
+        key: "http-ocr",
+        kind: "ocr",
+        enabled: true,
+        isDefault: true
+      },
+      {
+        key: "openai-responses-model",
+        kind: "llm",
+        enabled: true,
+        isDefault: true
+      }
+    ]),
+    setDefault: vi.fn(async (key: string) => ({ key, isDefault: true })),
+    checkHealth: vi.fn(async (key: string) => ({
+      key,
+      status: "healthy" as const,
+      checkedAt: "2026-06-05T09:00:00.000Z",
+      message: "provider reachable"
+    }))
+  };
+}
+
 const evaluationActor = {
   actorUserId: "user-001",
   authType: "jwt" as const,
@@ -132,7 +215,212 @@ const evaluationActor = {
   roles: ["admin"]
 };
 
+async function waitForMockCall(mock: { mock: { calls: unknown[] } }) {
+  for (let index = 0; index < 10; index += 1) {
+    if (mock.mock.calls.length > 0) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 describe("api service composition", () => {
+  it("in-process job queue adapter 暴露 lease/retry/dead-letter/heartbeat contract 且标记非多实例生产就绪", () => {
+    const jobQueueExecutor = createInProcessJobQueueExecutor({
+      maxAttempts: 2,
+      heartbeatIntervalMs: 5000
+    });
+
+    expect(jobQueueExecutor.describe()).toEqual({
+      adapter: "in-process",
+      productionReady: false,
+      blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
+      capabilities: {
+        durable: false,
+        multiInstance: false,
+        lease: true,
+        retry: true,
+        deadLetter: true,
+        heartbeat: true
+      },
+      readiness: {
+        nextAction:
+          "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+        requiredChecks: [
+          "multi-worker-lease-smoke",
+          "retry-dead-letter-smoke",
+          "heartbeat-status-consistency-smoke",
+          "status-result-consistency-smoke",
+          "idempotency-key-deduplication-smoke"
+        ]
+      },
+      policy: {
+        maxAttempts: 2,
+        heartbeatIntervalMs: 5000
+      }
+    });
+  });
+
+  it("broker job queue adapter contract 在无真实 broker 实现时 fail-fast blocked", async () => {
+    const brokerAdapter: JobQueueAdapter = {
+      describe: () => ({
+        adapter: "broker",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_ADAPTER_NOT_CONNECTED",
+        capabilities: {
+          durable: true,
+          multiInstance: true,
+          lease: true,
+          retry: true,
+          deadLetter: true,
+          heartbeat: true
+        },
+        readiness: {
+          nextAction: "接入真实 broker adapter 后运行多实例队列 smoke。",
+          requiredChecks: [
+            "multi-worker-lease-smoke",
+            "retry-dead-letter-smoke",
+            "heartbeat-status-consistency-smoke",
+            "status-result-consistency-smoke",
+            "idempotency-key-deduplication-smoke"
+          ]
+        },
+        policy: {
+          maxAttempts: 3,
+          heartbeatIntervalMs: 10000
+        }
+      }),
+      async enqueue() {
+        throw Object.assign(new Error("QUEUE_BROKER_ADAPTER_NOT_CONNECTED"), {
+          code: "QUEUE_BROKER_ADAPTER_NOT_CONNECTED"
+        });
+      },
+      async drain() {
+        return undefined;
+      }
+    };
+
+    await expect(brokerAdapter.enqueue({ name: "recognition", run: async () => undefined })).rejects.toMatchObject({
+      code: "QUEUE_BROKER_ADAPTER_NOT_CONNECTED"
+    });
+    expect(brokerAdapter.describe()).toEqual(
+      expect.objectContaining({
+        adapter: "broker",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_ADAPTER_NOT_CONNECTED"
+      })
+    );
+  });
+
+  it("Redis broker queue adapter skeleton 用 mock client 验证 lease/retry/dead-letter/heartbeat/幂等语义", async () => {
+    const client = createRedisClientMock();
+    const queue = createRedisJobQueueAdapter({
+      client,
+      queueName: "medical-recognition-jobs",
+      deadLetterQueue: "medical-recognition-jobs-dlq",
+      visibilityTimeoutMs: 30000,
+      retryLimit: 2,
+      heartbeatIntervalMs: 5000,
+      idempotencyTtlMs: 60000,
+      now: () => new Date("2026-06-09T08:00:00.000Z")
+    });
+
+    expect(queue.describe()).toEqual({
+      adapter: "broker",
+      brokerProvider: "redis",
+      productionReady: false,
+      blockedReason: "QUEUE_BROKER_SMOKE_NOT_RUN",
+      capabilities: {
+        durable: true,
+        multiInstance: true,
+        lease: true,
+        retry: true,
+        deadLetter: true,
+        heartbeat: true
+      },
+      readiness: {
+        nextAction:
+          "完成真实 Redis/RabbitMQ/SQS worker 绑定，并运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+        requiredChecks: [
+          "multi-worker-lease-smoke",
+          "retry-dead-letter-smoke",
+          "heartbeat-status-consistency-smoke",
+          "status-result-consistency-smoke",
+          "idempotency-key-deduplication-smoke"
+        ]
+      },
+      policy: {
+        maxAttempts: 2,
+        heartbeatIntervalMs: 5000
+      }
+    });
+
+    const task = {
+      name: "recognition",
+      idempotencyKey: "recognition:job-redis-001",
+      payload: {
+        jobId: "job-redis-001"
+      },
+      run: async () => undefined
+    };
+
+    await queue.enqueue(task);
+    await queue.enqueue(task);
+
+    expect(client.rpush).toHaveBeenCalledTimes(1);
+    expect(client.set).toHaveBeenCalledWith(
+      "medical-recognition-jobs:idem:recognition:job-redis-001",
+      expect.any(String),
+      { nx: true, px: 60000 }
+    );
+
+    const firstLease = await queue.leaseNext();
+    expect(firstLease).toEqual(
+      expect.objectContaining({
+        taskName: "recognition",
+        attempt: 1,
+        idempotencyKey: "recognition:job-redis-001",
+        payload: {
+          jobId: "job-redis-001"
+        }
+      })
+    );
+
+    await queue.heartbeat(firstLease?.id ?? "");
+    expect(client.pexpire).toHaveBeenCalledWith(
+      expect.stringContaining(firstLease?.id ?? "missing-lease"),
+      30000
+    );
+
+    await queue.fail(firstLease?.id ?? "", Object.assign(new Error("upstream stack with secret"), { code: "OCR_TIMEOUT" }));
+    const secondLease = await queue.leaseNext();
+    expect(secondLease).toEqual(
+      expect.objectContaining({
+        taskName: "recognition",
+        attempt: 2,
+        payload: {
+          jobId: "job-redis-001"
+        }
+      })
+    );
+
+    await queue.fail(secondLease?.id ?? "", Object.assign(new Error("upstream stack with secret"), { code: "OCR_TIMEOUT" }));
+
+    await expect(queue.leaseNext()).resolves.toBeNull();
+    await expect(queue.listDeadLetters()).resolves.toEqual([
+      {
+        taskName: "recognition",
+        attempts: 2,
+        error: {
+          code: "OCR_TIMEOUT",
+          message: "识别后台任务执行失败，请查看服务端安全日志或 provider 诊断。"
+        },
+        failedAt: new Date("2026-06-09T08:00:00.000Z")
+      }
+    ]);
+  });
+
   it("把 repositories、core orchestrator 和 provider registry 组合成 API services", async () => {
     const repositories = createRepositories();
     const recognitionOrchestrator = {
@@ -177,16 +465,8 @@ describe("api service composition", () => {
       schemaService: createSchemaService(),
       repositories,
       recognitionOrchestrator,
-      providerRegistry: {
-        list: vi.fn(async () => [{ key: "mock", secretRefs: { apiKey: "secret" } }]),
-        setDefault: vi.fn(async (key) => ({ key, isDefault: true })),
-        checkHealth: vi.fn(async (key) => ({
-          key,
-          status: "healthy" as const,
-          checkedAt: "2026-06-05T09:00:00.000Z",
-          message: "provider reachable"
-        }))
-      },
+      providerRegistry: createRealProviderRegistryForTest(),
+      jobExecutionMode: "synchronous",
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
@@ -210,8 +490,8 @@ describe("api service composition", () => {
         documentId: "file-001"
       },
       providerConfig: {
-        ocrProviderKey: "mock-ocr",
-        providerKey: "mock-model"
+        ocrProviderKey: "http-ocr",
+        providerKey: "openai-responses-model"
       }
     });
     expect(repositories.jobsRepository.create).toHaveBeenCalledWith(
@@ -219,8 +499,8 @@ describe("api service composition", () => {
         schemaKey: "lims-clinical-info",
         sourceFileId: "file-001",
         providerConfig: {
-          ocrProviderKey: "mock-ocr",
-          providerKey: "mock-model"
+          ocrProviderKey: "http-ocr",
+          providerKey: "openai-responses-model"
         }
       })
     );
@@ -231,8 +511,8 @@ describe("api service composition", () => {
         documentId: "file-001"
       }),
       providerConfig: {
-        ocrProviderKey: "mock-ocr",
-        providerKey: "mock-model"
+        ocrProviderKey: "http-ocr",
+        providerKey: "openai-responses-model"
       }
     });
     expect(repositories.resultsRepository.upsertByJobId).toHaveBeenCalledWith(
@@ -242,20 +522,55 @@ describe("api service composition", () => {
         reviewRequired: false
       })
     );
-    expect(job).toEqual(expect.objectContaining({ id: "job-001", status: "completed" }));
+    expect(job).toEqual(
+      expect.objectContaining({
+        id: "job-001",
+        status: "completed",
+        executionMode: "synchronous",
+        statusSemantics: expect.objectContaining({
+          queued: "transition-recorded-before-inline-orchestrator-start",
+          running: "transition-recorded-during-inline-orchestrator-execution",
+          terminal: "completed"
+        })
+      })
+    );
+
+    vi.mocked(repositories.resultsRepository.findByJobId).mockResolvedValueOnce({
+      jobId: "job-001",
+      fields: [],
+      reviewRequired: false,
+      payload: {
+        writeback: {
+          readyFields: [
+            {
+              fieldKey: "clinicalDiagnosis",
+              targetPath: "clinicalInfo.clinicalDiagnosis",
+              value: "服务端诊断"
+            }
+          ]
+        }
+      }
+    });
 
     await services.writebackService.execute({
       jobId: "job-001",
-      payload: {
-        clinicalInfo: {
-          clinicalDiagnosis: "演示诊断"
-        }
+      confirmed: true,
+      actor: {
+        actorUserId: "user-001",
+        authType: "jwt",
+        permissions: ["writeback:execute"],
+        roles: ["admin"]
       }
     });
     expect(repositories.writebackRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         jobId: "job-001",
-        targetSystem: "lims"
+        targetSystem: "lims",
+        requestPayload: {
+          clinicalInfo: {
+            clinicalDiagnosis: "服务端诊断"
+          }
+        }
       })
     );
     expect(repositories.writebackRepository.complete).toHaveBeenCalledWith(
@@ -266,7 +581,7 @@ describe("api service composition", () => {
     );
 
     await services.providerService.setDefaultProvider({
-      key: "mock",
+      key: "http-ocr",
       actor: {
         actorUserId: "user-001",
         authType: "jwt",
@@ -275,11 +590,22 @@ describe("api service composition", () => {
       }
     });
     await expect(services.providerService.listProviders()).resolves.toEqual([
-      { key: "mock", secretRefs: { apiKey: "secret" } }
+      {
+        key: "http-ocr",
+        kind: "ocr",
+        enabled: true,
+        isDefault: true
+      },
+      {
+        key: "openai-responses-model",
+        kind: "llm",
+        enabled: true,
+        isDefault: true
+      }
     ]);
     await expect(
       services.providerService.checkProviderHealth({
-        key: "mock",
+        key: "http-ocr",
         actor: {
           actorUserId: "user-001",
           authType: "jwt",
@@ -288,7 +614,7 @@ describe("api service composition", () => {
         }
       })
     ).resolves.toEqual({
-      key: "mock",
+      key: "http-ocr",
       status: "healthy",
       checkedAt: "2026-06-05T09:00:00.000Z",
       message: "provider reachable"
@@ -296,7 +622,7 @@ describe("api service composition", () => {
 
     await services.evaluationService.createRun({
       datasetId: "dataset-001",
-      providerKey: "mock",
+      providerKey: "openai-responses-model",
       actor: {
         actorUserId: "user-001",
         authType: "jwt",
@@ -309,7 +635,7 @@ describe("api service composition", () => {
         datasetId: "dataset-001",
         createdById: "user-001",
         providerConfig: {
-          providerKey: "mock"
+          providerKey: "openai-responses-model"
         }
       })
     );
@@ -380,6 +706,216 @@ describe("api service composition", () => {
             fileName: "synthetic-001.json",
             predictedValue: "肺腺癌?"
           }
+        }
+      })
+    );
+  });
+
+  it("默认创建识别任务时先入队返回 queued，再由后台执行器异步写入结果", async () => {
+    const repositories = createRepositories();
+    let resolveOrchestrator: ((value: Awaited<ReturnType<typeof recognitionOrchestrator.start>>) => void) | undefined;
+    const recognitionOrchestrator = {
+      start: vi.fn(
+        () =>
+          new Promise<{
+            jobId: string;
+            status: string;
+            trace: unknown[];
+            validation: {
+              fieldResults: unknown[];
+              normalizedCandidates: unknown[];
+            };
+            extraction: {
+              candidates: unknown[];
+            };
+          }>((resolve) => {
+            resolveOrchestrator = resolve;
+          })
+      )
+    };
+    const jobQueueExecutor = createInProcessJobQueueExecutor();
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator,
+      providerRegistry: createRealProviderRegistryForTest(),
+      jobQueueExecutor,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    const job = await services.jobService.create({
+      schemaKey: "lims-clinical-info",
+      sourceFileId: "file-001",
+      providerConfig: {
+        ocrProviderKey: "http-ocr",
+        providerKey: "openai-responses-model"
+      }
+    });
+
+    expect(job).toEqual(
+      expect.objectContaining({
+        id: "job-001",
+        status: "queued",
+        executionMode: "asynchronous",
+        statusUrl: "/jobs/job-001",
+        resultUrl: "/results/job-001",
+        statusSemantics: expect.objectContaining({
+          queued: "accepted-for-background-execution",
+          running: "background-worker-executing-orchestrator",
+          terminal: "poll-job-until-completed-needs_review-partial_completed-failed-writeback_completed-or-writeback_failed"
+        })
+      })
+    );
+    await waitForMockCall(recognitionOrchestrator.start);
+    expect(recognitionOrchestrator.start).toHaveBeenCalledWith({
+      jobId: "job-001",
+      schemaKey: "lims-clinical-info",
+      document: expect.objectContaining({
+        documentId: "file-001",
+        fileName: "record.pdf",
+        mimeType: "application/pdf",
+        storageKey: "uploads/2026-06-05/record.pdf"
+      }),
+      providerConfig: {
+        ocrProviderKey: "http-ocr",
+        providerKey: "openai-responses-model"
+      }
+    });
+    expect(repositories.resultsRepository.upsertByJobId).not.toHaveBeenCalled();
+
+    resolveOrchestrator?.({
+      jobId: "job-001",
+      status: "completed",
+      trace: [{ node: "done", status: "completed", message: "ok" }],
+      validation: {
+        fieldResults: [],
+        normalizedCandidates: []
+      },
+      extraction: {
+        candidates: []
+      }
+    });
+    await jobQueueExecutor.drain();
+
+    expect(repositories.resultsRepository.upsertByJobId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: "job-001",
+        fields: [],
+        reviewRequired: false
+      })
+    );
+    expect(repositories.jobsRepository.updateStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "job-001",
+        status: "completed",
+        completedAt: new Date("2026-06-05T09:00:00.000Z"),
+        trace: [{ node: "done", status: "completed", message: "ok" }]
+      })
+    );
+  });
+
+  it("没有真实 OCR/LLM provider 时阻断识别创建且不创建 job", async () => {
+    const repositories = createRepositories();
+    const recognitionOrchestrator = {
+      start: vi.fn()
+    };
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator,
+      providerRegistry: {
+        list: vi.fn(async () => []),
+        setDefault: vi.fn()
+      },
+      jobExecutionMode: "synchronous",
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    await expect(
+      services.jobService.create({
+        schemaKey: "lims-clinical-info",
+        document: {
+          documentId: "demo-document-no-real-provider"
+        }
+      })
+    ).rejects.toMatchObject({
+      code: "REAL_PROVIDER_NOT_CONFIGURED",
+      statusCode: 503
+    });
+    expect(repositories.jobsRepository.create).not.toHaveBeenCalled();
+    expect(recognitionOrchestrator.start).not.toHaveBeenCalled();
+  });
+
+  it("后台识别执行失败时会把任务置为 failed 并保存脱敏错误", async () => {
+    const repositories = createRepositories();
+    const recognitionOrchestrator = {
+      start: vi.fn(async () => {
+        throw Object.assign(new Error("OCR gateway leaked stack should not be returned"), {
+          code: "OCR_PROVIDER_TIMEOUT"
+        });
+      })
+    };
+    const jobQueueExecutor = createInProcessJobQueueExecutor();
+    const services = createApiServices({
+      authService: {
+        login: vi.fn(),
+        authenticateJwt: vi.fn(),
+        authenticateApiToken: vi.fn(),
+        requirePermission: vi.fn()
+      },
+      auditService: {
+        listRecent: vi.fn(),
+        record: vi.fn()
+      },
+      schemaService: createSchemaService(),
+      repositories,
+      recognitionOrchestrator,
+      providerRegistry: createRealProviderRegistryForTest(),
+      jobQueueExecutor,
+      now: () => new Date("2026-06-05T09:00:00.000Z")
+    });
+
+    const job = await services.jobService.create({
+      schemaKey: "lims-clinical-info"
+    });
+    await jobQueueExecutor.drain();
+
+    expect(job).toEqual(
+      expect.objectContaining({
+        id: "job-001",
+        status: "queued",
+        executionMode: "asynchronous"
+      })
+    );
+    expect(repositories.resultsRepository.upsertByJobId).not.toHaveBeenCalled();
+    expect(repositories.jobsRepository.updateStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "job-001",
+        status: "failed",
+        completedAt: new Date("2026-06-05T09:00:00.000Z"),
+        error: {
+          code: "OCR_PROVIDER_TIMEOUT",
+          message: "识别后台任务执行失败，请查看服务端安全日志或 provider 诊断。"
         }
       })
     );
@@ -608,6 +1144,7 @@ describe("api service composition", () => {
     const run = await services.evaluationService.createRun({
       datasetId: "dataset-001",
       schemaKey: "custom-clinical-schema",
+      schemaVersionId: "schema-version-custom-002",
       providerKey: "mock-model",
       sampleLimit: 1,
       actor: {
@@ -622,8 +1159,10 @@ describe("api service composition", () => {
       expect.objectContaining({
         datasetId: "dataset-001",
         createdById: "user-001",
+        schemaVersionId: "schema-version-custom-002",
         schemaConfig: {
-          schemaKey: "custom-clinical-schema"
+          schemaKey: "custom-clinical-schema",
+          schemaVersionId: "schema-version-custom-002"
         },
         providerConfig: {
           providerKey: "mock-model"
@@ -654,7 +1193,8 @@ describe("api service composition", () => {
           deidentified: true
         }),
         schemaConfig: {
-          schemaKey: "custom-clinical-schema"
+          schemaKey: "custom-clinical-schema",
+          schemaVersionId: "schema-version-custom-002"
         },
         providerConfig: {
           providerKey: "mock-model"
@@ -827,11 +1367,9 @@ describe("api service composition", () => {
       schemaService: createSchemaService(),
       repositories,
       recognitionOrchestrator,
-      providerRegistry: {
-        list: vi.fn(),
-        setDefault: vi.fn()
-      },
+      providerRegistry: createRealProviderRegistryForTest(),
       storageProvider,
+      jobExecutionMode: "synchronous",
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 

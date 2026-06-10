@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { Button, Card, Message, Select, Table } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
+import type { ApiAuditEntry, ApiJsonObject } from "../../api/client";
 import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons } from "../../icons/appIcons";
 import { InlineNotice, MetricCard, PayloadPreview, SectionHeader, StatusPill } from "./components";
 import { useAuth } from "../../auth/AuthContext";
@@ -13,7 +16,7 @@ type AuditEntry = {
   target: string;
   risk: "low" | "medium" | "high";
   ip: string;
-  detail: Record<string, unknown>;
+  detail: ApiAuditEntry;
 };
 
 type AuditLoadState = {
@@ -85,7 +88,7 @@ function readString(record: Record<string, unknown>, keys: string[]): string | u
   return undefined;
 }
 
-function normalizeRisk(entry: Record<string, unknown>): AuditEntry["risk"] {
+function normalizeRisk(entry: ApiAuditEntry): AuditEntry["risk"] {
   const action = readString(entry, ["action"]) ?? "";
   const result = readString(entry, ["result", "status"]) ?? "";
   const explicitRisk = readString(entry, ["risk", "level"]);
@@ -101,13 +104,9 @@ function normalizeRisk(entry: Record<string, unknown>): AuditEntry["risk"] {
   return "low";
 }
 
-function parseAuditEntries(items: unknown[]): AuditEntry[] {
+function parseAuditEntries(items: ApiAuditEntry[]): AuditEntry[] {
   return items
     .map((item, index): AuditEntry | null => {
-      if (!isRecord(item)) {
-        return null;
-      }
-
       const action = readString(item, ["action", "event"]) ?? "audit.event";
 
       return {
@@ -122,6 +121,27 @@ function parseAuditEntries(items: unknown[]): AuditEntry[] {
       };
     })
     .filter((item): item is AuditEntry => Boolean(item));
+}
+
+function escapeCsvCell(value: unknown) {
+  const text = String(value ?? "");
+  return /[",\n\r]/u.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+export function buildAuditCsv(entries: AuditEntry[]) {
+  const header = ["id", "time", "actor", "action", "target", "risk", "ip", "detail"];
+  const rows = entries.map((entry) => [
+    entry.id,
+    entry.time,
+    entry.actor,
+    entry.action,
+    entry.target,
+    entry.risk,
+    entry.ip,
+    JSON.stringify(entry.detail)
+  ]);
+
+  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
 }
 
 export function AuditLogPage() {
@@ -166,33 +186,82 @@ export function AuditLogPage() {
     [entries, riskFilter]
   );
   const selectedEntry = entries.find((entry) => entry.id === selectedId) ?? entries[0];
+  const canExportCsv = filteredEntries.length > 0 && loadState.status !== "loading";
+  const columns: TableColumnProps<AuditEntry>[] = [
+    {
+      title: "时间",
+      dataIndex: "time",
+      render: (_, entry) => (
+        <Button type="text" onClick={() => setSelectedId(entry.id)}>
+          {entry.time}
+        </Button>
+      ),
+    },
+    { title: "操作者", dataIndex: "actor" },
+    { title: "动作", dataIndex: "action" },
+    { title: "对象", dataIndex: "target" },
+    {
+      title: "风险",
+      dataIndex: "risk",
+      render: (_, entry) => (
+        <StatusPill tone={riskToneMap[entry.risk]}>
+          {entry.risk === "high" ? "高" : entry.risk === "medium" ? "中" : "低"}
+        </StatusPill>
+      ),
+    },
+    { title: "IP", dataIndex: "ip" },
+  ];
+
+  function exportAuditCsv() {
+    if (!canExportCsv) {
+      Message.warning("当前没有可导出的审计记录。");
+      return;
+    }
+
+    const csv = buildAuditCsv(filteredEntries);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    Message.success(`已导出 ${filteredEntries.length} 条审计记录。`);
+  }
 
   return (
     <main className="app-page">
       <SectionHeader
         eyebrow="Operations / Task 16 19 22"
-        title="Audit Log"
+        title="审计日志"
         description="补齐运维导航中的审计视图，集中展示 provider、写回、反馈标注和 Trace 查看记录。"
         actions={
           <>
             <label className="toolbar-control">
               <AppIcon icon={dashboardMetricIcons.decisionReview} size="sm" />
               <span>风险</span>
-              <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as AuditEntry["risk"] | "all")}>
-                <option value="all">全部</option>
-                <option value="high">高</option>
-                <option value="medium">中</option>
-                <option value="low">低</option>
-              </select>
+              <Select value={riskFilter} onChange={(value) => setRiskFilter(String(value) as AuditEntry["risk"] | "all")} style={{ width: 112 }}>
+                <Select.Option value="all">全部</Select.Option>
+                <Select.Option value="high">高</Select.Option>
+                <Select.Option value="medium">中</Select.Option>
+                <Select.Option value="low">低</Select.Option>
+              </Select>
             </label>
-            <button className="secondary-button" type="button">
-              <AppIcon icon={navigationIcons.auditLog} size="sm" />
+            <Button
+              type="outline"
+              disabled={!canExportCsv}
+              title={canExportCsv ? "导出当前筛选结果" : "无审计记录可导出"}
+              onClick={exportAuditCsv}
+              icon={<AppIcon icon={navigationIcons.auditLog} size="sm" />}
+            >
               导出 CSV
-            </button>
-            <button className="secondary-button" type="button" disabled={loadState.status === "loading"} onClick={() => void loadAuditEntries()}>
-              <AppIcon icon={actionIcons.refresh} size="sm" className={loadState.status === "loading" ? "is-spinning" : undefined} />
+            </Button>
+            <Button type="outline" disabled={loadState.status === "loading"} loading={loadState.status === "loading"} onClick={() => void loadAuditEntries()} icon={<AppIcon icon={actionIcons.refresh} size="sm" className={loadState.status === "loading" ? "is-spinning" : undefined} />}>
               {loadState.status === "loading" ? "读取中" : "刷新"}
-            </button>
+            </Button>
           </>
         }
       />
@@ -208,7 +277,7 @@ export function AuditLogPage() {
       </InlineNotice>
 
       <section className="operations-split">
-        <section className="panel">
+        <Card className="panel">
           <div className="panel-header">
             <h2>
               <AppIcon icon={navigationIcons.auditLog} size="md" />
@@ -216,47 +285,10 @@ export function AuditLogPage() {
             </h2>
             <StatusPill tone="info">{filteredEntries.length} 条</StatusPill>
           </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>操作者</th>
-                <th>动作</th>
-                <th>对象</th>
-                <th>风险</th>
-                <th>IP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEntries.length > 0 ? (
-                filteredEntries.map((entry) => (
-                  <tr key={entry.id} className={entry.id === selectedEntry?.id ? "is-selected" : undefined}>
-                    <td>
-                      <button className="link-button" type="button" onClick={() => setSelectedId(entry.id)}>
-                        {entry.time}
-                      </button>
-                    </td>
-                    <td>{entry.actor}</td>
-                    <td>{entry.action}</td>
-                    <td>{entry.target}</td>
-                    <td>
-                      <StatusPill tone={riskToneMap[entry.risk]}>
-                        {entry.risk === "high" ? "高" : entry.risk === "medium" ? "中" : "低"}
-                      </StatusPill>
-                    </td>
-                    <td>{entry.ip}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6}>{loadState.status === "loading" ? "正在加载审计事件。" : "暂无符合条件的审计事件。"}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
+          <Table columns={columns} data={filteredEntries} rowKey="id" pagination={false} scroll={{ x: 860 }} />
+        </Card>
 
-        {selectedEntry ? <PayloadPreview title={`审计详情 ${selectedEntry.id}`} payload={selectedEntry.detail} /> : <PayloadPreview title="审计详情" payload={{ empty: "当前没有可展示审计详情" }} />}
+        {selectedEntry ? <PayloadPreview title={`审计详情 ${selectedEntry.id}`} payload={selectedEntry.detail as ApiJsonObject} /> : <PayloadPreview title="审计详情" payload={{ empty: "当前没有可展示审计详情" }} />}
       </section>
     </main>
   );

@@ -1,4 +1,13 @@
 import { useMemo, useState } from "react";
+import { Alert, Button, Card, Space, Table } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
+import type {
+  ApiEvaluationSamplesResponse,
+  ApiFeedbackResponse,
+  ApiJsonObject,
+  CreateFeedbackInput,
+  ImportEvaluationSampleInput
+} from "../../api/client";
 import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, statusIcons } from "../../icons/appIcons";
 import { ConfirmDialog, InlineNotice, MetricCard, PayloadPreview, SectionHeader, StatusPill } from "./components";
 import { useAuth } from "../../auth/AuthContext";
@@ -14,7 +23,7 @@ type FeedbackSample = {
   label: "字段缺失" | "识别错误" | "结构错位" | "可接受";
   status: FeedbackStatus;
   confidence: number;
-  payload: Record<string, unknown>;
+  payload: ApiJsonObject;
   apiFeedbackId?: string;
 };
 
@@ -24,8 +33,8 @@ type FeedbackApiState = {
 };
 
 type FeedbackApiClient = {
-  createFeedback(input: unknown): Promise<unknown>;
-  importEvaluationSamples(datasetId: string, samples: unknown[]): Promise<unknown>;
+  createFeedback(input: CreateFeedbackInput): Promise<ApiFeedbackResponse>;
+  importEvaluationSamples(datasetId: string, samples: ImportEvaluationSampleInput[]): Promise<ApiEvaluationSamplesResponse>;
 };
 
 type FeedbackSubmitResult = {
@@ -101,15 +110,11 @@ function readString(record: Record<string, unknown>, keys: string[]): string | u
   return undefined;
 }
 
-function readCreatedFeedbackId(response: unknown): string | undefined {
-  if (!isRecord(response)) {
-    return undefined;
-  }
-
+function readCreatedFeedbackId(response: ApiFeedbackResponse): string | undefined {
   return readString(response, ["id", "feedbackId"]) ?? (isRecord(response.feedback) ? readString(response.feedback, ["id", "feedbackId"]) : undefined);
 }
 
-function readReviewer(payload: Record<string, unknown>) {
+function readReviewer(payload: ApiJsonObject) {
   return readString(payload, ["reviewer", "approvedBy"]) ?? "unknown";
 }
 
@@ -117,7 +122,7 @@ function getFeedbackGroundTruthField(sample: FeedbackSample) {
   return sample.field.trim() || "feedbackValue";
 }
 
-export function buildFeedbackEvaluationSample(sample: FeedbackSample, apiFeedbackId: string | undefined) {
+export function buildFeedbackEvaluationSample(sample: FeedbackSample, apiFeedbackId: string | undefined): ImportEvaluationSampleInput {
   const fieldKey = getFeedbackGroundTruthField(sample);
   const source = sample.source.trim() || "feedback";
   const expected = sample.expected;
@@ -161,7 +166,7 @@ export async function submitFeedbackSampleStatus(
   let apiFeedbackId: string | undefined;
 
   try {
-    const response = await api.createFeedback({
+    const feedbackInput: CreateFeedbackInput = {
       sampleId: sample.id,
       source: sample.source,
       field: sample.field,
@@ -170,7 +175,8 @@ export async function submitFeedbackSampleStatus(
       label: sample.label,
       status,
       payload: sample.payload
-    });
+    };
+    const response = await api.createFeedback(feedbackInput);
     apiFeedbackId = readCreatedFeedbackId(response);
   } catch (error) {
     return {
@@ -219,6 +225,54 @@ export function FeedbackSamplesPage() {
     [samples, selectedId]
   );
   const goldenCount = samples.filter((sample) => sample.status === "golden").length;
+  const sampleColumns: TableColumnProps<FeedbackSample>[] = [
+    {
+      title: "ID",
+      dataIndex: "id",
+      render: (_, sample) => (
+        <Button type="text" onClick={() => setSelectedId(sample.id)}>
+          {sample.id}
+        </Button>
+      ),
+    },
+    { title: "来源", dataIndex: "source" },
+    { title: "字段", dataIndex: "field" },
+    { title: "标签", dataIndex: "label" },
+    { title: "置信度", dataIndex: "confidence", render: (_, sample) => `${Math.round(sample.confidence * 100)}%` },
+    {
+      title: "状态",
+      dataIndex: "status",
+      render: (_, sample) => <StatusPill tone={statusToneMap[sample.status]}>{statusLabelMap[sample.status]}</StatusPill>,
+    },
+    {
+      title: "操作",
+      dataIndex: "operations",
+      render: (_, sample) => (
+        <Space wrap>
+          <Button
+            type="outline"
+            disabled={sample.status === "golden"}
+            onClick={() => {
+              setSelectedId(sample.id);
+              setConfirmGoldenId(sample.id);
+            }}
+            icon={<AppIcon icon={statusIcons.success} size="sm" />}
+          >
+            入集
+          </Button>
+          <Button
+            type="outline"
+            disabled={sample.status === "ignored"}
+            title={sample.status === "ignored" ? "样本已忽略" : undefined}
+            onClick={() => void submitSampleStatus(sample.id, "ignored")}
+            icon={<AppIcon icon={statusIcons.warning} size="sm" />}
+          >
+            忽略
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   async function submitSampleStatus(id: string, status: FeedbackStatus) {
     const sample = samples.find((item) => item.id === id);
@@ -258,7 +312,7 @@ export function FeedbackSamplesPage() {
     <main className="app-page">
       <SectionHeader
         eyebrow="Operations / Task 22"
-        title="Feedback Samples"
+        title="反馈样本"
         description="沉淀人工反馈样本，支持标注、分诊、加入黄金样本集和忽略低价值反馈。"
       />
 
@@ -277,7 +331,7 @@ export function FeedbackSamplesPage() {
       </InlineNotice>
 
       <section className="operations-split">
-        <section className="panel" data-guide="feedback">
+        <Card className="panel" data-guide="feedback">
           <div className="panel-header">
             <h2>
               <AppIcon icon={navigationIcons.feedbackSamples} size="md" />
@@ -285,69 +339,13 @@ export function FeedbackSamplesPage() {
             </h2>
             <StatusPill tone="info">可标注</StatusPill>
           </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>来源</th>
-                <th>字段</th>
-                <th>标签</th>
-                <th>置信度</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {samples.map((sample) => (
-                <tr key={sample.id} className={selectedSample?.id === sample.id ? "is-selected" : undefined}>
-                  <td>
-                    <button className="link-button" type="button" onClick={() => setSelectedId(sample.id)}>
-                      {sample.id}
-                    </button>
-                  </td>
-                  <td>{sample.source}</td>
-                  <td>{sample.field}</td>
-                  <td>{sample.label}</td>
-                  <td>{Math.round(sample.confidence * 100)}%</td>
-                  <td>
-                    <StatusPill tone={statusToneMap[sample.status]}>{statusLabelMap[sample.status]}</StatusPill>
-                  </td>
-                  <td>
-                    <div className="row-actions">
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        disabled={sample.status === "golden"}
-                        onClick={() => {
-                          setSelectedId(sample.id);
-                          setConfirmGoldenId(sample.id);
-                        }}
-                      >
-                        <AppIcon icon={statusIcons.success} size="sm" />
-                        入集
-                      </button>
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        disabled={sample.status === "ignored"}
-                        title={sample.status === "ignored" ? "样本已忽略" : undefined}
-                        onClick={() => void submitSampleStatus(sample.id, "ignored")}
-                      >
-                        <AppIcon icon={statusIcons.warning} size="sm" />
-                        忽略
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+          <Table columns={sampleColumns} data={samples} rowKey="id" pagination={false} scroll={{ x: 920 }} />
+        </Card>
 
         <div className="stack">
           {selectedSample ? (
             <>
-              <section className="panel">
+              <Card className="panel">
                 <div className="panel-header">
                   <h2>
                     <AppIcon icon={dashboardMetricIcons.dataset} size="md" />
@@ -373,7 +371,7 @@ export function FeedbackSamplesPage() {
                     <dd>{selectedSample.apiFeedbackId ?? "尚未提交到 feedback API"}</dd>
                   </div>
                 </dl>
-              </section>
+              </Card>
               <PayloadPreview title="反馈上下文" payload={selectedSample.payload} />
             </>
           ) : null}
@@ -395,10 +393,7 @@ export function FeedbackSamplesPage() {
       />
 
       {apiState.status === "submitting" ? (
-        <p role="status" className="page-subtle-note">
-          <AppIcon icon={actionIcons.next} size="sm" />
-          {apiState.message}
-        </p>
+        <Alert type="info" showIcon content={apiState.message} />
       ) : null}
     </main>
   );

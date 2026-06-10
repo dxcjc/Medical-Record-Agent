@@ -18,6 +18,8 @@ export interface CoreFieldDefinition {
   label: string;
   type: CoreFieldType;
   comments: string[];
+  required?: boolean;
+  critical?: boolean;
   adapterHints?: CoreFieldAdapterHints;
   enumMap?: Record<string, string>;
 }

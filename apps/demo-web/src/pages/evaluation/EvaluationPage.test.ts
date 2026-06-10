@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildEvaluationRunRequest,
   buildEvaluationSampleImportPayload,
+  describeEvaluationMutationState,
+  describeEvaluationRunQueueState,
   parseEvaluationProviderOptions,
   parseEvaluationSchemaOptions
 } from "./EvaluationPage";
@@ -31,15 +33,16 @@ describe("EvaluationPage 配置解析", () => {
     const response = {
       items: [
         { key: "mock-ocr", kind: "ocr", name: "Mock OCR" },
-        { key: "mock-model", kind: "llm", name: "Mock Model" },
+        { key: "mock-model", kind: "llm", name: "Mock Model", isMock: true },
+        { key: "openai-responses-model", kind: "llm", name: "OpenAI Responses Model", isMock: false },
         { key: "record-storage", kind: "storage", name: "Record Storage" }
       ]
     };
 
     expect(parseEvaluationProviderOptions(response)).toEqual([
       {
-        value: "mock-model",
-        label: "Mock Model"
+        value: "openai-responses-model",
+        label: "OpenAI Responses Model"
       }
     ]);
   });
@@ -94,5 +97,49 @@ describe("EvaluationPage 配置解析", () => {
         }
       }
     ]);
+  });
+
+  it("评测 run 创建状态提供取消、队列和失败重试提示", () => {
+    expect(describeEvaluationMutationState("run", { status: "submitting", message: "正在创建评测任务" })).toEqual({
+      title: "评测任务提交中",
+      tone: "info",
+      canCancel: true,
+      canRetry: false,
+      message: "正在创建评测任务，后端会把 run 放入评测队列。"
+    });
+
+    expect(describeEvaluationMutationState("run", { status: "error", message: "PROVIDER_DOWN" })).toEqual({
+      title: "评测任务创建失败",
+      tone: "warning",
+      canCancel: false,
+      canRetry: true,
+      message: "PROVIDER_DOWN"
+    });
+
+    expect(describeEvaluationMutationState("import", { status: "cancelled", message: "样本导入已取消" })).toEqual({
+      title: "样本导入已取消",
+      tone: "warning",
+      canCancel: false,
+      canRetry: true,
+      message: "样本导入已取消"
+    });
+  });
+
+  it("评测运行列表把 queued/running/failed 映射成队列处理提示", () => {
+    expect(describeEvaluationRunQueueState("排队中")).toEqual({
+      tone: "info",
+      label: "队列等待",
+      message: "评测 run 已创建，等待 worker 读取样本并执行识别评估。"
+    });
+    expect(describeEvaluationRunQueueState("运行中")).toEqual({
+      tone: "info",
+      label: "处理中",
+      message: "评测 worker 正在运行，可稍后刷新 metrics。"
+    });
+    expect(describeEvaluationRunQueueState("已失败")).toEqual({
+      tone: "warning",
+      label: "需要重试",
+      message: "评测 run 失败，请检查 Provider、Schema 和样本脱敏状态后重跑。"
+    });
   });
 });

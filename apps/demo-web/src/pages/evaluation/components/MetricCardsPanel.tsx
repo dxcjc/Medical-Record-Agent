@@ -1,3 +1,4 @@
+import { Card, Tag } from "@arco-design/web-react";
 import { AppIcon, dashboardMetricIcons, navigationIcons } from "../../../icons/appIcons";
 import type { MetricCardData } from "./evaluationData";
 
@@ -7,7 +8,7 @@ type MetricCardsPanelProps = {
 
 export function MetricCardsPanel({ metrics }: MetricCardsPanelProps) {
   return (
-    <section className="panel studio-panel" aria-labelledby="evaluation-metrics-title">
+    <Card className="panel studio-panel" aria-labelledby="evaluation-metrics-title">
       <div className="toolbar">
         <div>
           <h2 id="evaluation-metrics-title">Metric Cards</h2>
@@ -18,19 +19,19 @@ export function MetricCardsPanel({ metrics }: MetricCardsPanelProps) {
 
       <div className="metric-grid">
         {metrics.map((metric) => (
-          <article className="metric-card" key={metric.id}>
+          <Card className="metric-card" key={metric.id}>
             <div className="toolbar">
-              <span className="status-pill">
+              <Tag color="arcoblue">
                 <AppIcon icon={dashboardMetricIcons.confidence} size="xs" />
                 {metric.label}
-              </span>
+              </Tag>
               <strong>{metric.delta}</strong>
             </div>
             <h3>{metric.value}</h3>
             <p>{metric.detail}</p>
-          </article>
+          </Card>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }

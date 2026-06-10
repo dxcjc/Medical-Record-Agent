@@ -2,10 +2,18 @@ import type { FastifyInstance } from "fastify";
 
 import { PERMISSIONS } from "../auth/permissions";
 import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware";
+import {
+  assertRouteResponseObject,
+  assertRouteResponseObjectList,
+  importEvaluationSamplesRouteInputSchema,
+  type ApiRouteResponseObject,
+  type EvaluationSampleRouteInput
+} from "./route-dtos";
 
 export interface CreateEvaluationRunInput {
   datasetId: string;
   schemaKey?: string;
+  schemaVersionId?: string;
   providerKey: string;
   sampleLimit?: number;
   actor: AuthContext;
@@ -22,7 +30,7 @@ export interface CreateEvaluationDatasetRouteInput {
 
 export interface ImportEvaluationSamplesRouteInput {
   datasetId: string;
-  samples: unknown[];
+  samples: EvaluationSampleRouteInput[];
   actor: AuthContext;
 }
 
@@ -42,13 +50,13 @@ export interface ListEvaluationRunMetricsInput {
 }
 
 export interface EvaluationRouteService {
-  listDatasets(): Promise<unknown[]>;
-  createDataset(input: CreateEvaluationDatasetRouteInput): Promise<unknown>;
-  importSamples(input: ImportEvaluationSamplesRouteInput): Promise<unknown[]>;
-  listRuns(input: ListEvaluationRunsRouteInput): Promise<unknown[]>;
-  createRun(input: CreateEvaluationRunInput): Promise<unknown>;
-  getRun(input: GetEvaluationRunInput): Promise<unknown | null>;
-  listRunMetrics(input: ListEvaluationRunMetricsInput): Promise<unknown[]>;
+  listDatasets(): Promise<ApiRouteResponseObject[]>;
+  createDataset(input: CreateEvaluationDatasetRouteInput): Promise<ApiRouteResponseObject>;
+  importSamples(input: ImportEvaluationSamplesRouteInput): Promise<ApiRouteResponseObject[]>;
+  listRuns(input: ListEvaluationRunsRouteInput): Promise<ApiRouteResponseObject[]>;
+  createRun(input: CreateEvaluationRunInput): Promise<ApiRouteResponseObject>;
+  getRun(input: GetEvaluationRunInput): Promise<ApiRouteResponseObject | null>;
+  listRunMetrics(input: ListEvaluationRunMetricsInput): Promise<ApiRouteResponseObject[]>;
 }
 
 export interface EvaluationRoutesDependencies {
@@ -58,7 +66,7 @@ export interface EvaluationRoutesDependencies {
 
 function isCreateRunBody(
   value: unknown
-): value is { datasetId: string; schemaKey?: string; providerKey: string; sampleLimit?: number } {
+): value is { datasetId: string; schemaKey?: string; schemaVersionId?: string; providerKey: string; sampleLimit?: number } {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -66,6 +74,7 @@ function isCreateRunBody(
   const body = value as Record<string, unknown>;
   const sampleLimit = body.sampleLimit;
   const schemaKey = body.schemaKey;
+  const schemaVersionId = body.schemaVersionId;
 
   return (
     typeof body.datasetId === "string" &&
@@ -73,6 +82,7 @@ function isCreateRunBody(
     typeof body.providerKey === "string" &&
     body.providerKey.length > 0 &&
     (schemaKey === undefined || (typeof schemaKey === "string" && schemaKey.length > 0)) &&
+    (schemaVersionId === undefined || (typeof schemaVersionId === "string" && schemaVersionId.length > 0)) &&
     (sampleLimit === undefined || (typeof sampleLimit === "number" && Number.isFinite(sampleLimit)))
   );
 }
@@ -98,10 +108,6 @@ function isCreateDatasetBody(
   );
 }
 
-function isImportSamplesBody(value: unknown): value is { samples: unknown[] } {
-  return isRecord(value) && Array.isArray(value.samples);
-}
-
 /**
  * Evaluation API 管理评估数据集和评估运行，属于高权限管理能力。
  * 这里通过注入的 evaluationService 完成业务动作，路由层不直接连接数据库。
@@ -118,8 +124,10 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
       preHandler
     },
     async () => {
+      const datasets = await dependencies.evaluationService.listDatasets();
+
       return {
-        items: await dependencies.evaluationService.listDatasets()
+        items: assertRouteResponseObjectList(datasets, "EVALUATION_DATASET_LIST_RESPONSE_INVALID")
       };
     }
   );
@@ -150,7 +158,9 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
 
       const dataset = await dependencies.evaluationService.createDataset(input);
 
-      return reply.status(201).send({ dataset });
+      return reply.status(201).send({
+        dataset: assertRouteResponseObject(dataset, "EVALUATION_DATASET_RESPONSE_INVALID")
+      });
     }
   );
 
@@ -160,7 +170,8 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
       preHandler
     },
     async (request, reply) => {
-      if (!isImportSamplesBody(request.body)) {
+      const parsed = importEvaluationSamplesRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
         return reply.status(400).send({
           error: "BAD_REQUEST"
         });
@@ -169,11 +180,13 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
       const params = request.params as { id: string };
       const samples = await dependencies.evaluationService.importSamples({
         datasetId: params.id,
-        samples: request.body.samples,
+        samples: parsed.data.samples,
         actor: request.auth as AuthContext
       });
 
-      return reply.status(201).send({ samples });
+      return reply.status(201).send({
+        samples: assertRouteResponseObjectList(samples, "EVALUATION_SAMPLE_IMPORT_RESPONSE_INVALID")
+      });
     }
   );
 
@@ -192,8 +205,10 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
         input.datasetId = query.datasetId;
       }
 
+      const runs = await dependencies.evaluationService.listRuns(input);
+
       return {
-        items: await dependencies.evaluationService.listRuns(input)
+        items: assertRouteResponseObjectList(runs, "EVALUATION_RUN_LIST_RESPONSE_INVALID")
       };
     }
   );
@@ -220,13 +235,19 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
         input.schemaKey = request.body.schemaKey;
       }
 
+      if (request.body.schemaVersionId !== undefined) {
+        input.schemaVersionId = request.body.schemaVersionId;
+      }
+
       if (request.body.sampleLimit !== undefined) {
         input.sampleLimit = request.body.sampleLimit;
       }
 
       const run = await dependencies.evaluationService.createRun(input);
 
-      return reply.status(201).send({ run });
+      return reply.status(201).send({
+        run: assertRouteResponseObject(run, "EVALUATION_RUN_RESPONSE_INVALID")
+      });
     }
   );
 
@@ -242,7 +263,9 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
         actor: request.auth as AuthContext
       });
 
-      return { metrics };
+      return {
+        metrics: assertRouteResponseObjectList(metrics, "EVALUATION_METRIC_LIST_RESPONSE_INVALID")
+      };
     }
   );
 
@@ -264,7 +287,9 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
         });
       }
 
-      return { run };
+      return {
+        run: assertRouteResponseObject(run, "EVALUATION_RUN_RESPONSE_INVALID")
+      };
     }
   );
 }

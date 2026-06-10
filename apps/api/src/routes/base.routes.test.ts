@@ -146,6 +146,110 @@ describe("base route groups", () => {
     );
   });
 
+  it("File API 上传只把共享 DTO 允许字段交给 service", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:create"]);
+    const fileService: FileRouteService = {
+      createUpload: vi.fn(async () => ({ id: "file-001" })),
+      getContent: vi.fn()
+    };
+    await registerFileRoutes(server, {
+      fileService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/files",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        originalName: "record.pdf",
+        mimeType: "application/pdf",
+        byteSize: 12,
+        checksumSha256: "a".repeat(64),
+        contentBase64: "REU=",
+        metadata: {
+          source: "unit-test"
+        },
+        uploadedById: "client-spoof",
+        storageKey: "/tmp/should-not-pass"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(fileService.createUpload).toHaveBeenCalledWith({
+      originalName: "record.pdf",
+      mimeType: "application/pdf",
+      byteSize: 12,
+      checksumSha256: "a".repeat(64),
+      contentBase64: "REU=",
+      metadata: {
+        source: "unit-test"
+      }
+    });
+  });
+
+  it("File API 上传非法 DTO 时返回 400 且不调用 service", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:create"]);
+    const fileService: FileRouteService = {
+      createUpload: vi.fn(),
+      getContent: vi.fn()
+    };
+    await registerFileRoutes(server, {
+      fileService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/files",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        originalName: "",
+        checksumSha256: 123
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "BAD_REQUEST",
+      message: "Invalid file upload payload"
+    });
+    expect(fileService.createUpload).not.toHaveBeenCalled();
+  });
+
+  it("File API 上传拒绝非对象 service 响应", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:create"]);
+    const fileService = {
+      createUpload: vi.fn(async () => "not-object"),
+      getContent: vi.fn()
+    } as unknown as FileRouteService;
+    await registerFileRoutes(server, {
+      fileService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/files",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        originalName: "record.pdf"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "FILE_UPLOAD_RESPONSE_INVALID",
+        message: "FILE_UPLOAD_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
   it("File API 下载内容时要求 job:read 并写入审计", async () => {
     const server = Fastify();
     const tools = createRouteTools(["job:read"]);
@@ -223,6 +327,149 @@ describe("base route groups", () => {
     expect(jobService.get).toHaveBeenCalledWith("job-001");
   });
 
+  it("Job API 创建任务只把共享 DTO 允许字段交给 service", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:create"]);
+    const jobService: JobRouteService = {
+      create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
+      get: vi.fn()
+    };
+    await registerJobRoutes(server, {
+      jobService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/jobs",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        schemaKey: "lims-clinical-info",
+        schemaVersionId: "schema-version-001",
+        sourceFileId: "file-001",
+        document: {
+          documentId: "file-001",
+          fileName: "record.pdf",
+          mimeType: "application/pdf",
+          storageKey: "controlled/file-001",
+          extra: "drop-me"
+        },
+        providerConfig: {
+          ocrProviderKey: "http-ocr",
+          providerKey: "openai-responses",
+          apiKey: "drop-me"
+        },
+        createdById: "client-spoof"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(jobService.create).toHaveBeenCalledWith({
+      schemaKey: "lims-clinical-info",
+      schemaVersionId: "schema-version-001",
+      sourceFileId: "file-001",
+      document: {
+        documentId: "file-001",
+        fileName: "record.pdf",
+        mimeType: "application/pdf",
+        storageKey: "controlled/file-001"
+      },
+      providerConfig: {
+        ocrProviderKey: "http-ocr",
+        providerKey: "openai-responses"
+      }
+    });
+  });
+
+  it("Job API 创建任务非法 DTO 时返回 400 且不调用 service", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:create"]);
+    const jobService: JobRouteService = {
+      create: vi.fn(),
+      get: vi.fn()
+    };
+    await registerJobRoutes(server, {
+      jobService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/jobs",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        schemaKey: "",
+        sourceFileId: 42
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "BAD_REQUEST",
+      message: "Invalid recognition job payload"
+    });
+    expect(jobService.create).not.toHaveBeenCalled();
+  });
+
+  it("Job API 创建任务拒绝非对象 service 响应", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:create"]);
+    const jobService = {
+      create: vi.fn(async () => "not-object"),
+      get: vi.fn()
+    } as unknown as JobRouteService;
+    await registerJobRoutes(server, {
+      jobService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/jobs",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        schemaKey: "lims-clinical-info"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "JOB_CREATE_RESPONSE_INVALID",
+        message: "JOB_CREATE_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
+  it("Job API 查询任务拒绝非对象 service 响应", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:read"]);
+    const jobService = {
+      create: vi.fn(),
+      get: vi.fn(async () => "not-object")
+    } as unknown as JobRouteService;
+    await registerJobRoutes(server, {
+      jobService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/jobs/job-001",
+      headers: { authorization: "Bearer valid-jwt" }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "JOB_RESPONSE_INVALID",
+        message: "JOB_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
+
   it("Result API 找不到结果时返回结构化 404", async () => {
     const server = Fastify();
     const tools = createRouteTools(["job:read"]);
@@ -245,6 +492,33 @@ describe("base route groups", () => {
     expect(response.json()).toEqual({
       error: "NOT_FOUND"
     });
+  });
+
+  it("Result API 拒绝非对象 service 响应", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["job:read"]);
+    const resultService = {
+      getByJobId: vi.fn(async () => "not-object")
+    } as unknown as ResultRouteService;
+    await registerResultRoutes(server, {
+      resultService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/results/job-001",
+      headers: { authorization: "Bearer valid-jwt" }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "RESULT_RESPONSE_INVALID",
+        message: "RESULT_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
   });
 
   it("Feedback API 创建反馈时要求 feedback:create 并写入审计", async () => {
@@ -282,6 +556,111 @@ describe("base route groups", () => {
         action: "feedback.create",
         objectType: "feedback",
         result: "success"
+      })
+    );
+  });
+
+  it("Feedback API 创建反馈只把共享 DTO 允许字段交给 service", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["feedback:create"]);
+    const feedbackService: FeedbackRouteService = {
+      create: vi.fn(async () => ({ id: "feedback-001" }))
+    };
+    await registerFeedbackRoutes(server, {
+      feedbackService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/feedback",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        jobId: "job-001",
+        fieldKey: "clinicalDiagnosis",
+        correctedValue: "肺腺癌",
+        decision: "accepted",
+        reason: "人工复核确认",
+        reviewer: "reviewer-001",
+        evidenceId: "ev-001",
+        evidenceQuote: "临床诊断：肺腺癌",
+        status: "golden",
+        schemaVersionId: "schema-version-001",
+        createdById: "client-spoof"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(feedbackService.create).toHaveBeenCalledWith({
+      jobId: "job-001",
+      fieldKey: "clinicalDiagnosis",
+      correctedValue: "肺腺癌",
+      decision: "accepted",
+      reason: "人工复核确认",
+      reviewer: "reviewer-001",
+      evidenceId: "ev-001",
+      evidenceQuote: "临床诊断：肺腺癌",
+      status: "golden",
+      schemaVersionId: "schema-version-001"
+    });
+  });
+
+  it("Feedback API 创建反馈非法 DTO 时返回 400 且不调用 service", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["feedback:create"]);
+    const feedbackService: FeedbackRouteService = {
+      create: vi.fn()
+    };
+    await registerFeedbackRoutes(server, {
+      feedbackService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/feedback",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        jobId: "",
+        fieldKey: 123
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "BAD_REQUEST",
+      message: "Invalid feedback payload"
+    });
+    expect(feedbackService.create).not.toHaveBeenCalled();
+  });
+
+  it("Feedback API 创建反馈拒绝非对象 service 响应", async () => {
+    const server = Fastify();
+    const tools = createRouteTools(["feedback:create"]);
+    const feedbackService = {
+      create: vi.fn(async () => "not-object")
+    } as unknown as FeedbackRouteService;
+    await registerFeedbackRoutes(server, {
+      feedbackService,
+      authHooks: tools.authHooks
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/feedback",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        jobId: "job-001",
+        fieldKey: "clinicalDiagnosis"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "FEEDBACK_RESPONSE_INVALID",
+        message: "FEEDBACK_RESPONSE_INVALID",
+        statusCode: 500
       })
     );
   });
@@ -325,13 +704,9 @@ describe("base route groups", () => {
     expect(writebackService.execute).toHaveBeenCalledWith({
       jobId: "job-001",
       confirmed: true,
-      fields: [
-        {
-          fieldKey: "clinicalDiagnosis",
-          targetPath: "clinicalInfo.clinicalDiagnosis",
-          value: "肺腺癌"
-        }
-      ]
+      actor: expect.objectContaining({
+        actorUserId: "user-001"
+      })
     });
   });
 });

@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from "fastify";
+import { readSessionCookie } from "../auth/session-cookie";
 
 export interface AuthContext {
   actorUserId: string;
@@ -11,6 +12,8 @@ export interface AuthContext {
 export interface AuthLayerService {
   authenticateJwt(token: string): Promise<AuthContext>;
   authenticateApiToken(token: string): Promise<AuthContext>;
+  isSessionTokenInvalidated?(token: string): boolean | Promise<boolean>;
+  describeSessionInvalidationStore?(): unknown;
   requirePermission(context: AuthContext | null, permission: string): void;
 }
 
@@ -85,17 +88,26 @@ function readApiToken(request: FastifyRequest) {
 export function createAuthHooks(dependencies: AuthHooksDependencies) {
   const authenticate: preHandlerHookHandler = async (request, reply) => {
     const bearerToken = readBearerToken(request);
+    const sessionToken = readSessionCookie(request.headers.cookie);
     const apiToken = readApiToken(request);
 
-    if (!bearerToken && !apiToken) {
+    if (!bearerToken && !sessionToken && !apiToken) {
       await sendAuthError(reply, "UNAUTHORIZED");
       return;
     }
 
     try {
-      request.auth = bearerToken
-        ? await dependencies.authService.authenticateJwt(bearerToken)
-        : await dependencies.authService.authenticateApiToken(apiToken as string);
+      const jwtToken = bearerToken ?? sessionToken;
+      if (jwtToken) {
+        if (sessionToken === jwtToken && (await dependencies.authService.isSessionTokenInvalidated?.(jwtToken))) {
+          throw Object.assign(new Error("UNAUTHORIZED"), { code: "UNAUTHORIZED" });
+        }
+
+        request.auth = await dependencies.authService.authenticateJwt(jwtToken);
+        return;
+      }
+
+      request.auth = await dependencies.authService.authenticateApiToken(apiToken as string);
     } catch (error) {
       await sendAuthError(reply, getAuthErrorCode(error));
     }

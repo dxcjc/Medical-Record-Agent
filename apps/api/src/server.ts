@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import type { FastifyRequest, preHandlerHookHandler } from "fastify";
 
 import type { AuthLayerService } from "./middleware/auth.middleware";
 import { createAuthHooks } from "./middleware/auth.middleware";
@@ -29,6 +30,10 @@ export interface ApiServerServices {
   writebackService: WritebackRouteService;
   providerService: ProviderRouteService;
   evaluationService: EvaluationRouteService;
+  jobQueue?: {
+    drain(): Promise<void>;
+    describe?(): unknown;
+  };
 }
 
 export interface ApiRuntimeInfo {
@@ -39,13 +44,38 @@ export interface ApiRuntimeInfo {
     storage: string;
     writeback: string;
   };
+  secretResolver?: unknown;
+  sessionInvalidationStore?: unknown;
+  queue?: unknown;
 }
 
 export interface CreateApiServerOptions {
   services: ApiServerServices;
   logger?: boolean;
   runtimeInfo?: ApiRuntimeInfo;
+  rateLimit?: ApiRateLimitOptions;
 }
+
+export interface ApiRateLimitRule {
+  max: number;
+  windowMs: number;
+}
+
+export interface ApiRateLimitOptions {
+  login?: ApiRateLimitRule;
+  writeback?: ApiRateLimitRule;
+}
+
+const defaultRateLimitOptions: Required<ApiRateLimitOptions> = {
+  login: {
+    max: 20,
+    windowMs: 60_000
+  },
+  writeback: {
+    max: 30,
+    windowMs: 60_000
+  }
+};
 
 function readErrorStatus(error: unknown) {
   if (error && typeof error === "object" && "statusCode" in error) {
@@ -69,6 +99,63 @@ function readErrorCode(error: unknown) {
   return "INTERNAL_ERROR";
 }
 
+function createSecurityHeaders() {
+  return {
+    "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer",
+    "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "cross-origin-resource-policy": "same-site"
+  };
+}
+
+function createRateLimitError(retryAfterSeconds: number) {
+  return Object.assign(new Error("RATE_LIMITED"), {
+    code: "RATE_LIMITED",
+    statusCode: 429,
+    retryAfterSeconds
+  });
+}
+
+function readRateLimitRetryAfter(error: unknown) {
+  if (error && typeof error === "object" && "retryAfterSeconds" in error) {
+    const value = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return Math.ceil(value);
+    }
+  }
+
+  return undefined;
+}
+
+function readRateLimitSource(request: FastifyRequest) {
+  const forwardedFor = request.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.length > 0) {
+    return forwardedFor.split(",")[0]?.trim() || request.ip;
+  }
+
+  return request.ip;
+}
+
+function createFixedWindowRateLimiter(rule: ApiRateLimitRule, scope: string): preHandlerHookHandler {
+  const buckets = new Map<string, { count: number; resetAt: number }>();
+
+  return async (request) => {
+    const now = Date.now();
+    const actor = request.auth?.actorUserId ?? request.auth?.actorApiTokenId;
+    const key = `${scope}:${readRateLimitSource(request)}:${actor ?? "anonymous"}`;
+    const current = buckets.get(key);
+    const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + rule.windowMs };
+    bucket.count += 1;
+    buckets.set(key, bucket);
+
+    if (bucket.count > rule.max) {
+      throw createRateLimitError((bucket.resetAt - now) / 1000);
+    }
+  };
+}
+
 /**
  * 创建完整 API server。这里保持依赖注入，便于测试、demo 和生产启动分别接入不同 provider。
  */
@@ -82,8 +169,26 @@ export async function createApiServer(options: CreateApiServerOptions) {
   const auditHooks = createAuditHooks({
     recordAudit: options.services.auditService.record
   });
+  const securityHeaders = createSecurityHeaders();
+  const rateLimitOptions = {
+    ...defaultRateLimitOptions,
+    ...(options.rateLimit ?? {})
+  };
+  const loginRateLimit = createFixedWindowRateLimiter(rateLimitOptions.login, "auth.login");
+  const writebackRateLimit = createFixedWindowRateLimiter(rateLimitOptions.writeback, "writeback.execute");
+
+  server.addHook("onRequest", async (_request, reply) => {
+    Object.entries(securityHeaders).forEach(([name, value]) => {
+      reply.header(name, value);
+    });
+  });
 
   server.setErrorHandler((error, _request, reply) => {
+    const retryAfter = readRateLimitRetryAfter(error);
+    if (retryAfter !== undefined) {
+      reply.header("retry-after", String(retryAfter));
+    }
+
     reply.status(readErrorStatus(error)).send({
       error: readErrorCode(error)
     });
@@ -92,6 +197,7 @@ export async function createApiServer(options: CreateApiServerOptions) {
   await server.register(cors, {
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
     allowedHeaders: ["authorization", "content-type", "x-api-token"],
+    credentials: true,
     methods: ["GET", "POST", "PUT", "OPTIONS"]
   });
 
@@ -100,11 +206,8 @@ export async function createApiServer(options: CreateApiServerOptions) {
     service: "medical-record-agent-api"
   }));
 
-  server.get("/status", async () => ({
-    status: "ok",
-    service: "medical-record-agent-api",
-    runtime:
-      options.runtimeInfo ?? {
+  server.get("/status", async () => {
+    const runtime = options.runtimeInfo ?? {
         serviceMode: "demo",
         providers: {
           ocr: "mock",
@@ -112,10 +215,24 @@ export async function createApiServer(options: CreateApiServerOptions) {
           storage: "memory",
           writeback: "demo"
         }
-      }
-  }));
+      };
+    const queue = options.services.jobQueue?.describe?.();
+    const sessionInvalidationStore =
+      runtime.sessionInvalidationStore ?? options.services.authService.describeSessionInvalidationStore?.();
+    const runtimeWithSession =
+      sessionInvalidationStore === undefined ? runtime : { ...runtime, sessionInvalidationStore };
 
-  await registerAuthRoutes(server, { authService: options.services.authService });
+    return {
+      status: "ok",
+      service: "medical-record-agent-api",
+      runtime: queue === undefined ? runtimeWithSession : { ...runtimeWithSession, queue }
+    };
+  });
+
+  await registerAuthRoutes(server, {
+    authService: options.services.authService,
+    rateLimit: loginRateLimit
+  });
   await registerAuditRoutes(server, {
     auditService: options.services.auditService,
     authHooks
@@ -148,7 +265,8 @@ export async function createApiServer(options: CreateApiServerOptions) {
     writebackService: options.services.writebackService,
     jobService: options.services.jobService,
     authHooks,
-    auditHooks
+    auditHooks,
+    rateLimit: writebackRateLimit
   });
   await registerProviderRoutes(server, {
     providerService: options.services.providerService,

@@ -1,20 +1,55 @@
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Button, Card, Checkbox, Form, Progress, Select, Space } from "@arco-design/web-react";
+import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { ApiRecognitionJob, ApiRecognitionResult } from "../../api/types";
+import {
+  normalizeProviderSelectOptions,
+  normalizeSchemaSelectOptions,
+  type SelectOption
+} from "../../api/normalizers";
 import { useAuth } from "../../auth/AuthContext";
 import { blobSha256Hex, blobToBase64 } from "../../utils/fileContent";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
 import {
   adapterOptions,
-  providerOptions,
   schemaOptions,
 } from "./components/demoData";
-import { EmptyPanel, PageHeader, SectionTitle } from "./components/RecognitionShared";
+import { EmptyPanel, PageHeader, SectionTitle, StatusPill } from "./components/RecognitionShared";
 
 type SubmitState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "success"; jobId: string }
-  | { status: "error"; message: string };
+  | { status: "success"; jobId: string; progress: RecognitionAsyncProgress; result?: ApiRecognitionResult }
+  | { status: "error"; message: string }
+  | { status: "cancelled"; message: string };
+
+type RecognitionAsyncPhase = "queued" | "running" | "completed" | "failed";
+
+export type RecognitionAsyncProgress = {
+  jobId: string;
+  status: string;
+  phase: RecognitionAsyncPhase;
+  label: string;
+  percent: number;
+  message: string;
+  statusUrl?: string;
+  resultUrl?: string;
+  queueSummary?: string;
+  workerSummary?: string;
+  retrySummary?: string;
+  recoveryAction?: string;
+  shouldPoll: boolean;
+  canOpenResult: boolean;
+  resultLoaded?: boolean;
+  errorMessage?: string;
+};
+
+export type RecognitionAsyncRecoveryHint = {
+  tone: "info" | "success" | "warning";
+  primaryAction: string;
+  secondaryAction: string;
+};
 
 type PrivacyOptions = {
   deidentify: boolean;
@@ -30,10 +65,21 @@ type FileValidationResult =
   | { valid: true }
   | { valid: false; message: string };
 
-type SelectOption = {
-  value: string;
-  label: string;
+type LastRecognitionSubmit = {
+  file: RecognitionFileInput;
+  schemaName: string;
+  adapter: (typeof adapterOptions)[number];
+  ocrProvider: string;
+  provider: string;
+  privacy: PrivacyOptions;
 };
+
+export function canRerunRecognitionSubmit(
+  lastSubmit: LastRecognitionSubmit | null,
+  state: SubmitState
+) {
+  return state.status !== "loading" && !(state.status === "success" && state.progress.shouldPoll) && lastSubmit !== null;
+}
 
 type OptionLoadState = "idle" | "loading" | "success" | "error";
 
@@ -47,76 +93,61 @@ const initialPrivacyOptions: PrivacyOptions = {
   allowWriteBack: false,
 };
 
+const privacyOptionContent = {
+  deidentify: {
+    icon: actionIcons.privacyPolicy,
+    title: "开启患者信息脱敏",
+    description: "上传、评测和展示链路默认移除患者身份信息，降低 PHI 暴露风险。",
+  },
+  keepEvidence: {
+    icon: dashboardMetricIcons.decisionPass,
+    title: "保留字段证据链",
+    description: "保留页码、原文引用和字段来源，便于复核人员追溯模型判断。",
+  },
+  allowWriteBack: {
+    icon: dashboardMetricIcons.writeback,
+    title: "允许绿色决策自动写回",
+    description: "仅在字段完整、证据一致、权限满足且策略为 green 时进入写回准备。",
+  },
+} as const satisfies Record<
+  keyof PrivacyOptions,
+  {
+    icon: LucideIcon;
+    title: string;
+    description: string;
+  }
+>;
+
 const fallbackSchemaOptions: SelectOption[] = schemaOptions.map((option) => ({
   value: option,
   label: option,
 }));
 
-const fallbackProviderOptions: SelectOption[] = providerOptions.map((option) => ({
-  value: option,
-  label: option,
-}));
+const fallbackProviderOptions: SelectOption[] = [];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+export const parseSchemaOptions = normalizeSchemaSelectOptions;
+export const parseProviderOptions = normalizeProviderSelectOptions;
+
+export function getVisibleRecognitionProviderOptions(
+  response: Parameters<typeof normalizeProviderSelectOptions>[0],
+  kind: "ocr" | "llm"
+) {
+  const options = parseProviderOptions(response, kind);
+  const kindProviders = Array.isArray(response.items) ? response.items.filter((item) => item.kind === kind) : [];
+
+  return {
+    options,
+    mockOnly: kindProviders.length > 0 && options.length === 0
+  };
 }
 
-function readStringField(source: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
+export function getRecognitionProviderGate(ocrProviders: SelectOption[], llmProviders: SelectOption[]) {
+  const canCreate = ocrProviders.length > 0 && llmProviders.length > 0;
 
-  return undefined;
-}
-
-function readItems(value: unknown) {
-  return isRecord(value) && Array.isArray(value.items) ? value.items : [];
-}
-
-export function parseSchemaOptions(response: unknown): SelectOption[] {
-  return readItems(response).flatMap((item): SelectOption[] => {
-    if (!isRecord(item)) {
-      return [];
-    }
-
-    const value = readStringField(item, ["schemaKey", "key", "id"]);
-    if (!value) {
-      return [];
-    }
-
-    const displayName = readStringField(item, ["displayName", "label", "name"]) ?? value;
-    const version = typeof item.version === "number" || typeof item.version === "string" ? ` v${item.version}` : "";
-
-    return [
-      {
-        value,
-        label: `${displayName}${version}`
-      }
-    ];
-  });
-}
-
-export function parseProviderOptions(response: unknown, kind: "ocr" | "llm"): SelectOption[] {
-  return readItems(response).flatMap((item): SelectOption[] => {
-    if (!isRecord(item) || item.kind !== kind) {
-      return [];
-    }
-
-    const value = readStringField(item, ["key", "id"]);
-    if (!value) {
-      return [];
-    }
-
-    return [
-      {
-        value,
-        label: readStringField(item, ["displayName", "name", "label"]) ?? value
-      }
-    ];
-  });
+  return {
+    canCreate,
+    message: canCreate ? "真实 OCR/LLM Provider 已选择。" : "请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
+  };
 }
 
 export function createSyntheticRecognitionFile() {
@@ -160,15 +191,226 @@ function readRecordId(value: unknown) {
   return undefined;
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function createApiRequestOptions(signal: AbortSignal | undefined) {
+  return signal ? { signal } : {};
+}
+
+function readJobString(value: unknown, keys: string[]) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function readJobNumber(value: unknown, keys: string[]) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function readJobRecord(value: unknown, keys: string[]) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+export function isRecognitionPollingStatus(status: string | undefined) {
+  return status === "queued" || status === "running";
+}
+
+export function isRecognitionSuccessfulTerminalStatus(status: string | undefined) {
+  return (
+    status === "completed" ||
+    status === "needs_review" ||
+    status === "partial_completed" ||
+    status === "writeback_completed" ||
+    status === "writeback_failed"
+  );
+}
+
+function isRecognitionFailedTerminalStatus(status: string | undefined) {
+  return status === "failed" || status === "cancelled";
+}
+
+function normalizeRecognitionAsyncPhase(status: string | undefined): RecognitionAsyncPhase {
+  if (status === "running") {
+    return "running";
+  }
+
+  if (isRecognitionSuccessfulTerminalStatus(status)) {
+    return "completed";
+  }
+
+  if (isRecognitionFailedTerminalStatus(status)) {
+    return "failed";
+  }
+
+  return "queued";
+}
+
+export function describeRecognitionAsyncProgress(
+  job: ApiRecognitionJob,
+  resultLoaded = false
+): RecognitionAsyncProgress {
+  const jobId = readJobString(job, ["id", "jobId"]) ?? "unknown-job";
+  const status = readJobString(job, ["status"]) ?? "queued";
+  const statusUrl = readJobString(job, ["statusUrl"]);
+  const resultUrl = readJobString(job, ["resultUrl"]);
+  const phase = normalizeRecognitionAsyncPhase(status);
+  const statusSemantics = readJobRecord(job, ["statusSemantics"]);
+  const queuePosition = readJobNumber(statusSemantics, ["queuePosition", "position"]);
+  const queueDepth = readJobNumber(statusSemantics, ["queueDepth", "pendingCount", "backlog"]);
+  const retryAfterSeconds = readJobNumber(statusSemantics, ["retryAfterSeconds", "retryAfter"]);
+  const workerId = readJobString(statusSemantics, ["workerId", "worker"]);
+  const attempt = readJobNumber(statusSemantics, ["attempt", "attemptCount"]);
+  const heartbeatAgeSeconds = readJobNumber(statusSemantics, ["heartbeatAgeSeconds", "heartbeatAge"]);
+  const base = {
+    jobId,
+    status,
+    phase,
+    ...(resultLoaded ? { resultLoaded } : {}),
+    ...(statusUrl ? { statusUrl } : {}),
+    ...(resultUrl ? { resultUrl } : {}),
+    ...(retryAfterSeconds !== undefined ? { retrySummary: `建议 ${retryAfterSeconds} 秒后重试状态读取。` } : {})
+  };
+
+  if (phase === "running") {
+    return {
+      ...base,
+      label: "识别中",
+      percent: 65,
+      message: "后台 worker 正在执行 OCR、字段抽取、校验和证据生成。",
+      ...(workerId
+        ? {
+            workerSummary: `${workerId} 正在处理${
+              attempt !== undefined ? `，第 ${attempt} 次尝试` : ""
+            }${heartbeatAgeSeconds !== undefined ? `，心跳 ${heartbeatAgeSeconds} 秒前` : ""}。`
+          }
+        : {}),
+      recoveryAction: "如长时间无心跳，可取消当前轮询并重跑上一次配置。",
+      shouldPoll: true,
+      canOpenResult: false
+    };
+  }
+
+  if (phase === "completed") {
+    return {
+      ...base,
+      label: resultLoaded ? "结果已就绪" : "结果可读取",
+      percent: 100,
+      message: resultLoaded ? "识别结果已读取，可进入任务详情查看字段、证据和 trace。" : "识别已到达 terminal 状态，正在读取结构化结果。",
+      recoveryAction: "可打开任务详情继续复核字段、证据和写回状态。",
+      shouldPoll: false,
+      canOpenResult: true
+    };
+  }
+
+  if (phase === "failed") {
+    const errorMessage = readJobString(job, ["errorMessage"]);
+
+    return {
+      ...base,
+      label: "识别失败",
+      percent: 100,
+      message: errorMessage ?? "识别任务执行失败，请查看 Provider 健康状态或稍后重试。",
+      recoveryAction: "可检查 Provider 健康状态后重跑上一次识别配置。",
+      shouldPoll: false,
+      canOpenResult: false,
+      ...(errorMessage ? { errorMessage } : {})
+    };
+  }
+
+  return {
+    ...base,
+    label: "排队中",
+    percent: 25,
+    message: "任务已进入后台队列，正在等待识别 worker 接收。",
+    ...(queuePosition !== undefined || queueDepth !== undefined
+      ? {
+          queueSummary:
+            queuePosition !== undefined && queueDepth !== undefined
+              ? `排队第 ${queuePosition} 位，队列待处理 ${queueDepth} 个任务。`
+              : queuePosition !== undefined
+                ? `排队第 ${queuePosition} 位。`
+                : `队列待处理 ${queueDepth} 个任务。`
+        }
+      : {}),
+    recoveryAction: "可取消当前轮询或稍后重跑上一次配置。",
+    shouldPoll: true,
+    canOpenResult: false
+  };
+}
+
+export function getRecognitionAsyncRecoveryHint(progress: RecognitionAsyncProgress): RecognitionAsyncRecoveryHint {
+  if (progress.phase === "failed") {
+    return {
+      tone: "warning",
+      primaryAction: "重跑上次配置",
+      secondaryAction: "检查 Provider 健康状态"
+    };
+  }
+
+  if (progress.phase === "completed") {
+    return {
+      tone: "success",
+      primaryAction: "查看任务详情",
+      secondaryAction: "重新读取结果"
+    };
+  }
+
+  return {
+    tone: "info",
+    primaryAction: "继续轮询",
+    secondaryAction: "取消轮询"
+  };
+}
+
 export async function buildRecognitionFileUploadInput(input: {
   file: RecognitionFileInput;
   adapter: string;
   ocrProvider: string;
   provider: string;
   privacy: PrivacyOptions;
+  signal?: AbortSignal | undefined;
 }) {
-  const contentBase64 = input.file instanceof Blob ? await blobToBase64(input.file) : undefined;
-  const checksumSha256 = input.file instanceof Blob ? await blobSha256Hex(input.file) : "unknown";
+  input.signal?.throwIfAborted();
+  const contentBase64 = input.file instanceof Blob ? await blobToBase64(input.file, input.signal) : undefined;
+  input.signal?.throwIfAborted();
+  const checksumSha256 = input.file instanceof Blob ? await blobSha256Hex(input.file, input.signal) : "unknown";
+  input.signal?.throwIfAborted();
 
   return {
     originalName: input.file.name,
@@ -199,10 +441,19 @@ export default function NewRecognitionPage() {
   const [optionLoadError, setOptionLoadError] = useState("");
   const [schemaName, setSchemaName] = useState(fallbackSchemaOptions[0]?.value ?? "lims-clinical-info");
   const [adapter, setAdapter] = useState<(typeof adapterOptions)[number]>(adapterOptions[0]);
-  const [ocrProvider, setOcrProvider] = useState(fallbackProviderOptions[0]?.value ?? "mock-ocr");
-  const [provider, setProvider] = useState(fallbackProviderOptions[0]?.value ?? "mock-model");
+  const [ocrProvider, setOcrProvider] = useState(fallbackProviderOptions[0]?.value ?? "");
+  const [provider, setProvider] = useState(fallbackProviderOptions[0]?.value ?? "");
   const [privacy, setPrivacy] = useState<PrivacyOptions>(initialPrivacyOptions);
   const [submitState, setSubmitState] = useState<SubmitState>({ status: "idle" });
+  const submitAbortControllerRef = useRef<AbortController | null>(null);
+  const lastSubmitRef = useRef<LastRecognitionSubmit | null>(null);
+
+  useEffect(
+    () => () => {
+      submitAbortControllerRef.current?.abort();
+    },
+    []
+  );
 
   const fileSummary = useMemo(() => {
     if (!selectedFile) {
@@ -229,8 +480,8 @@ export default function NewRecognitionPage() {
       try {
         const [schemaResponse, providerResponse] = await Promise.all([api.listSchemas(), api.listProviders()]);
         const nextSchemas = parseSchemaOptions(schemaResponse);
-        const nextOcrProviders = parseProviderOptions(providerResponse, "ocr");
-        const nextLlmProviders = parseProviderOptions(providerResponse, "llm");
+        const nextOcrProviders = getVisibleRecognitionProviderOptions(providerResponse, "ocr").options;
+        const nextLlmProviders = getVisibleRecognitionProviderOptions(providerResponse, "llm").options;
 
         if (!isActive) {
           return;
@@ -240,18 +491,14 @@ export default function NewRecognitionPage() {
           setSchemaChoices(nextSchemas);
           setSchemaName((current) => (nextSchemas.some((item) => item.value === current) ? current : nextSchemas[0]?.value ?? current));
         }
-        if (nextOcrProviders.length > 0) {
-          setOcrProviderChoices(nextOcrProviders);
-          setOcrProvider((current) =>
-            nextOcrProviders.some((item) => item.value === current) ? current : nextOcrProviders[0]?.value ?? current
-          );
-        }
-        if (nextLlmProviders.length > 0) {
-          setLlmProviderChoices(nextLlmProviders);
-          setProvider((current) =>
-            nextLlmProviders.some((item) => item.value === current) ? current : nextLlmProviders[0]?.value ?? current
-          );
-        }
+        setOcrProviderChoices(nextOcrProviders);
+        setOcrProvider((current) =>
+          nextOcrProviders.some((item) => item.value === current) ? current : nextOcrProviders[0]?.value ?? ""
+        );
+        setLlmProviderChoices(nextLlmProviders);
+        setProvider((current) =>
+          nextLlmProviders.some((item) => item.value === current) ? current : nextLlmProviders[0]?.value ?? ""
+        );
         setOptionLoadState("success");
       } catch (error) {
         if (!isActive) {
@@ -259,7 +506,11 @@ export default function NewRecognitionPage() {
         }
 
         setOptionLoadState("error");
-        setOptionLoadError(error instanceof Error ? error.message : "识别配置 API 暂不可用，继续使用 demo 选项。");
+        setOcrProviderChoices([]);
+        setLlmProviderChoices([]);
+        setOcrProvider("");
+        setProvider("");
+        setOptionLoadError(error instanceof Error ? error.message : "识别配置 API 暂不可用，请先配置真实 Provider。");
       }
     }
 
@@ -328,15 +579,18 @@ export default function NewRecognitionPage() {
     }));
   }
 
-  async function createRecognitionFromFile(file: RecognitionFileInput) {
+  async function createRecognitionFromFile(input: LastRecognitionSubmit, signal?: AbortSignal) {
+    const fileUploadInput = {
+        file: input.file,
+        adapter: input.adapter,
+        ocrProvider: input.ocrProvider,
+        provider: input.provider,
+        privacy: input.privacy,
+        ...(signal ? { signal } : {})
+      };
     const createdFile = await api.createFile(
-      await buildRecognitionFileUploadInput({
-        file,
-        adapter,
-        ocrProvider,
-        provider,
-        privacy
-      })
+      await buildRecognitionFileUploadInput(fileUploadInput),
+      createApiRequestOptions(signal)
     );
     const fileId = readRecordId(createdFile);
 
@@ -345,32 +599,135 @@ export default function NewRecognitionPage() {
     }
 
     const createdJob = await api.createRecognitionJob({
-      schemaKey: schemaName,
+      schemaKey: input.schemaName,
       sourceFileId: fileId,
       document: {
         documentId: fileId,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
+        fileName: input.file.name,
+        mimeType: input.file.type || "application/octet-stream",
       },
       options: {
-        adapter,
-        privacy,
+        adapter: input.adapter,
+        privacy: input.privacy,
       },
       providerConfig: {
-        ocrProviderKey: ocrProvider,
-        providerKey: provider,
+        ocrProviderKey: input.ocrProvider,
+        providerKey: input.provider,
       },
-    });
+    }, createApiRequestOptions(signal));
     const jobId = readRecordId(createdJob);
 
     if (!jobId) {
       throw new Error("后端没有返回任务 ID。");
     }
 
-    return jobId;
+    return createdJob;
+  }
+
+  async function waitForRecognitionTerminalJob(initialJob: ApiRecognitionJob, signal?: AbortSignal) {
+    let currentJob = initialJob;
+    const maxPolls = 30;
+
+    for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+      signal?.throwIfAborted();
+      const progress = describeRecognitionAsyncProgress(currentJob);
+      setSubmitState({ status: "success", jobId: progress.jobId, progress });
+
+      if (!progress.shouldPoll) {
+        return currentJob;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(resolve, Math.min(900 + attempt * 200, 2500));
+        signal?.addEventListener(
+          "abort",
+          () => {
+            window.clearTimeout(timeout);
+            reject(signal.reason instanceof Error ? signal.reason : new DOMException("Aborted", "AbortError"));
+          },
+          { once: true }
+        );
+      });
+
+      signal?.throwIfAborted();
+      currentJob = await api.getJob(progress.jobId, createApiRequestOptions(signal));
+    }
+
+    throw new Error("识别任务仍在队列中，请稍后到任务详情页继续查看。");
+  }
+
+  async function loadRecognitionResultForTerminalJob(job: ApiRecognitionJob, signal?: AbortSignal) {
+    const progress = describeRecognitionAsyncProgress(job);
+
+    if (!progress.canOpenResult) {
+      return undefined;
+    }
+
+    const result = await api.getResult(progress.jobId, createApiRequestOptions(signal));
+    const loadedProgress = describeRecognitionAsyncProgress(job, true);
+    setSubmitState({
+      status: "success",
+      jobId: loadedProgress.jobId,
+      progress: loadedProgress,
+      result
+    });
+
+    return result;
+  }
+
+  async function submitRecognition(input: LastRecognitionSubmit) {
+    const controller = new AbortController();
+    submitAbortControllerRef.current?.abort();
+    submitAbortControllerRef.current = controller;
+    lastSubmitRef.current = input;
+    setFileError("");
+    setSubmitState({ status: "loading" });
+
+    try {
+      const createdJob = await createRecognitionFromFile(input, controller.signal);
+      const createdProgress = describeRecognitionAsyncProgress(createdJob);
+      setSubmitState({
+        status: "success",
+        jobId: createdProgress.jobId,
+        progress: createdProgress
+      });
+
+      const terminalJob = createdProgress.shouldPoll
+        ? await waitForRecognitionTerminalJob(createdJob, controller.signal)
+        : createdJob;
+      const terminalProgress = describeRecognitionAsyncProgress(terminalJob);
+      setSubmitState({
+        status: "success",
+        jobId: terminalProgress.jobId,
+        progress: terminalProgress
+      });
+
+      await loadRecognitionResultForTerminalJob(terminalJob, controller.signal);
+    } catch (error) {
+      if (isAbortError(error)) {
+        setSubmitState({
+          status: "cancelled",
+          message: "识别任务创建已取消，可重跑上一次配置。"
+        });
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : "创建识别任务失败，请稍后重试。";
+      setSubmitState({ status: "error", message });
+    } finally {
+      if (submitAbortControllerRef.current === controller) {
+        submitAbortControllerRef.current = null;
+      }
+    }
   }
 
   async function submitWithFile(file: File | null) {
+    const providerGate = getRecognitionProviderGate(ocrProviderChoices, llmProviderChoices);
+    if (!providerGate.canCreate) {
+      setSubmitState({ status: "error", message: providerGate.message });
+      return;
+    }
+
     if (!file) {
       const message = fileError || "请先上传图片或 PDF 文件。";
       setFileError(message);
@@ -385,16 +742,14 @@ export default function NewRecognitionPage() {
       return;
     }
 
-    setFileError("");
-    setSubmitState({ status: "loading" });
-
-    try {
-      const jobId = await createRecognitionFromFile(file);
-      setSubmitState({ status: "success", jobId });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "创建识别任务失败，请稍后重试。";
-      setSubmitState({ status: "error", message });
-    }
+    await submitRecognition({
+      file,
+      schemaName,
+      adapter,
+      ocrProvider,
+      provider,
+      privacy
+    });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -403,12 +758,22 @@ export default function NewRecognitionPage() {
   }
 
   function handleSyntheticSubmit() {
-    setSubmitState({ status: "loading" });
-
     void submitWithFile(createSyntheticRecognitionFile());
   }
 
-  const isLoading = submitState.status === "loading";
+  function handleCancelSubmit() {
+    submitAbortControllerRef.current?.abort();
+  }
+
+  function handleRerunSubmit() {
+    if (lastSubmitRef.current) {
+      void submitRecognition(lastSubmitRef.current);
+    }
+  }
+
+  const isLoading = submitState.status === "loading" || (submitState.status === "success" && submitState.progress.shouldPoll);
+  const providerGate = getRecognitionProviderGate(ocrProviderChoices, llmProviderChoices);
+  const canSubmitRecognition = providerGate.canCreate && !isLoading;
 
   return (
     <main className="app-page">
@@ -416,204 +781,281 @@ export default function NewRecognitionPage() {
         eyebrow="Recognition Demo"
         title="新建识别任务"
         description="上传病历图片或 PDF，选择模板、Adapter、Provider 与隐私策略后创建识别任务。"
+        meta={
+          <div className="page-header__meta" aria-label="新建识别配置摘要">
+            <span className="page-header__meta-item">
+              <strong>上传限制</strong>
+              <span>PNG / JPG / PDF，最大 20MB</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>隐私默认</strong>
+              <span>脱敏与证据链保留已启用</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>写回策略</strong>
+              <span>{privacy.allowWriteBack ? "green 决策可自动写回" : "默认需要复核确认"}</span>
+            </span>
+          </div>
+        }
       />
 
-      <form className="panel recognition-form-panel" data-guide="new-recognition" onSubmit={handleSubmit}>
-        <SectionTitle title="文件与识别配置" />
+      <form className="recognition-form" onSubmit={handleSubmit} data-guide="new-recognition">
+        <Card className="panel recognition-upload-card">
+          <SectionTitle title="上传病历文件" />
+          <label
+            className={uploadZoneClassName}
+            onDragEnter={handleUploadDrag}
+            onDragLeave={handleUploadDragLeave}
+            onDragOver={handleUploadDrag}
+            onDrop={handleUploadDrop}
+          >
+            <AppIcon icon={actionIcons.createRecognition} size="lg" tone={fileError ? "red" : selectedFile ? "green" : "blue"} tile />
+            <strong>{isDragActive ? "释放文件开始校验" : selectedFile ? "文件已选择" : "上传图片或 PDF"}</strong>
+            <span>{fileSummary}</span>
+            <input
+              ref={fileInputRef}
+              aria-label="上传识别文件"
+              accept="image/png,image/jpeg,application/pdf"
+              type="file"
+              onChange={handleFileChange}
+            />
+          </label>
+          {fileError ? (
+            <Alert type="error" showIcon content={fileError} />
+          ) : null}
+        </Card>
 
-        <div
-          role={optionLoadState === "error" ? "alert" : "status"}
-          className={`inline-notice recognition-state-note ${optionLoadState === "error" ? "is-danger" : optionLoadState === "loading" ? "is-loading" : ""}`}
-        >
-          <AppIcon
-            icon={optionLoadState === "loading" ? commonUiIcons.loading : optionLoadState === "error" ? statusIcons.danger : statusIcons.success}
-            size="sm"
-            className={optionLoadState === "loading" ? "is-spinning" : undefined}
+        <Card className="panel recognition-config-card">
+          <SectionTitle title="识别配置" />
+          <Alert
+            type={optionLoadState === "error" ? "warning" : optionLoadState === "loading" ? "info" : "success"}
+            showIcon
+            content={
+              optionLoadState === "loading"
+                ? "正在读取真实 Schema 和 Provider API。"
+                : optionLoadState === "error"
+                  ? `真实配置读取失败：${optionLoadError}`
+                  : providerGate.canCreate
+                    ? "识别任务将使用真实 OCR/LLM Provider key。"
+                    : "未配置真实 Provider；等待接入真实模型提供商。"
+            }
           />
-          <span>
-            {optionLoadState === "loading"
-              ? "正在读取真实 Schema 和 Provider API。"
-              : optionLoadState === "error"
-                ? `真实配置读取失败：${optionLoadError}`
-                : "识别任务会优先使用真实 Schema/Provider key。"}
-          </span>
-        </div>
+          {!providerGate.canCreate ? (
+            <Alert
+              type="warning"
+              showIcon
+              content="请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
+            />
+          ) : null}
 
-        <label
-          className={uploadZoneClassName}
-          onDragEnter={handleUploadDrag}
-          onDragLeave={handleUploadDragLeave}
-          onDragOver={handleUploadDrag}
-          onDrop={handleUploadDrop}
-        >
-          <AppIcon icon={actionIcons.createRecognition} size="lg" tone={fileError ? "red" : selectedFile ? "green" : "blue"} tile />
-          <strong>{isDragActive ? "释放文件开始校验" : selectedFile ? "文件已选择" : "上传图片或 PDF"}</strong>
-          <span>{fileSummary}</span>
-          <input
-            ref={fileInputRef}
-            aria-label="上传识别文件"
-            accept="image/png,image/jpeg,application/pdf"
-            type="file"
-            onChange={handleFileChange}
-          />
-        </label>
-        {fileError ? (
-          <p className="form-error recognition-field-error" role="alert">
-            <AppIcon icon={statusIcons.danger} size="sm" />
-            <span>{fileError}</span>
-          </p>
-        ) : null}
+          <div className="form-grid recognition-form-grid">
+            <Form.Item label="Schema 模板" data-guide="schema-selection">
+              <Select
+                aria-label="选择 Schema 模板"
+                value={schemaName}
+                onChange={setSchemaName}
+              >
+                {schemaChoices.map((option) => (
+                  <Select.Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-        <div className="form-grid">
-          <label className="field-row" data-guide="schema-selection">
-            <span>Schema 模板</span>
-            <select
-              aria-label="选择 Schema 模板"
-              value={schemaName}
-              onChange={(event) => setSchemaName(event.target.value)}
-            >
-              {schemaChoices.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Form.Item label="Adapter">
+              <Select
+                aria-label="选择 Adapter"
+                value={adapter}
+                onChange={(value) => setAdapter(value as typeof adapter)}
+              >
+                {adapterOptions.map((option) => (
+                  <Select.Option key={option} value={option}>
+                    {option}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <label className="field-row">
-            <span>Adapter</span>
-            <select
-              aria-label="选择 Adapter"
-              value={adapter}
-              onChange={(event) => setAdapter(event.target.value as typeof adapter)}
-            >
-              {adapterOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Form.Item label="OCR Provider">
+              <Select
+                aria-label="选择 OCR Provider"
+                value={ocrProvider}
+                onChange={setOcrProvider}
+                placeholder="请先配置真实 OCR Provider"
+              >
+                {ocrProviderChoices.map((option) => (
+                  <Select.Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <label className="field-row">
-            <span>OCR Provider</span>
-            <select
-              aria-label="选择 OCR Provider"
-              value={ocrProvider}
-              onChange={(event) => setOcrProvider(event.target.value)}
-            >
-              {ocrProviderChoices.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Form.Item label="LLM Provider">
+              <Select
+                aria-label="选择 LLM Provider"
+                value={provider}
+                onChange={setProvider}
+                placeholder="请先配置真实 LLM Provider"
+              >
+                {llmProviderChoices.map((option) => (
+                  <Select.Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </div>
+        </Card>
 
-          <label className="field-row">
-            <span>LLM Provider</span>
-            <select
-              aria-label="选择 LLM Provider"
-              value={provider}
-              onChange={(event) => setProvider(event.target.value)}
-            >
-              {llmProviderChoices.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <section className="evidence-panel" aria-labelledby="privacy-title">
+        <Card className="panel recognition-privacy-card" aria-labelledby="privacy-title">
           <h2 id="privacy-title">
             <AppIcon icon={actionIcons.privacyPolicy} size="md" />
             隐私选项
           </h2>
-          <label className="field-row checkbox-row">
-            <input
-              aria-label="开启患者信息脱敏"
-              checked={privacy.deidentify}
-              type="checkbox"
-              onChange={() => updatePrivacy("deidentify")}
-            />
-            <span>开启患者信息脱敏</span>
-          </label>
-          <label className="field-row checkbox-row">
-            <input
-              aria-label="保留字段证据链"
-              checked={privacy.keepEvidence}
-              type="checkbox"
-              onChange={() => updatePrivacy("keepEvidence")}
-            />
-            <span>保留字段证据链</span>
-          </label>
-          <label className="field-row checkbox-row">
-            <input
-              aria-label="允许绿色决策自动写回"
-              checked={privacy.allowWriteBack}
-              type="checkbox"
-              onChange={() => updatePrivacy("allowWriteBack")}
-            />
-            <span>允许绿色决策自动写回</span>
-          </label>
-        </section>
+          <div className="privacy-option-list">
+            {(Object.keys(privacyOptionContent) as Array<keyof PrivacyOptions>).map((key) => {
+              const option = privacyOptionContent[key];
+              const checked = privacy[key];
 
-        <div className="toolbar">
-          <button className="action-button" type="submit" aria-label="开始识别" disabled={isLoading}>
-            <AppIcon
-              icon={isLoading ? commonUiIcons.loading : actionIcons.createRecognition}
-              size="sm"
-              className={isLoading ? "is-spinning" : undefined}
-            />
-            {isLoading ? "创建中" : "开始识别"}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            aria-label="使用合成样本创建识别任务"
-            disabled={isLoading}
-            onClick={handleSyntheticSubmit}
-          >
-            <AppIcon icon={dashboardMetricIcons.confidence} size="sm" />
-            合成样本
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            aria-label="清空当前识别表单"
-            onClick={() => {
-              setSelectedFile(null);
-              setFileError("");
-              if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-              }
-              setPrivacy(initialPrivacyOptions);
-              setSubmitState({ status: "idle" });
-            }}
-          >
-            <AppIcon icon={commonUiIcons.close} size="sm" />
-            清空
-          </button>
-        </div>
+              return (
+                <div className={`privacy-option ${checked ? "is-checked" : ""}`} key={key} onClick={() => updatePrivacy(key)}>
+                  <span className="privacy-option__checkbox" onClick={(event) => event.stopPropagation()}>
+                    <Checkbox
+                      checked={checked}
+                      onChange={() => updatePrivacy(key)}
+                      aria-label={option.title}
+                    />
+                  </span>
+                  <AppIcon icon={option.icon} size="md" tone={checked ? "blue" : "gray"} tile className="privacy-option__icon" />
+                  <div className="privacy-option__body">
+                    <strong>{option.title}</strong>
+                    <span>{option.description}</span>
+                  </div>
+                  <span className={`privacy-option__state ${checked ? "is-enabled" : ""}`}>
+                    {checked ? "已启用" : "未启用"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="panel recognition-actions-card">
+          <Space className="toolbar" wrap>
+            <Button
+              type="primary"
+              htmlType="submit"
+              aria-label="开始识别"
+              disabled={!canSubmitRecognition}
+              loading={isLoading}
+              icon={<AppIcon icon={isLoading ? commonUiIcons.loading : actionIcons.createRecognition} size="sm" className={isLoading ? "is-spinning" : undefined} />}
+            >
+              {isLoading ? "创建中" : "开始识别"}
+            </Button>
+            <Button
+              type="outline"
+              aria-label="使用合成样本创建识别任务"
+              disabled={!canSubmitRecognition}
+              onClick={handleSyntheticSubmit}
+              icon={<AppIcon icon={dashboardMetricIcons.confidence} size="sm" />}
+            >
+              合成样本
+            </Button>
+            <Button type="outline" aria-label="取消识别任务创建" disabled={!isLoading} onClick={handleCancelSubmit}>
+              取消
+            </Button>
+            <Button type="outline" aria-label="重跑上一次识别任务创建" disabled={!canRerunRecognitionSubmit(lastSubmitRef.current, submitState)} onClick={handleRerunSubmit}>
+              重跑
+            </Button>
+            <Button
+              type="outline"
+              aria-label="清空当前识别表单"
+              onClick={() => {
+                setSelectedFile(null);
+                setFileError("");
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+                setPrivacy(initialPrivacyOptions);
+                setSubmitState({ status: "idle" });
+              }}
+              icon={<AppIcon icon={commonUiIcons.close} size="sm" />}
+            >
+              清空
+            </Button>
+          </Space>
+        </Card>
       </form>
 
       {submitState.status === "success" ? (
-        <EmptyPanel
-          icon={actionIcons.createRecognition}
-          title="任务已创建"
-          description={`任务 ${submitState.jobId} 已进入识别队列，可在任务详情页查看进度。`}
-          action={
+        <Card className="panel async-recognition-panel" aria-live="polite">
+          <SectionTitle title="识别进度" />
+          <div className="async-recognition-status">
+            <StatusPill label={submitState.progress.label} tone={submitState.progress.phase === "failed" ? "failed" : submitState.progress.phase} />
+            <span className="mono">{submitState.progress.status}</span>
+          </div>
+          <Progress percent={submitState.progress.percent} />
+          <p>{submitState.progress.message}</p>
+          {submitState.progress.queueSummary ? <p>{submitState.progress.queueSummary}</p> : null}
+          {submitState.progress.workerSummary ? <p>{submitState.progress.workerSummary}</p> : null}
+          {submitState.progress.retrySummary ? <p>{submitState.progress.retrySummary}</p> : null}
+          {submitState.progress.recoveryAction ? (
+            <Alert
+              type={getRecognitionAsyncRecoveryHint(submitState.progress).tone === "warning" ? "warning" : "info"}
+              showIcon
+              content={submitState.progress.recoveryAction}
+            />
+          ) : null}
+          <dl className="async-recognition-links">
+            <div>
+              <dt>Status URL</dt>
+              <dd>{submitState.progress.statusUrl ?? `/jobs/${submitState.jobId}`}</dd>
+            </div>
+            <div>
+              <dt>Result URL</dt>
+              <dd>{submitState.progress.resultUrl ?? `/results/${submitState.jobId}`}</dd>
+            </div>
+          </dl>
+          {submitState.progress.phase === "failed" ? (
+            <Alert type="error" showIcon content={submitState.progress.errorMessage ?? submitState.progress.message} />
+          ) : null}
+          {submitState.result ? (
+            <Alert type="success" showIcon content="识别结果已读取，任务详情页会展示字段、证据和 LangGraph trace。" />
+          ) : null}
+          <Space className="toolbar" wrap>
             <Link className="secondary-button" to={`/recognition/jobs/${encodeURIComponent(submitState.jobId)}`}>
               查看任务详情
             </Link>
-          }
-        />
+            {submitState.progress.canOpenResult ? (
+              <Button
+                type="outline"
+                aria-label="重新读取识别结果"
+                onClick={() => {
+                  void api.getJob(submitState.jobId)
+                    .then((job) => loadRecognitionResultForTerminalJob(job))
+                    .catch((error: unknown) => {
+                      setSubmitState({
+                        status: "error",
+                        message: error instanceof Error ? error.message : "读取识别结果失败，请稍后重试。"
+                      });
+                    });
+                }}
+              >
+                读取结果
+              </Button>
+            ) : null}
+          </Space>
+        </Card>
       ) : null}
 
       {submitState.status === "error" ? (
         <EmptyPanel icon={statusIcons.danger} title="创建失败" description={submitState.message} />
+      ) : null}
+
+      {submitState.status === "cancelled" ? (
+        <EmptyPanel icon={statusIcons.warning} title="创建已取消" description={submitState.message} />
       ) : null}
     </main>
   );

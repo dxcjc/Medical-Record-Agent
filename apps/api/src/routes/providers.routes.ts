@@ -3,6 +3,14 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { PERMISSIONS } from "../auth/permissions";
 import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware";
 import type { createAuditHooks } from "../middleware/audit.middleware";
+import {
+  type ApiRouteResponseObject,
+  assertRouteResponseObject,
+  assertRouteResponseObjectList,
+  providerConfigRouteInputSchema,
+  redactSensitiveRouteValue,
+  type ProviderConfigRouteInput
+} from "./route-dtos";
 
 export interface SetDefaultProviderInput {
   key: string;
@@ -11,20 +19,20 @@ export interface SetDefaultProviderInput {
 
 export interface SaveProviderConfigInput {
   key: string;
-  kind: string;
-  displayName: string;
-  enabled: boolean;
-  isDefault: boolean;
-  config: unknown;
-  secretRefs?: unknown;
+  kind: ProviderConfigRouteInput["kind"];
+  displayName: ProviderConfigRouteInput["displayName"];
+  enabled: ProviderConfigRouteInput["enabled"];
+  isDefault: ProviderConfigRouteInput["isDefault"];
+  config: ProviderConfigRouteInput["config"];
+  secretRefs?: ProviderConfigRouteInput["secretRefs"];
   actor: AuthContext;
 }
 
 export interface ProviderRouteService {
-  listProviders(): Promise<unknown[]>;
-  saveProviderConfig?(input: SaveProviderConfigInput): Promise<unknown>;
-  setDefaultProvider(input: SetDefaultProviderInput): Promise<unknown>;
-  checkProviderHealth(input: SetDefaultProviderInput): Promise<unknown>;
+  listProviders(): Promise<ApiRouteResponseObject[]>;
+  saveProviderConfig?(input: SaveProviderConfigInput): Promise<ApiRouteResponseObject>;
+  setDefaultProvider(input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
+  checkProviderHealth(input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
 }
 
 export interface ProviderRoutesDependencies {
@@ -48,37 +56,6 @@ function readErrorCode(error: StructuredRouteError) {
   return typeof error.code === "string" && error.code.length > 0 ? error.code : "PROVIDER_ERROR";
 }
 
-function maskSecretRefs(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => maskSecretRefs(item));
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  const record = value as Record<string, unknown>;
-  const output: Record<string, unknown> = {};
-
-  for (const [key, item] of Object.entries(record)) {
-    if (key === "secretRefs" && item && typeof item === "object" && !Array.isArray(item)) {
-      output.secretRefs = Object.fromEntries(
-        Object.entries(item as Record<string, unknown>).map(([secretKey, secretValue]) => [
-          secretKey,
-          {
-            configured: Boolean(secretValue)
-          }
-        ])
-      );
-      continue;
-    }
-
-    output[key] = maskSecretRefs(item);
-  }
-
-  return output;
-}
-
 async function sendStructuredProviderError(reply: FastifyReply, error: unknown) {
   const structured = error && typeof error === "object" ? (error as StructuredRouteError) : {};
 
@@ -90,7 +67,7 @@ async function sendStructuredProviderError(reply: FastifyReply, error: unknown) 
 
 /**
  * 注册 Provider 管理路由。
- * 路由层只解析 HTTP 参数、调用注入的 providerService，并统一做 secretRefs 脱敏；
+ * 路由层只解析 HTTP 参数、调用注入的 providerService，并统一做密钥响应脱敏；
  * provider 配置的持久化与默认值切换逻辑由上层注入的 service/repository 实现承接。
  */
 export async function registerProviderRoutes(server: FastifyInstance, dependencies: ProviderRoutesDependencies) {
@@ -108,7 +85,9 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
       const providers = await dependencies.providerService.listProviders();
 
       return {
-        items: maskSecretRefs(providers)
+        items: redactSensitiveRouteValue(
+          assertRouteResponseObjectList(providers, "PROVIDER_LIST_RESPONSE_INVALID")
+        )
       };
     }
   );
@@ -139,7 +118,7 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
         });
 
         return {
-          provider: maskSecretRefs(provider)
+          provider: redactSensitiveRouteValue(assertRouteResponseObject(provider, "PROVIDER_RESPONSE_INVALID"))
         };
       } catch (error) {
         return sendStructuredProviderError(reply, error);
@@ -165,14 +144,13 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
     },
     async (request, reply) => {
       const params = request.params as { key: string };
-      const body = request.body as {
-        kind?: unknown;
-        displayName?: unknown;
-        enabled?: unknown;
-        isDefault?: unknown;
-        config?: unknown;
-        secretRefs?: unknown;
-      };
+      const parsed = providerConfigRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid provider config payload"
+        });
+      }
 
       try {
         if (!dependencies.providerService.saveProviderConfig) {
@@ -184,17 +162,12 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
 
         const provider = await dependencies.providerService.saveProviderConfig({
           key: params.key,
-          kind: typeof body.kind === "string" ? body.kind : "",
-          displayName: typeof body.displayName === "string" ? body.displayName : "",
-          enabled: body.enabled === true,
-          isDefault: body.isDefault === true,
-          config: body.config ?? {},
-          secretRefs: body.secretRefs,
+          ...parsed.data,
           actor: request.auth as AuthContext
         });
 
         return {
-          provider: maskSecretRefs(provider)
+          provider: redactSensitiveRouteValue(assertRouteResponseObject(provider, "PROVIDER_RESPONSE_INVALID"))
         };
       } catch (error) {
         return sendStructuredProviderError(reply, error);
@@ -228,7 +201,7 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
         });
 
         return {
-          health: maskSecretRefs(health)
+          health: redactSensitiveRouteValue(assertRouteResponseObject(health, "PROVIDER_HEALTH_RESPONSE_INVALID"))
         };
       } catch (error) {
         return sendStructuredProviderError(reply, error);

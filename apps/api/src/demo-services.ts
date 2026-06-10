@@ -1,6 +1,18 @@
 import { UserStatus } from "@prisma/client";
+import {
+  createDefaultMedicalKnowledgeBase,
+  createInMemoryJobRepository,
+  createInMemoryKnowledgeRetriever,
+  createJobOrchestrator,
+  createMockModelProvider,
+  createMockOcrProvider,
+  limsClinicalInfoSchema,
+  type JobOrchestratorResult,
+  type JobStatusTransition
+} from "@medical-record-agent/core";
 
 import { PERMISSIONS } from "./auth/permissions";
+import { createInMemorySessionInvalidationStore } from "./auth/auth.service";
 import type { AuthContext } from "./middleware/auth.middleware";
 import type { ApiServerServices } from "./server";
 
@@ -21,12 +33,20 @@ function createDemoAuthContext(authType: AuthContext["authType"], actorApiTokenI
   return context;
 }
 
+export interface DemoApiServices extends ApiServerServices {
+  internalTestRecognitionService: {
+    createWithSyntheticProviders(input: unknown): ReturnType<ApiServerServices["jobService"]["create"]>;
+  };
+}
+
 /**
  * 创建本地开发用的完整 API 依赖集合。
  * 这里不连接真实数据库或外部 provider，只让 `pnpm dev:api` 能启动完整路由，方便前端 demo 和 API smoke test。
  */
-export function createDemoApiServices(): ApiServerServices {
+export function createDemoApiServices(): DemoApiServices {
+  const sessionInvalidationStore = createInMemorySessionInvalidationStore();
   const jobs = new Map<string, { id: string; status: string; schemaKey: string; sourceFileId?: string }>();
+  const results = new Map<string, JobOrchestratorResult>();
   const evaluationDatasets = new Map<
     string,
     {
@@ -50,6 +70,8 @@ export function createDemoApiServices(): ApiServerServices {
       kind: "ocr" | "llm" | "storage" | "lims";
       enabled: boolean;
       isDefault: boolean;
+      isMock: boolean;
+      status?: string;
       config: Record<string, unknown>;
       secretRefs: Record<string, unknown>;
     }
@@ -151,35 +173,6 @@ export function createDemoApiServices(): ApiServerServices {
       unit: "ratio"
     }
   ]);
-  demoProviders.set("mock-ocr", {
-    key: "mock-ocr",
-    name: "Mock Provider",
-    displayName: "Mock Provider",
-    kind: "ocr",
-    enabled: true,
-    isDefault: true,
-    config: {
-      provider: "mock",
-      syntheticOnly: true
-    },
-    secretRefs: {
-      apiKey: "demo-secret"
-    }
-  });
-  demoProviders.set("mock-model", {
-    key: "mock-model",
-    name: "Mock Model Provider",
-    displayName: "Mock Model Provider",
-    kind: "llm",
-    enabled: true,
-    isDefault: true,
-    config: {
-      provider: "mock",
-      model: "mock-medical-record-extractor",
-      syntheticOnly: true
-    },
-    secretRefs: {}
-  });
   demoProviders.set("local-storage", {
     key: "local-storage",
     name: "Local Storage Provider",
@@ -187,6 +180,7 @@ export function createDemoApiServices(): ApiServerServices {
     kind: "storage",
     enabled: true,
     isDefault: true,
+    isMock: false,
     config: {
       driver: "local"
     },
@@ -199,6 +193,7 @@ export function createDemoApiServices(): ApiServerServices {
     kind: "lims",
     enabled: true,
     isDefault: true,
+    isMock: false,
     config: {
       endpoint: "http://localhost:8090/api/clinical-info/writeback"
     },
@@ -212,6 +207,81 @@ export function createDemoApiServices(): ApiServerServices {
       code,
       statusCode
     });
+  }
+
+  function createRealProviderNotConfiguredError() {
+    return Object.assign(new Error("REAL_PROVIDER_NOT_CONFIGURED"), {
+      code: "REAL_PROVIDER_NOT_CONFIGURED",
+      statusCode: 503,
+      message: "请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
+    });
+  }
+
+  function readSavedProviderMode(config: unknown) {
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      return "";
+    }
+
+    const record = config as Record<string, unknown>;
+    const mode = record.providerKind ?? record.provider ?? record.kind ?? record.mode;
+    return typeof mode === "string" ? mode.toLowerCase() : "";
+  }
+
+  const demoJobRepository = createInMemoryJobRepository();
+  const demoRecognitionOrchestrator = createJobOrchestrator({
+    repository: demoJobRepository,
+    schema: limsClinicalInfoSchema,
+    ocrProvider: createMockOcrProvider({
+      blocks: [
+        {
+          page: 1,
+          blockId: "demo-ocr-block-1",
+          text: "合成病历：临床诊断：模拟诊断。送检样本：组织。",
+          confidence: 0.99,
+          coordinates: { x: 0, y: 0, width: 100, height: 20 }
+        }
+      ]
+    }),
+    modelProvider: createMockModelProvider({
+      candidates: [
+        {
+          fieldKey: "clinicalDiagnosis",
+          value: "模拟诊断",
+          rawValue: "临床诊断：模拟诊断",
+          confidence: 0.99,
+          evidence: [
+            {
+              snippet: "临床诊断：模拟诊断",
+              startOffset: 5,
+              endOffset: 16,
+              pageNumber: 1
+            }
+          ]
+        },
+        {
+          fieldKey: "sampleType",
+          value: "组织",
+          rawValue: "送检样本：组织",
+          confidence: 0.98,
+          evidence: [
+            {
+              snippet: "送检样本：组织",
+              startOffset: 17,
+              endOffset: 24,
+              pageNumber: 1
+            }
+          ]
+        }
+      ]
+    }),
+    knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
+    permissions: demoPermissions,
+    autoWritebackEnabled: false,
+    schemaActive: true
+  });
+
+  function toDemoTrace(jobId: string): JobStatusTransition[] {
+    return demoJobRepository.getTransitions(jobId);
   }
 
   function validateDemoSchema(definition: unknown) {
@@ -254,6 +324,15 @@ export function createDemoApiServices(): ApiServerServices {
       },
       async authenticateApiToken() {
         return createDemoAuthContext("api-token", "demo-api-token");
+      },
+      async invalidateSessionToken(token) {
+        await sessionInvalidationStore.invalidate(token);
+      },
+      isSessionTokenInvalidated(token) {
+        return sessionInvalidationStore.isInvalidated(token);
+      },
+      describeSessionInvalidationStore() {
+        return sessionInvalidationStore.describe();
       },
       requirePermission(context, permission) {
         if (!context) {
@@ -444,8 +523,16 @@ export function createDemoApiServices(): ApiServerServices {
       }
     },
     jobService: {
-      async create(input) {
-        const body = input as { schemaKey?: string; sourceFileId?: string };
+      async create() {
+        throw createRealProviderNotConfiguredError();
+      },
+      async get(id) {
+        return jobs.get(id) ?? null;
+      }
+    },
+    internalTestRecognitionService: {
+      async createWithSyntheticProviders(input: unknown) {
+        const body = input as { schemaKey?: string; sourceFileId?: string; document?: { documentId?: string; fileName?: string; mimeType?: string } };
         const job = {
           id: `job-demo-${jobs.size + 1}`,
           status: "queued",
@@ -459,29 +546,34 @@ export function createDemoApiServices(): ApiServerServices {
         }
 
         jobs.set(job.id, job);
-        return job;
-      },
-      async get(id) {
-        return jobs.get(id) ?? {
-          id,
-          status: "completed",
-          schemaKey: "lims-clinical-info"
+        const result = await demoRecognitionOrchestrator.start({
+          jobId: job.id,
+          schemaKey: job.schemaKey,
+          document: {
+            documentId: body.document?.documentId ?? body.sourceFileId ?? job.id,
+            fileName: body.document?.fileName ?? "demo-medical-record.pdf",
+            mimeType: body.document?.mimeType ?? "application/pdf"
+          }
+        });
+        const completedJob = {
+          ...job,
+          status: result.status
+        };
+
+        jobs.set(job.id, completedJob);
+        results.set(job.id, result);
+
+        return {
+          ...completedJob,
+          trace: toDemoTrace(job.id)
         };
       }
     },
     resultService: {
       async getByJobId(jobId) {
-        return {
-          jobId,
-          fields: [
-            {
-              key: "clinicalDiagnosis",
-              value: "演示诊断",
-              confidence: 0.92
-            }
-          ],
-          reviewRequired: false
-        };
+        const result = results.get(jobId);
+
+        return result === undefined ? null : { ...result };
       }
     },
     feedbackService: {
@@ -553,6 +645,9 @@ export function createDemoApiServices(): ApiServerServices {
         if (!allowedKinds.includes(input.kind as (typeof allowedKinds)[number])) {
           throw createDemoError("PROVIDER_KIND_INVALID", 400);
         }
+        if (readSavedProviderMode(input.config) === "mock") {
+          throw createDemoError("REAL_PROVIDER_REQUIRED", 400);
+        }
 
         const kind = input.kind as (typeof allowedKinds)[number];
         if (input.isDefault) {
@@ -573,6 +668,7 @@ export function createDemoApiServices(): ApiServerServices {
           kind,
           enabled: input.enabled,
           isDefault: input.isDefault,
+          isMock: false,
           config:
             input.config && typeof input.config === "object" && !Array.isArray(input.config)
               ? (input.config as Record<string, unknown>)
@@ -607,8 +703,14 @@ export function createDemoApiServices(): ApiServerServices {
         };
       },
       async checkProviderHealth(input) {
+        const provider = demoProviders.get(input.key);
+        if (!provider) {
+          throw createDemoError("PROVIDER_NOT_FOUND", 404);
+        }
+
         return {
           key: input.key,
+          kind: provider.kind,
           status: "healthy",
           latencyMs: 12,
           checkedAt: new Date().toISOString(),

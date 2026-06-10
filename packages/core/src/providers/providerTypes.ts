@@ -97,6 +97,7 @@ export class ProviderError extends Error {
   readonly providerName: string;
   readonly retryable: boolean;
   readonly code: string;
+  readonly cause?: unknown;
 
   constructor(message: string, options: ProviderErrorOptions) {
     super(message);

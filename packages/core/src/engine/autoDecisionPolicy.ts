@@ -32,12 +32,9 @@ export interface AutoDecisionPolicyResult {
   reasons: AutoDecisionReason[];
 }
 
-function isKeyField(fieldKey: string): boolean {
-  return fieldKey === "clinicalDiagnosis";
-}
-
 export function evaluateAutoDecision(input: AutoDecisionPolicyInput): AutoDecisionPolicyResult {
   const reasons: AutoDecisionReason[] = [];
+  const keyFieldKeys = new Set(input.validation.requiredFieldKeys);
 
   if (!input.schemaActive) {
     reasons.push({
@@ -47,7 +44,7 @@ export function evaluateAutoDecision(input: AutoDecisionPolicyInput): AutoDecisi
   }
 
   const keyIssues = input.validation.fieldResults.filter(
-    (field) => isKeyField(field.fieldKey) && field.decision !== "accepted"
+    (field) => keyFieldKeys.has(field.fieldKey) && field.decision !== "accepted"
   );
   for (const field of keyIssues) {
     reasons.push({
@@ -58,7 +55,7 @@ export function evaluateAutoDecision(input: AutoDecisionPolicyInput): AutoDecisi
   }
 
   const optionalIssues = input.validation.fieldResults.filter(
-    (field) => !isKeyField(field.fieldKey) && field.decision !== "accepted"
+    (field) => !keyFieldKeys.has(field.fieldKey) && field.decision !== "accepted"
   );
   for (const field of optionalIssues) {
     reasons.push({

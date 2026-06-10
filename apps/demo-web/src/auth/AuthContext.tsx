@@ -2,10 +2,16 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { createApiClient, type ApiClient, type LoginResponse } from "../api/client";
 
 type StoredAuth = {
-  token: string;
+  token?: string;
   user: LoginResponse["user"];
   permissions: string[];
   roles: string[];
+};
+
+type AuthStorageEnv = {
+  DEV?: boolean;
+  MODE?: string;
+  VITE_AUTH_TOKEN_STORAGE?: string;
 };
 
 type AuthContextValue = {
@@ -14,11 +20,40 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   hasPermission: (permission: string) => boolean;
   login: (input: { email: string; password: string }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const storageKey = "medical-record-agent.auth";
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function shouldPersistAccessToken(env: AuthStorageEnv) {
+  if (env.VITE_AUTH_TOKEN_STORAGE === "localStorage") {
+    return true;
+  }
+
+  if (env.VITE_AUTH_TOKEN_STORAGE === "cookie") {
+    return false;
+  }
+
+  return env.DEV === true;
+}
+
+export function createStoredAuthFromLoginResponse(response: LoginResponse, env: AuthStorageEnv): StoredAuth {
+  const auth = {
+    user: response.user,
+    permissions: response.permissions,
+    roles: response.roles
+  };
+
+  if (!shouldPersistAccessToken(env)) {
+    return auth;
+  }
+
+  return {
+    token: response.accessToken,
+    ...auth
+  };
+}
 
 function readStoredAuth(): StoredAuth | null {
   try {
@@ -50,19 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(input: { email: string; password: string }) {
     const response = await api.login(input);
-    const nextAuth: StoredAuth = {
-      token: response.accessToken,
-      user: response.user,
-      permissions: response.permissions,
-      roles: response.roles
-    };
+    const nextAuth = createStoredAuthFromLoginResponse(response, import.meta.env);
     setAuth(nextAuth);
     writeStoredAuth(nextAuth);
   }
 
-  function logout() {
+  async function logout() {
+    const logoutRequest = api.logout().catch(() => undefined);
     setAuth(null);
     writeStoredAuth(null);
+    await logoutRequest;
   }
 
   const value = useMemo<AuthContextValue>(

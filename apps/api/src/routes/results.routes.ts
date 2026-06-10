@@ -3,9 +3,10 @@ import type { FastifyInstance } from "fastify";
 import { PERMISSIONS } from "../auth/permissions";
 import type { createAuthHooks } from "../middleware/auth.middleware";
 import type { createAuditHooks } from "../middleware/audit.middleware";
+import { assertRouteResponseObject, type ApiRouteResponseObject } from "./route-dtos";
 
 export interface ResultRouteService {
-  getByJobId(jobId: string): Promise<unknown | null>;
+  getByJobId(jobId: string): Promise<ApiRouteResponseObject | null>;
 }
 
 export interface ResultRoutesDependencies {
@@ -50,7 +51,7 @@ export async function registerResultRoutes(server: FastifyInstance, dependencies
         return reply.status(404).send(sendNotFound());
       }
 
-      return result;
+      return assertRouteResponseObject(result, "RESULT_RESPONSE_INVALID");
     }
   );
 }

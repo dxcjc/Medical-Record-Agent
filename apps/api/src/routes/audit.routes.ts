@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 
 import type { AuthHooksDependencies } from "../middleware/auth.middleware";
+import {
+  type ApiRouteResponseObject,
+  assertRouteResponseObjectList,
+  auditListQuerySchema,
+  redactSensitiveRouteValue
+} from "./route-dtos";
 
 export interface AuditListInput {
   actorUserId?: string;
@@ -10,29 +16,12 @@ export interface AuditListInput {
 }
 
 export interface AuditRouteService {
-  listRecent(input: AuditListInput): Promise<unknown[]>;
+  listRecent(input: AuditListInput): Promise<ApiRouteResponseObject[]>;
 }
 
 export interface AuditRoutesDependencies {
   auditService: AuditRouteService;
   authHooks: ReturnType<typeof import("../middleware/auth.middleware").createAuthHooks>;
-}
-
-function readStringQuery(value: unknown) {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function readTakeQuery(value: unknown) {
-  if (typeof value !== "string" || value.length === 0) {
-    return undefined;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return undefined;
-  }
-
-  return Math.min(parsed, 100);
 }
 
 /**
@@ -45,33 +34,37 @@ export async function registerAuditRoutes(server: FastifyInstance, dependencies:
     {
       preHandler: [dependencies.authHooks.authenticate, dependencies.authHooks.requirePermission("audit:read")]
     },
-    async (request) => {
-      const query = request.query as Record<string, unknown>;
+    async (request, reply) => {
+      const parsed = auditListQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid audit query"
+        });
+      }
+
+      const query = parsed.data;
       const input: AuditListInput = {};
-      const take = readTakeQuery(query.take);
-      const action = readStringQuery(query.action);
-      const actorUserId = readStringQuery(query.actorUserId);
-      const actorApiTokenId = readStringQuery(query.actorApiTokenId);
 
-      if (take !== undefined) {
-        input.take = take;
+      if (query.take !== undefined) {
+        input.take = query.take;
       }
 
-      if (action !== undefined) {
-        input.action = action;
+      if (query.action !== undefined) {
+        input.action = query.action;
       }
 
-      if (actorUserId !== undefined) {
-        input.actorUserId = actorUserId;
+      if (query.actorUserId !== undefined) {
+        input.actorUserId = query.actorUserId;
       }
 
-      if (actorApiTokenId !== undefined) {
-        input.actorApiTokenId = actorApiTokenId;
+      if (query.actorApiTokenId !== undefined) {
+        input.actorApiTokenId = query.actorApiTokenId;
       }
 
       const items = await dependencies.auditService.listRecent(input);
       return {
-        items
+        items: redactSensitiveRouteValue(assertRouteResponseObjectList(items, "AUDIT_LIST_RESPONSE_INVALID"))
       };
     }
   );

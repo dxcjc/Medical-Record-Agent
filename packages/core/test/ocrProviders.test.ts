@@ -412,7 +412,7 @@ describe("ocr providers", () => {
       }
     });
 
-    expect(mockProvider.providerName).toBe("mock-ocr");
+    expect(mockProvider.providerName).toBe("fixture-ocr");
     expect(httpProvider.providerName).toBe("http-ocr");
   });
 });

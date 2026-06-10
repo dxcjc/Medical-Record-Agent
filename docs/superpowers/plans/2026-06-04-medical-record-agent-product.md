@@ -1,10 +1,12 @@
 # Medical Record Agent Product Implementation Plan
 
+> 历史草案说明：本文是 2026-06-04 的早期产品计划，Provider 路线已被 2026-06-09 hard remove 方案取代。当前执行方案要求用户/业务主线只接入真实 OCR/LLM Provider；自动化验证只能使用测试替身、fixture、合成样本和 contract test double，不把模拟模型提供商作为可用产品路线。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 构建一个生产取向的 TypeScript 通用病历识别 Agent，主线使用 LangGraph.js + LangChain.js，完整覆盖真实 OCR provider、真实 LLM provider、轻量 RAG、多 Agent 演进、生产级存储、权限登录、LIMS 高置信自动写回、schema 在线编辑发布、真实脱敏样本评估，以及精致多页面 Demo/管理前端。
 
-**Architecture:** 使用 pnpm workspace 管理 monorepo。核心能力按 `shared` 类型、`core` 领域引擎、`api` 服务、`demo-web` 前端拆分；识别主流程由 LangGraph 工作流承载，LLM 调用、structured output、tool 封装和轻量 RAG 由 LangChain.js 承载。生产能力通过 Provider、Repository、Auth、Audit、Writeback、Evaluation 插件化接入。默认保留 mock provider 用于测试，同时实现 LangChain、OpenAI-compatible、OpenAI Responses 三类真实模型 provider。
+**Architecture:** 使用 pnpm workspace 管理 monorepo。核心能力按 `shared` 类型、`core` 领域引擎、`api` 服务、`demo-web` 前端拆分；识别主流程由 LangGraph 工作流承载，LLM 调用、structured output、tool 封装和轻量 RAG 由 LangChain.js 承载。生产能力通过 Provider、Repository、Auth、Audit、Writeback、Evaluation 插件化接入。当前执行方案只把真实 OCR/LLM Provider 作为业务主线，同时实现 LangChain、OpenAI-compatible、OpenAI Responses 三类真实模型 provider；测试使用 fixture、合成样本和 contract test double。
 
 **Tech Stack:** TypeScript、pnpm workspace、Vitest、Fastify、Prisma、PostgreSQL、MinIO/S3-compatible Storage、本地文件存储、JWT、bcrypt、LangGraph.js、LangChain.js、OpenAI SDK、Vite、React、React Router、TanStack Query、driver.js、lucide-react。
 
@@ -29,7 +31,7 @@
 实现顺序仍然分阶段，避免高风险能力互相阻塞：
 
 1. 基础工作区和核心类型。
-2. LangGraph 工作流骨架、核心识别引擎和 mock provider。
+2. LangGraph 工作流骨架、核心识别引擎、真实 Provider 接口和测试替身。
 3. LangChain 模型层、轻量 RAG 和 specialist agent。
 4. 生产存储和 repository。
 5. API 服务和权限审计。
@@ -269,7 +271,7 @@ Required models:
 Steps:
 
 - [ ] Write Prisma schema with PostgreSQL provider.
-- [ ] Add seed data for admin user、roles、permissions、mock provider configs、`lims-clinical-info` schema version.
+- [ ] Add seed data for admin user、roles、permissions、real provider config placeholders、`lims-clinical-info` schema version.
 - [ ] Add environment config parser that validates required variables at startup.
 - [ ] Run `pnpm db:migrate` against local PostgreSQL or test database.
 - [ ] Run `pnpm db:seed`.
@@ -304,7 +306,7 @@ Acceptance:
 - Invalid schema drafts return actionable validation errors.
 - Normalizers keep original text available and only add normalized values.
 
-### Task 5: Provider Interfaces, Mock Providers And Real OCR Provider
+### Task 5: Provider Interfaces, Test Doubles And Real OCR Provider
 
 **Files:**
 - Create: `packages/core/src/providers/providerTypes.ts`
@@ -404,7 +406,7 @@ Steps:
 
 Acceptance:
 
-- Job orchestration works with mock providers.
+- Job orchestration works with real Provider contracts and deterministic test doubles.
 - Provider errors map to failed/retryable job errors.
 - Low confidence or missing key fields mark `needs_review`.
 - High confidence green decisions trigger writeback path when enabled.

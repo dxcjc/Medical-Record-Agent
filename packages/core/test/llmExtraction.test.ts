@@ -440,7 +440,7 @@ describe("LLM extraction engine", () => {
       }
     });
 
-    expect(mockProvider.providerName).toBe("mock-model");
+    expect(mockProvider.providerName).toBe("fixture-model");
     expect(httpProvider.providerName).toBe("http-llm");
   });
 

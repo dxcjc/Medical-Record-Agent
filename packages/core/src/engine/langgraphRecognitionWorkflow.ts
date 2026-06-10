@@ -258,6 +258,7 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
 
     const execution = await config.writebackExecutor({
       jobId: state.jobId,
+      source: "server-workflow",
       fields: state.writeback.readyFields
     });
 

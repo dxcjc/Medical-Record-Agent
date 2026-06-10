@@ -1,12 +1,18 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 
 import { PERMISSIONS } from "../auth/permissions";
 import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware";
 import type { createAuditHooks } from "../middleware/audit.middleware";
+import {
+  assertRouteResponseObject,
+  assertRouteResponseObjectList,
+  confirmedWritebackRouteInputSchema,
+  type ApiRouteResponseObject
+} from "./route-dtos";
 
 export interface WritebackRouteService {
-  execute(input: unknown): Promise<unknown>;
-  listEligible(input: { actor: AuthContext; limit: number }): Promise<unknown[]>;
+  execute(input: ExecuteWritebackRouteInput): Promise<ApiRouteResponseObject>;
+  listEligible(input: { actor: AuthContext; limit: number }): Promise<ApiRouteResponseObject[]>;
 }
 
 export interface WritebackJobRouteService {
@@ -18,16 +24,14 @@ export interface WritebackRoutesDependencies {
   jobService: WritebackJobRouteService;
   authHooks: ReturnType<typeof createAuthHooks>;
   auditHooks?: ReturnType<typeof createAuditHooks>;
+  rateLimit?: preHandlerHookHandler;
 }
 
-function isConfirmedWritebackBody(value: unknown): value is { confirmed: true; jobId: string } {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      (value as { confirmed?: unknown }).confirmed === true &&
-      typeof (value as { jobId?: unknown }).jobId === "string" &&
-      (value as { jobId: string }).jobId.length > 0
-  );
+export interface ExecuteWritebackRouteInput {
+  jobId: string;
+  confirmed: true;
+  idempotencyKey?: string;
+  actor: AuthContext;
 }
 
 function isServerConfirmedJob(value: unknown) {
@@ -60,10 +64,13 @@ export async function registerWritebackRoutes(server: FastifyInstance, dependenc
       const limit = parsedLimit && Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
 
       return {
-        items: await dependencies.writebackService.listEligible({
-          actor: request.auth as AuthContext,
-          limit
-        })
+        items: assertRouteResponseObjectList(
+          await dependencies.writebackService.listEligible({
+            actor: request.auth as AuthContext,
+            limit
+          }),
+          "WRITEBACK_ELIGIBLE_RESPONSE_INVALID"
+        )
       };
     }
   );
@@ -74,6 +81,7 @@ export async function registerWritebackRoutes(server: FastifyInstance, dependenc
       preHandler: [
         dependencies.authHooks.authenticate,
         dependencies.authHooks.requirePermission(PERMISSIONS.writebackExecute),
+        ...(dependencies.rateLimit ? [dependencies.rateLimit] : []),
         ...(dependencies.auditHooks
           ? [
               dependencies.auditHooks.audit({
@@ -86,20 +94,44 @@ export async function registerWritebackRoutes(server: FastifyInstance, dependenc
       ]
     },
     async (request, reply) => {
-      if (!isConfirmedWritebackBody(request.body)) {
-        return reply.status(409).send({
-          error: "WRITEBACK_REQUIRES_CONFIRMED_JOB"
+      const parsedBody = confirmedWritebackRouteInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        const confirmed = request.body && typeof request.body === "object" ? (request.body as { confirmed?: unknown }).confirmed : undefined;
+        if (confirmed !== true) {
+          return reply.status(409).send({
+            error: "WRITEBACK_REQUIRES_CONFIRMED_JOB"
+          });
+        }
+
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid writeback payload"
         });
       }
 
-      const job = await dependencies.jobService.get(request.body.jobId);
+      const parsedInput: Omit<ExecuteWritebackRouteInput, "actor"> = {
+        jobId: parsedBody.data.jobId,
+        confirmed: true
+      };
+
+      if (parsedBody.data.idempotencyKey !== undefined) {
+        parsedInput.idempotencyKey = parsedBody.data.idempotencyKey;
+      }
+
+      const job = await dependencies.jobService.get(parsedInput.jobId);
       if (!isServerConfirmedJob(job)) {
         return reply.status(409).send({
           error: "WRITEBACK_REQUIRES_CONFIRMED_JOB"
         });
       }
 
-      return dependencies.writebackService.execute(request.body);
+      return assertRouteResponseObject(
+        await dependencies.writebackService.execute({
+          ...parsedInput,
+          actor: request.auth as AuthContext
+        }),
+        "WRITEBACK_RESPONSE_INVALID"
+      );
     }
   );
 }

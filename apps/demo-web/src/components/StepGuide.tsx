@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Button } from "@arco-design/web-react";
 import { HelpCircle } from "lucide-react";
 import { driver, type DriveStep } from "driver.js";
 import { selectGuideTarget } from "./StepGuideTargets";
@@ -113,9 +114,8 @@ export function StepGuide() {
   );
 
   return (
-    <button className="icon-text-button" type="button" onClick={startGuide} aria-label="打开页面引导">
-      <HelpCircle size={16} aria-hidden="true" />
+    <Button className="icon-text-button" type="outline" onClick={startGuide} aria-label="打开页面引导" icon={<HelpCircle size={16} aria-hidden="true" />}>
       引导
-    </button>
+    </Button>
   );
 }

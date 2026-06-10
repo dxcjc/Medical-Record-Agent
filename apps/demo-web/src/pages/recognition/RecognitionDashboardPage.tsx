@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Card, Table, Tag } from "@arco-design/web-react";
+import type { TableColumnProps } from "@arco-design/web-react";
 import type { LucideIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import type { ApiCollectionResponse } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons } from "../../icons/appIcons";
 import {
@@ -26,6 +30,8 @@ export type RecognitionDashboardPageProps = {
   providers?: typeof providerStatuses;
 };
 
+type RecentJob = (typeof recentJobs)[number];
+
 type RuntimeStatus = {
   apiStatus: string;
   service: string;
@@ -48,7 +54,7 @@ type RuntimeMetric = {
   tone: MetricTone;
 };
 
-function countItems(response: { items: unknown[] }) {
+function countItems<TItem>(response: ApiCollectionResponse<TItem>) {
   return response.items.length;
 }
 
@@ -65,6 +71,7 @@ export default function RecognitionDashboardPage({
   providers = providerStatuses,
 }: RecognitionDashboardPageProps) {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const [refreshToken, setRefreshToken] = useState(0);
   const [runtimeState, setRuntimeState] = useState<RuntimeLoadState>({
     status: "loading",
@@ -165,55 +172,147 @@ export default function RecognitionDashboardPage({
 
   const runtimeTone = runtimeState.status === "error" ? "offline" : runtimeState.status === "loading" ? "degraded" : "online";
 
+  const jobColumns: TableColumnProps<RecentJob>[] = [
+    {
+      title: "任务",
+      dataIndex: "title",
+      width: 300,
+      render: (_, job) => (
+        <div className="recent-task-cell">
+          <strong className="recent-task-cell__title">{job.title}</strong>
+          <span className="recent-task-cell__meta">
+            <span className="mono">{job.id}</span>
+            <span>{job.createdAt}</span>
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: "模板",
+      dataIndex: "schemaName",
+      width: 220,
+      render: (_, job) => (
+        <div className="recent-template-cell">
+          <strong>{job.schemaName}</strong>
+          <span>{job.adapter}</span>
+        </div>
+      ),
+    },
+    {
+      title: "Provider",
+      dataIndex: "provider",
+      width: 150,
+      render: (_, job) => <span className="recent-provider-cell">{job.provider}</span>,
+    },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 120,
+      render: (_, job) => <JobStatusPill status={job.status} />,
+    },
+    {
+      title: "置信度",
+      dataIndex: "confidence",
+      align: "right",
+      width: 104,
+      render: (_, job) => formatPercent(job.confidence),
+    },
+    {
+      title: "写回",
+      dataIndex: "autoWriteBack",
+      width: 132,
+      render: (_, job) => <Tag color={job.autoWriteBack ? "green" : "orange"}>{job.autoWriteBack ? "自动写回" : "等待确认"}</Tag>,
+    },
+    {
+      title: "负责人 / 负载",
+      dataIndex: "owner",
+      width: 150,
+      render: (_, job) => (
+        <div className="recent-owner-cell">
+          <strong>{job.owner}</strong>
+          <span>{job.status === "running" ? "处理中" : job.status === "review" ? "复核负载" : job.autoWriteBack ? "低负载" : "待调度"}</span>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <main className="app-page">
       <PageHeader
         eyebrow="Recognition Demo"
         title="识别任务看板"
         description="集中查看识别吞吐、Provider 健康度、自动写回与复核队列状态。"
+        meta={
+          <div className="page-header__meta" aria-label="识别看板摘要">
+            <span className="page-header__meta-item">
+              <strong>证据链</strong>
+              <span>页码、原文引用、字段来源</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>复核状态</strong>
+              <span>{jobs.filter((job) => job.status === "review").length} 个任务等待人工确认</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>Provider</strong>
+              <span>{runtimeState.data?.providerCount ?? providers.length} 个实例参与调度</span>
+            </span>
+          </div>
+        }
         actions={
           <>
             {dashboardActions.map(({ label, icon: Icon }) => (
-              <button key={label} className="secondary-button" type="button" aria-label={label}>
-                <AppIcon icon={Icon} size="sm" />
+              <Button
+                key={label}
+                type="outline"
+                aria-label={label}
+                onClick={() => {
+                  if (label === "新建识别") {
+                    navigate("/recognition/new");
+                  } else if (label === "查看流程") {
+                    navigate("/trace");
+                  } else {
+                    navigate("/providers");
+                  }
+                }}
+                icon={<AppIcon icon={Icon} size="sm" />}
+              >
                 {label}
-              </button>
+              </Button>
             ))}
-            <button
-              className="action-button"
-              type="button"
+            <Button
+              type="primary"
               aria-label="刷新任务看板"
               disabled={runtimeState.status === "loading"}
               onClick={() => setRefreshToken((current) => current + 1)}
+              icon={
+                <AppIcon
+                  icon={runtimeState.status === "loading" ? commonUiIcons.loading : actionIcons.refresh}
+                  size="sm"
+                  className={runtimeState.status === "loading" ? "is-spinning" : undefined}
+                />
+              }
             >
-              <AppIcon
-                icon={runtimeState.status === "loading" ? commonUiIcons.loading : actionIcons.refresh}
-                size="sm"
-                className={runtimeState.status === "loading" ? "is-spinning" : undefined}
-              />
               {runtimeState.status === "loading" ? "刷新中" : "刷新"}
-            </button>
+            </Button>
           </>
         }
       />
 
-      <section className="panel" aria-label="运行状态" data-guide="environment-status">
+      <Card className="panel" aria-label="运行状态" data-guide="environment-status">
         <SectionTitle title="运行状态" />
         <div className="provider-health" aria-live="polite">
           <StatusPill label={runtimeState.status === "loading" ? "检查中" : runtimeState.status === "error" ? "接口异常" : "接口可用"} tone={runtimeTone} />
           <span className="mono">{api.baseUrl}</span>
         </div>
         {runtimeState.error ? (
-          <div className="form-error" role="alert">
-            运行状态加载失败：{runtimeState.error}。下方业务演示数据仍可正常查看。
-          </div>
+          <Alert type="warning" showIcon content={`运行状态加载失败：${runtimeState.error}。下方业务演示数据仍可正常查看。`} />
         ) : null}
         <div className="metric-grid compact">
           {runtimeMetrics.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}
         </div>
-      </section>
+      </Card>
 
       <section className="metric-grid" aria-label="任务指标">
         {dashboardMetrics.map((metric) => (
@@ -221,49 +320,27 @@ export default function RecognitionDashboardPage({
         ))}
       </section>
 
-      <section className="panel">
-        <SectionTitle title="最近任务" actionLabel="查看全部任务" />
+      <Card className="panel data-table-card">
+        <SectionTitle
+          title="最近任务"
+          action={
+            <Button type="outline" aria-label="查看全部任务" onClick={() => navigate("/trace")}>
+              查看全部任务
+              <AppIcon icon={actionIcons.next} size="sm" />
+            </Button>
+          }
+        />
         {jobs.length > 0 ? (
           <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>任务</th>
-                  <th>模板</th>
-                  <th>Provider</th>
-                  <th>状态</th>
-                  <th>置信度</th>
-                  <th>写回</th>
-                  <th>负责人</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((job) => (
-                  <tr key={job.id}>
-                    <td>
-                      <strong>{job.title}</strong>
-                      <span>{job.id} · {job.createdAt}</span>
-                    </td>
-                    <td>{job.schemaName}</td>
-                    <td>{job.provider}</td>
-                    <td>
-                      <JobStatusPill status={job.status} />
-                    </td>
-                    <td>{formatPercent(job.confidence)}</td>
-                    <td>{job.autoWriteBack ? "自动写回" : "等待确认"}</td>
-                    <td>{job.owner}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table columns={jobColumns} data={jobs} rowKey="id" pagination={false} scroll={{ x: 1120 }} />
           </div>
         ) : (
           <EmptyPanel icon={dashboardMetricIcons.taskVolume} title="暂无识别任务" description="新建任务后，最近任务会显示在这里。" />
         )}
-      </section>
+      </Card>
 
       <div className="dashboard-grid">
-        <section className="panel">
+        <Card className="panel">
           <SectionTitle title="Provider 状态" />
           {providers.length > 0 ? (
             <div className="provider-list">
@@ -283,20 +360,20 @@ export default function RecognitionDashboardPage({
           ) : (
             <EmptyPanel icon={dashboardMetricIcons.provider} title="暂无 Provider" description="Provider 接入后会显示健康状态与调用概览。" />
           )}
-        </section>
+        </Card>
 
-        <section className="panel">
+        <Card className="panel">
           <SectionTitle title="写回与复核概览" />
           <div className="metric-grid compact">
             {writeBackSummaries.map((summary) => (
               <MetricCard key={summary.label} {...summary} />
             ))}
           </div>
-          <button className="secondary-button" type="button" aria-label="打开复核队列">
+          <Button type="outline" aria-label="打开复核队列" onClick={() => navigate("/feedback")}>
             打开复核队列
             <AppIcon icon={actionIcons.next} size="sm" />
-          </button>
-        </section>
+          </Button>
+        </Card>
       </div>
     </main>
   );

@@ -9,8 +9,8 @@ describe("parseEnv", () => {
     expect(() => parseEnv({})).toThrow(/JWT_SECRET/);
   });
 
-  it("提供开发占位配置时能解析成规范化配置", () => {
-    // 这些值全部是本地开发占位数据，不包含真实数据库、真实 token 或真实内网地址。
+  it("未配置真实 OCR/LLM Provider 时能解析成规范化配置", () => {
+    // 这些值全部是本地测试配置，不包含真实数据库、真实 token 或真实内网地址。
     const env = parseEnv({
       DATABASE_URL: "postgresql://medical_record_agent:change_me@localhost:5432/medical_record_agent?schema=public",
       JWT_SECRET: "replace-with-a-long-random-development-secret",
@@ -18,11 +18,10 @@ describe("parseEnv", () => {
       JWT_REFRESH_EXPIRES_IN: "7d",
       STORAGE_DRIVER: "local",
       LOCAL_STORAGE_DIR: "./storage",
-      OCR_PROVIDER: "mock",
+      OCR_PROVIDER: "none",
       OCR_ENDPOINT: "http://localhost:8088/ocr",
       OCR_API_KEY: "replace-with-ocr-api-key",
-      LLM_PROVIDER: "mock",
-      LLM_MODEL: "mock-medical-record-extractor",
+      LLM_PROVIDER: "none",
       LLM_BASE_URL: "http://localhost:11434/v1",
       LLM_API_KEY: "replace-with-llm-api-key",
       LIMS_BASE_URL: "http://localhost:8090",
@@ -35,8 +34,9 @@ describe("parseEnv", () => {
     expect(env.server.port).toBe(3000);
     expect(env.storage.driver).toBe("local");
     expect(env.lims.timeoutMs).toBe(10000);
-    expect(env.providers.ocr.provider).toBe("mock");
-    expect(env.providers.llm.model).toBe("mock-medical-record-extractor");
+    expect(env.providers.ocr.provider).toBe("none");
+    expect(env.providers.llm.provider).toBe("none");
+    expect(env.providers.llm.model).toBe("unconfigured-real-model");
   });
 
   it("LangChain 模型链路缺少密钥时会失败", () => {

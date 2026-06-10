@@ -2,10 +2,28 @@ import type { FastifyInstance } from "fastify";
 
 import { PERMISSIONS } from "../auth/permissions";
 import type { createAuthHooks } from "../middleware/auth.middleware";
+import {
+  assertRouteResponseObject,
+  recognitionJobRouteInputSchema,
+  type ApiRouteResponseObject,
+  type CreateRecognitionJobRouteInput
+} from "./route-dtos";
+
+export interface RecognitionJobDocumentServiceInput {
+  documentId: string;
+  fileName?: string | undefined;
+  mimeType?: string | undefined;
+  storageKey?: string | undefined;
+  content?: Uint8Array;
+}
+
+export type CreateRecognitionJobServiceInput = Omit<CreateRecognitionJobRouteInput, "document"> & {
+  document?: RecognitionJobDocumentServiceInput | undefined;
+};
 
 export interface JobRouteService {
-  create(input: unknown): Promise<unknown>;
-  get(id: string): Promise<unknown | null>;
+  create(input: CreateRecognitionJobServiceInput): Promise<ApiRouteResponseObject>;
+  get(id: string): Promise<ApiRouteResponseObject | null>;
 }
 
 export interface JobRoutesDependencies {
@@ -32,7 +50,19 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
         dependencies.authHooks.requirePermission(PERMISSIONS.jobCreate)
       ]
     },
-    async (request) => dependencies.jobService.create(request.body)
+    async (request, reply) => {
+      const parsed = recognitionJobRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid recognition job payload"
+        });
+      }
+
+      const job = await dependencies.jobService.create(parsed.data);
+
+      return assertRouteResponseObject(job, "JOB_CREATE_RESPONSE_INVALID");
+    }
   );
 
   server.get(
@@ -51,7 +81,7 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
         return reply.status(404).send(sendNotFound());
       }
 
-      return job;
+      return assertRouteResponseObject(job, "JOB_RESPONSE_INVALID");
     }
   );
 }

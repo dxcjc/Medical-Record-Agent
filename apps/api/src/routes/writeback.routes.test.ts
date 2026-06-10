@@ -123,4 +123,104 @@ describe("writeback routes", () => {
       ]
     });
   });
+
+  it("POST /writeback 丢弃客户端 fields/payload，只把确认 DTO 和 actor 交给服务层", async () => {
+    const context = createAuthContext(["writeback:execute"]);
+    const authService = createAuthService(context);
+    const writebackService: WritebackRouteService = {
+      execute: vi.fn(async () => ({ status: "success" })),
+      listEligible: vi.fn(async () => [])
+    };
+    const server = await createServer({ authService, writebackService });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/writeback",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        jobId: "job-001",
+        confirmed: true,
+        idempotencyKey: "job-001:manual",
+        fields: [
+          {
+            fieldKey: "clinicalDiagnosis",
+            targetPath: "clinicalInfo.clinicalDiagnosis",
+            value: "客户端篡改值"
+          }
+        ],
+        payload: {
+          clinicalInfo: {
+            clinicalDiagnosis: "客户端篡改 payload"
+          }
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(writebackService.execute).toHaveBeenCalledWith({
+      jobId: "job-001",
+      confirmed: true,
+      idempotencyKey: "job-001:manual",
+      actor: context
+    });
+  });
+
+  it("POST /writeback 拒绝非法 idempotencyKey，避免宽松输入进入写回服务", async () => {
+    const context = createAuthContext(["writeback:execute"]);
+    const authService = createAuthService(context);
+    const writebackService: WritebackRouteService = {
+      execute: vi.fn(async () => ({ status: "success" })),
+      listEligible: vi.fn(async () => [])
+    };
+    const server = await createServer({ authService, writebackService });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/writeback",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        jobId: "job-001",
+        confirmed: true,
+        idempotencyKey: {
+          nested: "not-allowed"
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "BAD_REQUEST",
+      message: "Invalid writeback payload"
+    });
+    expect(writebackService.execute).not.toHaveBeenCalled();
+  });
+
+  it("POST /writeback 服务层返回非对象响应时返回 500，不包装成业务成功", async () => {
+    const context = createAuthContext(["writeback:execute"]);
+    const authService = createAuthService(context);
+    const writebackService = {
+      execute: vi.fn(async () => "not-object"),
+      listEligible: vi.fn(async () => [])
+    } as unknown as WritebackRouteService;
+    const server = await createServer({ authService, writebackService });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/writeback",
+      headers: { authorization: "Bearer valid-jwt" },
+      payload: {
+        jobId: "job-001",
+        confirmed: true
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        code: "WRITEBACK_RESPONSE_INVALID",
+        message: "WRITEBACK_RESPONSE_INVALID",
+        statusCode: 500
+      })
+    );
+  });
 });

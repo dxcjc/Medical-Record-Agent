@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { Prisma } from "@prisma/client";
+import type { Prisma, RecognitionJobStatus } from "@prisma/client";
 import type {
   EvaluationDataset as CoreEvaluationDataset,
   EvaluationDatasetSample,
@@ -15,6 +15,8 @@ import type { AuditRecorder } from "../middleware/audit.middleware";
 import type { AuditRouteService } from "../routes/audit.routes";
 import type { AuthRouteService } from "../routes/auth.routes";
 import type { ProviderRouteService, SaveProviderConfigInput, SetDefaultProviderInput } from "../routes/providers.routes";
+import type { ApiRouteResponseObject } from "../routes/route-dtos";
+import type { ExecuteWritebackRouteInput } from "../routes/writeback.routes";
 import type {
   CreateEvaluationDatasetRouteInput,
   CreateEvaluationRunInput,
@@ -59,6 +61,7 @@ export interface ApiRecognitionOrchestrator {
   start(input: {
     jobId: string;
     schemaKey?: string;
+    schemaVersionId?: string;
     document: ApiRecognitionDocumentInput;
     providerConfig?: ApiProviderSelectionConfig & Prisma.InputJsonObject;
   }): Promise<ApiRecognitionOrchestratorResult>;
@@ -90,6 +93,15 @@ export interface ApiServiceRepositories {
       options?: Prisma.InputJsonValue;
     }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
     findById(id: string): Promise<unknown | null>;
+    updateStatus(input: {
+      id: string;
+      status: RecognitionJobStatus;
+      startedAt?: Date;
+      completedAt?: Date;
+      trace?: Prisma.InputJsonValue;
+      warnings?: Prisma.InputJsonValue;
+      error?: Prisma.InputJsonValue;
+    }): Promise<unknown>;
     listEligibleForWriteback(limit?: number): Promise<unknown[]>;
   };
   resultsRepository: {
@@ -125,6 +137,7 @@ export interface ApiServiceRepositories {
         completedAt: Date;
       }
     ): Promise<unknown>;
+    listByJobId?(jobId: string): Promise<unknown[]>;
   };
   evaluationRepository: {
     listDatasets(): Promise<unknown[]>;
@@ -148,6 +161,7 @@ export interface ApiServiceRepositories {
     createRun(input: {
       datasetId: string;
       createdById?: string | null;
+      schemaVersionId?: string | null;
       schemaConfig?: Prisma.InputJsonValue;
       providerConfig?: Prisma.InputJsonValue;
     }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
@@ -159,6 +173,7 @@ export interface ApiServiceRepositories {
         status: "completed" | "failed";
         summary: Prisma.InputJsonValue;
         error?: Prisma.InputJsonValue;
+        schemaVersionId?: string | null;
         completedAt: Date;
       }
     ): Promise<unknown>;
@@ -175,22 +190,121 @@ export interface ApiServiceRepositories {
 }
 
 export interface ProviderRegistry {
-  list(): Promise<unknown[]>;
-  save?(input: SaveProviderConfigInput): Promise<unknown>;
-  setDefault(key: string, input: SetDefaultProviderInput): Promise<unknown>;
-  checkHealth?(key: string, input: SetDefaultProviderInput): Promise<unknown>;
+  list(): Promise<ApiRouteResponseObject[]>;
+  save?(input: SaveProviderConfigInput): Promise<ApiRouteResponseObject>;
+  setDefault(key: string, input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
+  checkHealth?(key: string, input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
 }
+
+type ProviderAvailability = {
+  hasRealOcr: boolean;
+  hasRealLlm: boolean;
+};
 
 export interface ApiEvaluationRunnerInput {
   runId: string;
   dataset: CoreEvaluationDataset;
-  schemaConfig: unknown;
+  schemaConfig: Prisma.InputJsonValue;
   providerConfig: Prisma.InputJsonValue;
   actor: CreateEvaluationRunInput["actor"];
 }
 
 export interface ApiEvaluationRunner {
   run(input: ApiEvaluationRunnerInput): Promise<EvaluationRunResult>;
+}
+
+export type ApiJobExecutionMode = "asynchronous" | "synchronous";
+
+export interface JobQueueTask {
+  name: string;
+  idempotencyKey?: string;
+  payload?: Prisma.InputJsonValue;
+  run(): Promise<void>;
+}
+
+export interface JobQueueDescription {
+  adapter: "in-process" | "broker";
+  brokerProvider?: "redis" | "rabbitmq" | "sqs";
+  productionReady: boolean;
+  blockedReason?:
+    | "QUEUE_BROKER_NOT_CONFIGURED"
+    | "QUEUE_BROKER_ADAPTER_NOT_CONNECTED"
+    | "QUEUE_BROKER_SMOKE_NOT_RUN";
+  capabilities: {
+    durable: boolean;
+    multiInstance: boolean;
+    lease: boolean;
+    retry: boolean;
+    deadLetter: boolean;
+    heartbeat: boolean;
+  };
+  policy: {
+    maxAttempts: number;
+    heartbeatIntervalMs: number;
+  };
+  readiness: {
+    nextAction: string;
+    requiredChecks: string[];
+  };
+}
+
+export interface JobQueueLease {
+  id: string;
+  taskName: string;
+  attempt: number;
+  leasedAt: Date;
+  heartbeatAt: Date;
+  idempotencyKey?: string;
+  payload?: Prisma.InputJsonValue;
+}
+
+export interface JobQueueDeadLetter {
+  taskName: string;
+  attempts: number;
+  error: Prisma.InputJsonValue;
+  failedAt: Date;
+}
+
+export interface JobQueueAdapter {
+  enqueue(task: (() => Promise<void>) | JobQueueTask): void | Promise<void>;
+  drain(): Promise<void>;
+  describe(): JobQueueDescription;
+  leaseNext?(): Promise<JobQueueLease | null>;
+  complete?(leaseId: string): Promise<void>;
+  fail?(leaseId: string, error: unknown): Promise<void>;
+  heartbeat?(leaseId: string): Promise<void>;
+  listDeadLetters?(): Promise<JobQueueDeadLetter[]>;
+}
+
+export type ApiJobQueueExecutor = JobQueueAdapter;
+
+export interface RedisJobQueueClient {
+  rpush(key: string, ...values: string[]): Promise<number>;
+  lpop(key: string): Promise<string | null>;
+  lrange(key: string, start: number, stop: number): Promise<string[]>;
+  set(key: string, value: string, options?: { nx?: boolean; px?: number }): Promise<"OK" | null>;
+  get(key: string): Promise<string | null>;
+  del(...keys: string[]): Promise<number>;
+  pexpire(key: string, milliseconds: number): Promise<number>;
+}
+
+export interface RedisJobQueueAdapterOptions {
+  client: RedisJobQueueClient;
+  queueName: string;
+  deadLetterQueue: string;
+  visibilityTimeoutMs: number;
+  retryLimit: number;
+  heartbeatIntervalMs?: number;
+  idempotencyTtlMs?: number;
+  now?: () => Date;
+}
+
+export interface RedisJobQueueAdapter extends JobQueueAdapter {
+  leaseNext(): Promise<JobQueueLease | null>;
+  complete(leaseId: string): Promise<void>;
+  fail(leaseId: string, error: unknown): Promise<void>;
+  heartbeat(leaseId: string): Promise<void>;
+  listDeadLetters(): Promise<JobQueueDeadLetter[]>;
 }
 
 export interface CreateApiServicesOptions {
@@ -204,6 +318,8 @@ export interface CreateApiServicesOptions {
   providerRegistry: ProviderRegistry;
   evaluationRunner?: ApiEvaluationRunner;
   storageProvider?: StorageProvider;
+  jobExecutionMode?: ApiJobExecutionMode;
+  jobQueueExecutor?: ApiJobQueueExecutor;
   now?: () => Date;
 }
 
@@ -249,8 +365,469 @@ function readOptionalString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function readProviderConfigMode(config: unknown) {
+  if (!isRecord(config)) {
+    return undefined;
+  }
+
+  return readOptionalString(config.providerKind ?? config.provider ?? config.kind ?? config.mode)?.toLowerCase();
+}
+
+function isBusinessVisibleMockProvider(provider: Record<string, unknown>) {
+  const key = readOptionalString(provider.key ?? provider.id) ?? "";
+  const status = readOptionalString(provider.status)?.toLowerCase();
+  const providerMode = readProviderConfigMode(provider.config);
+  const statusParts = status?.split("_") ?? [];
+  const isLegacyPlaceholderStatus =
+    statusParts.length === 2 && statusParts[0] === "development" && statusParts[1] === "placeholder";
+
+  return (
+    provider.isMock === true ||
+    isLegacyPlaceholderStatus ||
+    providerMode === "mock" ||
+    key.toLowerCase().startsWith("mock-")
+  );
+}
+
+function isEnabledRealProvider(provider: unknown, kind: "ocr" | "llm") {
+  if (!isRecord(provider)) {
+    return false;
+  }
+
+  return provider.kind === kind && provider.enabled !== false && !isBusinessVisibleMockProvider(provider);
+}
+
+async function readProviderAvailability(providerRegistry: ProviderRegistry): Promise<ProviderAvailability> {
+  const providers = await providerRegistry.list();
+
+  return {
+    hasRealOcr: providers.some((provider) => isEnabledRealProvider(provider, "ocr")),
+    hasRealLlm: providers.some((provider) => isEnabledRealProvider(provider, "llm"))
+  };
+}
+
+function assertRealRecognitionProvidersConfigured(availability: ProviderAvailability) {
+  if (!availability.hasRealOcr || !availability.hasRealLlm) {
+    throw Object.assign(new Error("REAL_PROVIDER_NOT_CONFIGURED"), {
+      code: "REAL_PROVIDER_NOT_CONFIGURED",
+      statusCode: 503,
+      message: "请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
+    });
+  }
+}
+
 function shouldReviewResult(result: ApiRecognitionOrchestratorResult) {
   return result.status === "needs_review" || result.status === "partial_completed" || Boolean(result.error);
+}
+
+function isTerminalRecognitionStatus(status: string): status is RecognitionJobStatus {
+  return [
+    "completed",
+    "partial_completed",
+    "needs_review",
+    "writeback_completed",
+    "writeback_failed",
+    "failed"
+  ].includes(status);
+}
+
+function toRecognitionJobStatus(status: string): RecognitionJobStatus {
+  return isTerminalRecognitionStatus(status) || status === "queued" || status === "running" ? status : "failed";
+}
+
+function sanitizeJobExecutionError(error: unknown): Prisma.InputJsonValue {
+  const code =
+    isRecord(error) && typeof error.code === "string" && error.code.length > 0
+      ? error.code
+      : "JOB_EXECUTION_FAILED";
+
+  return {
+    code,
+    message: "识别后台任务执行失败，请查看服务端安全日志或 provider 诊断。"
+  };
+}
+
+const inProcessJobQueueReadiness = {
+  nextAction:
+    "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+  requiredChecks: [
+    "multi-worker-lease-smoke",
+    "retry-dead-letter-smoke",
+    "heartbeat-status-consistency-smoke",
+    "status-result-consistency-smoke",
+    "idempotency-key-deduplication-smoke"
+  ]
+};
+
+const brokerJobQueueReadiness = {
+  nextAction:
+    "完成真实 Redis/RabbitMQ/SQS worker 绑定，并运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
+  requiredChecks: [
+    "multi-worker-lease-smoke",
+    "retry-dead-letter-smoke",
+    "heartbeat-status-consistency-smoke",
+    "status-result-consistency-smoke",
+    "idempotency-key-deduplication-smoke"
+  ]
+};
+
+export function createInProcessJobQueueExecutor(
+  options: {
+    maxAttempts?: number;
+    heartbeatIntervalMs?: number;
+    now?: () => Date;
+  } = {}
+): ApiJobQueueExecutor {
+  const pending = new Set<Promise<void>>();
+  const leases = new Map<string, JobQueueLease>();
+  const deadLetters: JobQueueDeadLetter[] = [];
+  const maxAttempts = options.maxAttempts ?? 1;
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 30_000;
+  const now = options.now ?? (() => new Date());
+  let sequence = 0;
+
+  function normalizeTask(task: (() => Promise<void>) | JobQueueTask): JobQueueTask {
+    if (typeof task === "function") {
+      return {
+        name: "anonymous",
+        run: task
+      };
+    }
+
+    return task;
+  }
+
+  return {
+    enqueue(task) {
+      const queueTask = normalizeTask(task);
+      const leaseId = `in-process-${++sequence}`;
+
+      const promise = Promise.resolve()
+        .then(async () => {
+          for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            const lease = {
+              id: leaseId,
+              taskName: queueTask.name,
+              attempt,
+              leasedAt: now(),
+              heartbeatAt: now()
+            };
+            leases.set(leaseId, lease);
+
+            try {
+              await queueTask.run();
+              return;
+            } catch (error) {
+              if (attempt >= maxAttempts) {
+                deadLetters.push({
+                  taskName: queueTask.name,
+                  attempts: attempt,
+                  error: sanitizeJobExecutionError(error),
+                  failedAt: now()
+                });
+                throw error;
+              }
+            }
+          }
+        })
+        .catch(() => {
+          // 任务内部负责持久化失败状态；这里吞掉异常，避免后台 promise 变成未处理拒绝。
+        })
+        .finally(() => {
+          leases.delete(leaseId);
+          pending.delete(promise);
+        });
+
+      pending.add(promise);
+    },
+    async drain() {
+      while (pending.size > 0) {
+        await Promise.allSettled([...pending]);
+      }
+    },
+    describe() {
+      return {
+        adapter: "in-process",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
+        capabilities: {
+          durable: false,
+          multiInstance: false,
+          lease: true,
+          retry: true,
+          deadLetter: true,
+          heartbeat: true
+        },
+        policy: {
+          maxAttempts,
+          heartbeatIntervalMs
+        },
+        readiness: inProcessJobQueueReadiness
+      };
+    },
+    async heartbeat(leaseId) {
+      const lease = leases.get(leaseId);
+      if (lease) {
+        leases.set(leaseId, {
+          ...lease,
+          heartbeatAt: now()
+        });
+      }
+    },
+    async listDeadLetters() {
+      return [...deadLetters];
+    }
+  };
+}
+
+type RedisQueuedTaskEnvelope = {
+  id: string;
+  taskName: string;
+  attempt: number;
+  enqueuedAt: string;
+  idempotencyKey?: string;
+  payload?: Prisma.InputJsonValue;
+};
+
+type RedisLeaseEnvelope = RedisQueuedTaskEnvelope & {
+  leaseId: string;
+  leasedAt: string;
+  heartbeatAt: string;
+};
+
+function parseRedisQueuedTaskEnvelope(value: string): RedisQueuedTaskEnvelope | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!isRecord(parsed) || typeof parsed.id !== "string" || typeof parsed.taskName !== "string") {
+      return null;
+    }
+
+    return {
+      id: parsed.id,
+      taskName: parsed.taskName,
+      attempt: typeof parsed.attempt === "number" && Number.isFinite(parsed.attempt) ? parsed.attempt : 0,
+      enqueuedAt: typeof parsed.enqueuedAt === "string" ? parsed.enqueuedAt : new Date(0).toISOString(),
+      ...(typeof parsed.idempotencyKey === "string" ? { idempotencyKey: parsed.idempotencyKey } : {}),
+      ...(parsed.payload !== undefined ? { payload: parsed.payload as Prisma.InputJsonValue } : {})
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseRedisLeaseEnvelope(value: string): RedisLeaseEnvelope | null {
+  const queued = parseRedisQueuedTaskEnvelope(value);
+  if (!queued) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!isRecord(parsed) || typeof parsed.leaseId !== "string") {
+      return null;
+    }
+
+    return {
+      ...queued,
+      leaseId: parsed.leaseId,
+      leasedAt: typeof parsed.leasedAt === "string" ? parsed.leasedAt : new Date(0).toISOString(),
+      heartbeatAt: typeof parsed.heartbeatAt === "string" ? parsed.heartbeatAt : new Date(0).toISOString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function toRedisQueueLease(envelope: RedisLeaseEnvelope): JobQueueLease {
+  return {
+    id: envelope.leaseId,
+    taskName: envelope.taskName,
+    attempt: envelope.attempt,
+    leasedAt: new Date(envelope.leasedAt),
+    heartbeatAt: new Date(envelope.heartbeatAt),
+    ...(envelope.idempotencyKey !== undefined ? { idempotencyKey: envelope.idempotencyKey } : {}),
+    ...(envelope.payload !== undefined ? { payload: envelope.payload } : {})
+  };
+}
+
+function toRedisDeadLetter(value: string): JobQueueDeadLetter | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!isRecord(parsed) || typeof parsed.taskName !== "string") {
+      return null;
+    }
+
+    const failedAt = typeof parsed.failedAt === "string" ? new Date(parsed.failedAt) : new Date(0);
+
+    return {
+      taskName: parsed.taskName,
+      attempts: typeof parsed.attempts === "number" && Number.isFinite(parsed.attempts) ? parsed.attempts : 0,
+      error: toInputJsonValue(parsed.error),
+      failedAt
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Redis broker adapter skeleton.
+ *
+ * The API process can enqueue and expose broker contract semantics, while a real
+ * worker is still required to bind task payloads back to domain execution.
+ */
+export function createRedisJobQueueAdapter(options: RedisJobQueueAdapterOptions): RedisJobQueueAdapter {
+  const now = options.now ?? (() => new Date());
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? Math.max(1000, Math.floor(options.visibilityTimeoutMs / 2));
+  const idempotencyTtlMs = options.idempotencyTtlMs ?? options.visibilityTimeoutMs * Math.max(1, options.retryLimit);
+  let sequence = 0;
+
+  function leaseKey(leaseId: string) {
+    return `${options.queueName}:lease:${leaseId}`;
+  }
+
+  function idempotencyKey(key: string) {
+    return `${options.queueName}:idem:${key}`;
+  }
+
+  function normalizeTask(task: (() => Promise<void>) | JobQueueTask): JobQueueTask {
+    if (typeof task === "function") {
+      return {
+        name: "anonymous",
+        run: task
+      };
+    }
+
+    return task;
+  }
+
+  function serializeEnvelope(envelope: RedisQueuedTaskEnvelope | RedisLeaseEnvelope) {
+    return JSON.stringify(envelope);
+  }
+
+  return {
+    async enqueue(task) {
+      const queueTask = normalizeTask(task);
+      const enqueuedAt = now().toISOString();
+      const envelope: RedisQueuedTaskEnvelope = {
+        id: `redis-task-${++sequence}`,
+        taskName: queueTask.name,
+        attempt: 0,
+        enqueuedAt,
+        ...(queueTask.idempotencyKey !== undefined ? { idempotencyKey: queueTask.idempotencyKey } : {}),
+        ...(queueTask.payload !== undefined ? { payload: queueTask.payload } : {})
+      };
+
+      if (queueTask.idempotencyKey !== undefined) {
+        const reserved = await options.client.set(idempotencyKey(queueTask.idempotencyKey), serializeEnvelope(envelope), {
+          nx: true,
+          px: idempotencyTtlMs
+        });
+        if (reserved !== "OK") {
+          return;
+        }
+      }
+
+      await options.client.rpush(options.queueName, serializeEnvelope(envelope));
+    },
+    async drain() {
+      // Broker execution requires a separate worker; draining cannot prove real Redis delivery.
+      return undefined;
+    },
+    describe() {
+      return {
+        adapter: "broker",
+        brokerProvider: "redis",
+        productionReady: false,
+        blockedReason: "QUEUE_BROKER_SMOKE_NOT_RUN",
+        capabilities: {
+          durable: true,
+          multiInstance: true,
+          lease: true,
+          retry: true,
+          deadLetter: true,
+          heartbeat: true
+        },
+        policy: {
+          maxAttempts: options.retryLimit,
+          heartbeatIntervalMs
+        },
+        readiness: brokerJobQueueReadiness
+      };
+    },
+    async leaseNext() {
+      const raw = await options.client.lpop(options.queueName);
+      if (!raw) {
+        return null;
+      }
+
+      const queued = parseRedisQueuedTaskEnvelope(raw);
+      if (!queued) {
+        return null;
+      }
+
+      const leaseId = `${queued.id}:attempt-${queued.attempt + 1}`;
+      const leasedAt = now().toISOString();
+      const leaseEnvelope: RedisLeaseEnvelope = {
+        ...queued,
+        attempt: queued.attempt + 1,
+        leaseId,
+        leasedAt,
+        heartbeatAt: leasedAt
+      };
+
+      await options.client.set(leaseKey(leaseId), serializeEnvelope(leaseEnvelope), {
+        px: options.visibilityTimeoutMs
+      });
+
+      return toRedisQueueLease(leaseEnvelope);
+    },
+    async complete(leaseId) {
+      await options.client.del(leaseKey(leaseId));
+    },
+    async fail(leaseId, error) {
+      const raw = await options.client.get(leaseKey(leaseId));
+      const lease = raw ? parseRedisLeaseEnvelope(raw) : null;
+      if (!lease) {
+        return;
+      }
+
+      if (lease.attempt >= options.retryLimit) {
+        await options.client.rpush(
+          options.deadLetterQueue,
+          JSON.stringify({
+            taskName: lease.taskName,
+            attempts: lease.attempt,
+            error: sanitizeJobExecutionError(error),
+            failedAt: now().toISOString()
+          })
+        );
+        await options.client.del(leaseKey(leaseId));
+        return;
+      }
+
+      const retryEnvelope: RedisQueuedTaskEnvelope = {
+        id: lease.id,
+        taskName: lease.taskName,
+        attempt: lease.attempt,
+        enqueuedAt: now().toISOString(),
+        ...(lease.idempotencyKey !== undefined ? { idempotencyKey: lease.idempotencyKey } : {}),
+        ...(lease.payload !== undefined ? { payload: lease.payload } : {})
+      };
+      await options.client.rpush(options.queueName, serializeEnvelope(retryEnvelope));
+      await options.client.del(leaseKey(leaseId));
+    },
+    async heartbeat(leaseId) {
+      await options.client.pexpire(leaseKey(leaseId), options.visibilityTimeoutMs);
+    },
+    async listDeadLetters() {
+      const rows = await options.client.lrange(options.deadLetterQueue, 0, -1);
+      return rows.flatMap((row) => {
+        const item = toRedisDeadLetter(row);
+        return item ? [item] : [];
+      });
+    }
+  };
 }
 
 function createApiServiceError(code: string, statusCode: number) {
@@ -296,6 +873,18 @@ function assertUploadedContentChecksum(content: Buffer, checksumSha256: unknown)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function assertRouteRecord(value: unknown, code: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw createApiServiceError(code, 500);
+  }
+
+  return value;
+}
+
+function assertRouteRecordList(values: unknown[], code: string): Array<Record<string, unknown>> {
+  return values.map((value) => assertRouteRecord(value, code));
 }
 
 function readDeidentifiedFlag(value: unknown) {
@@ -383,6 +972,83 @@ function readNestedArray(record: Record<string, unknown>, path: string[]) {
   return Array.isArray(current) ? current : undefined;
 }
 
+type ReadyWritebackField = {
+  fieldKey: string;
+  targetPath: string;
+  value: string | number | boolean | string[] | null;
+};
+
+function isWritebackValue(value: unknown): value is ReadyWritebackField["value"] {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"))
+  );
+}
+
+function readReadyFieldsFromPayload(payload: unknown): ReadyWritebackField[] {
+  const payloadRecord = isRecord(payload) ? payload : {};
+  const candidates = readNestedArray(payloadRecord, ["writeback", "readyFields"]) ?? [];
+
+  return candidates.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const fieldKey = readOptionalString(item.fieldKey);
+    const targetPath = readOptionalString(item.targetPath);
+    if (!fieldKey || !targetPath || !isWritebackValue(item.value)) {
+      return [];
+    }
+
+    return [
+      {
+        fieldKey,
+        targetPath,
+        value: item.value
+      }
+    ];
+  });
+}
+
+function buildReadyFieldsPayload(readyFields: ReadyWritebackField[]) {
+  return readyFields.reduce<Record<string, unknown>>((current, field) => {
+    const path = field.targetPath.split(".").filter((item) => item.length > 0);
+    let cursor = current;
+
+    path.forEach((segment, index) => {
+      if (index === path.length - 1) {
+        cursor[segment] = field.value;
+        return;
+      }
+
+      const next = cursor[segment];
+      if (!isRecord(next)) {
+        cursor[segment] = {};
+      }
+
+      cursor = cursor[segment] as Record<string, unknown>;
+    });
+
+    return current;
+  }, {});
+}
+
+function isBlockingWritebackAttempt(attempt: unknown) {
+  return isRecord(attempt) && ["pending", "running", "succeeded"].includes(String(attempt.status));
+}
+
+function canExecuteServerReadyWriteback(job: unknown, result: unknown, readyFields: ReadyWritebackField[]) {
+  if (!isRecord(job) || !isRecord(result)) {
+    return false;
+  }
+
+  const status = typeof job.status === "string" ? job.status : "";
+  return (status === "completed" || status === "confirmed") && result.reviewRequired !== true && readyFields.length > 0;
+}
+
 function hasBlockingWritebackAttempt(job: Record<string, unknown>) {
   const attempts = Array.isArray(job.writebacks) ? job.writebacks : [];
 
@@ -411,7 +1077,7 @@ function normalizeEligibleWritebackJob(job: unknown) {
   }
 
   const payload = isRecord(result.payload) ? result.payload : {};
-  const readyFields = readNestedArray(payload, ["writeback", "readyFields"]) ?? [];
+  const readyFields = readReadyFieldsFromPayload(payload);
   if (readyFields.length === 0) {
     return null;
   }
@@ -659,6 +1325,10 @@ function toEvaluationRunSummary(result: EvaluationRunResult): Prisma.InputJsonVa
   });
 }
 
+function readEvaluationResultSchemaVersionId(result: EvaluationRunResult) {
+  return isRecord(result.summary) ? readOptionalString(result.summary.schemaVersionId) : undefined;
+}
+
 async function assertDatasetAllowsEvaluationSamples(
   repository: ApiServiceRepositories["evaluationRepository"],
   input: ImportEvaluationSamplesRouteInput
@@ -692,6 +1362,8 @@ async function assertDatasetAllowsEvaluationSamples(
 export function createApiServices(options: CreateApiServicesOptions): ApiServerServices {
   const now = options.now ?? (() => new Date());
   const repositories = options.repositories;
+  const jobExecutionMode = options.jobExecutionMode ?? "asynchronous";
+  const jobQueueExecutor = options.jobQueueExecutor ?? createInProcessJobQueueExecutor();
 
   const providerService: ProviderRouteService = {
     listProviders() {
@@ -734,10 +1406,13 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
   };
 
   const evaluationService: EvaluationRouteService = {
-    listDatasets() {
-      return repositories.evaluationRepository.listDatasets();
+    async listDatasets() {
+      return assertRouteRecordList(
+        await repositories.evaluationRepository.listDatasets(),
+        "EVALUATION_DATASET_RESPONSE_INVALID"
+      );
     },
-    createDataset(input: CreateEvaluationDatasetRouteInput) {
+    async createDataset(input: CreateEvaluationDatasetRouteInput) {
       const payload: Parameters<typeof repositories.evaluationRepository.createDataset>[0] = {
         key: input.key,
         displayName: input.displayName,
@@ -749,12 +1424,15 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         payload.description = input.description;
       }
 
-      return repositories.evaluationRepository.createDataset(payload);
+      return assertRouteRecord(
+        await repositories.evaluationRepository.createDataset(payload),
+        "EVALUATION_DATASET_RESPONSE_INVALID"
+      );
     },
     async importSamples(input: ImportEvaluationSamplesRouteInput) {
       await assertDatasetAllowsEvaluationSamples(repositories.evaluationRepository, input);
 
-      return Promise.all(
+      const samples = await Promise.all(
         input.samples.map((sample) => {
           const record = readSampleRecord(sample);
           const metadata = toInputJsonValue({
@@ -772,18 +1450,25 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           });
         })
       );
+
+      return assertRouteRecordList(samples, "EVALUATION_SAMPLE_RESPONSE_INVALID");
     },
-    listRuns(input: ListEvaluationRunsRouteInput) {
+    async listRuns(input: ListEvaluationRunsRouteInput) {
       if (input.datasetId) {
-        return repositories.evaluationRepository.listRunsByDataset(input.datasetId);
+        return assertRouteRecordList(
+          await repositories.evaluationRepository.listRunsByDataset(input.datasetId),
+          "EVALUATION_RUN_RESPONSE_INVALID"
+        );
       }
 
-      return Promise.resolve([]);
+      return [];
     },
     async createRun(input: CreateEvaluationRunInput) {
-      // 评测 runner 需要知道本次使用的 schemaKey；先以 JSON 配置保存，后续可再关联具体 schemaVersionId。
+      // 评测 runner 需要知道本次使用的 schema 选择；schemaVersionId 会同步落到 EvaluationRun，
+      // schemaKey 保留在 JSON 配置里供旧客户端和 metrics summary 展示。
       const schemaConfig = {
-        schemaKey: input.schemaKey ?? "lims-clinical-info"
+        schemaKey: input.schemaKey ?? "lims-clinical-info",
+        ...(input.schemaVersionId !== undefined ? { schemaVersionId: input.schemaVersionId } : {})
       };
       const providerConfig = {
         providerKey: input.providerKey
@@ -791,12 +1476,13 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       const run = await repositories.evaluationRepository.createRun({
         datasetId: input.datasetId,
         createdById: input.actor.actorUserId,
+        schemaVersionId: input.schemaVersionId ?? null,
         schemaConfig,
         providerConfig
       });
 
       if (!options.evaluationRunner) {
-        return run;
+        return assertRouteRecord(run, "EVALUATION_RUN_RESPONSE_INVALID");
       }
 
       await repositories.evaluationRepository.markRunStarted(run.id, now());
@@ -814,32 +1500,96 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
 
         await persistEvaluationMetrics(repositories.evaluationRepository, run.id, result);
 
-        return repositories.evaluationRepository.completeRun(run.id, {
+        const completeInput: Parameters<typeof repositories.evaluationRepository.completeRun>[1] = {
           status: "completed",
           summary: toEvaluationRunSummary(result),
           completedAt: now()
-        });
+        };
+        const schemaVersionId = readEvaluationResultSchemaVersionId(result);
+        if (schemaVersionId !== undefined) {
+          completeInput.schemaVersionId = schemaVersionId;
+        }
+
+        return assertRouteRecord(
+          await repositories.evaluationRepository.completeRun(run.id, completeInput),
+          "EVALUATION_RUN_RESPONSE_INVALID"
+        );
       } catch (error) {
-        return repositories.evaluationRepository.completeRun(run.id, {
-          status: "failed",
-          summary: toInputJsonValue({}),
-          error: createEvaluationFailureError(error),
-          completedAt: now()
-        });
+        return assertRouteRecord(
+          await repositories.evaluationRepository.completeRun(run.id, {
+            status: "failed",
+            summary: toInputJsonValue({}),
+            error: createEvaluationFailureError(error),
+            completedAt: now()
+          }),
+          "EVALUATION_RUN_RESPONSE_INVALID"
+        );
       }
     },
-    getRun(input: GetEvaluationRunInput) {
-      return repositories.evaluationRepository.findRunById({
+    async getRun(input: GetEvaluationRunInput) {
+      const run = await repositories.evaluationRepository.findRunById({
         id: input.id,
         actorUserId: input.actor.actorUserId
       });
+
+      return run === null ? null : assertRouteRecord(run, "EVALUATION_RUN_RESPONSE_INVALID");
     },
-    listRunMetrics(input: ListEvaluationRunMetricsInput) {
-      return repositories.evaluationRepository.listMetrics(input.runId);
+    async listRunMetrics(input: ListEvaluationRunMetricsInput) {
+      return assertRouteRecordList(
+        await repositories.evaluationRepository.listMetrics(input.runId),
+        "EVALUATION_METRIC_RESPONSE_INVALID"
+      );
     }
   };
 
-  return {
+  async function executeRecognitionJob(input: {
+    jobId: string;
+    orchestratorInput: Parameters<ApiRecognitionOrchestrator["start"]>[0];
+  }) {
+    await repositories.jobsRepository.updateStatus({
+      id: input.jobId,
+      status: "running",
+      startedAt: now()
+    });
+
+    try {
+      const result = await options.recognitionOrchestrator.start(input.orchestratorInput);
+      await repositories.resultsRepository.upsertByJobId({
+        jobId: input.jobId,
+        fields: toResultFields(result),
+        normalizedFields: (result.validation.normalizedCandidates ?? []) as Prisma.InputJsonValue,
+        evidence: toResultEvidence(result),
+        payload: result as unknown as Prisma.InputJsonValue,
+        reviewRequired: shouldReviewResult(result)
+      });
+
+      const statusInput: Parameters<typeof repositories.jobsRepository.updateStatus>[0] = {
+        id: input.jobId,
+        status: toRecognitionJobStatus(result.status),
+        trace: toInputJsonValue(result.trace)
+      };
+      if (isTerminalRecognitionStatus(result.status)) {
+        statusInput.completedAt = now();
+      }
+      if (result.error !== undefined) {
+        statusInput.error = toInputJsonValue(result.error);
+      }
+      await repositories.jobsRepository.updateStatus(statusInput);
+
+      return result;
+    } catch (error) {
+      await repositories.jobsRepository.updateStatus({
+        id: input.jobId,
+        status: "failed",
+        completedAt: now(),
+        error: sanitizeJobExecutionError(error)
+      });
+
+      throw error;
+    }
+  }
+
+  const services: ApiServerServices = {
     authService: options.authService,
     auditService: options.auditService,
     schemaService: options.schemaService,
@@ -880,15 +1630,18 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               ? body.byteSize
               : BigInt(body.byteSize ?? 0);
 
-        return repositories.fileRepository.create({
-          storageKey: storedFile?.key ?? storageKey,
-          originalName,
-          mimeType: storedFile?.contentType ?? body.mimeType ?? "application/octet-stream",
-          byteSize,
-          checksumSha256: body.checksumSha256 ?? "unknown",
-          metadata: toInputJsonValue(body.metadata),
-          uploadedById: body.uploadedById ?? null
-        });
+        return assertRouteRecord(
+          await repositories.fileRepository.create({
+            storageKey: storedFile?.key ?? storageKey,
+            originalName,
+            mimeType: storedFile?.contentType ?? body.mimeType ?? "application/octet-stream",
+            byteSize,
+            checksumSha256: body.checksumSha256 ?? "unknown",
+            metadata: toInputJsonValue(body.metadata),
+            uploadedById: body.uploadedById ?? null
+          }),
+          "FILE_RESPONSE_INVALID"
+        );
       },
       async getContent(id) {
         const file = await repositories.fileRepository.findById(id);
@@ -915,6 +1668,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       async create(input) {
         const body = input as {
           schemaKey?: string;
+          schemaVersionId?: string;
           sourceFileId?: string;
           createdById?: string;
           document?: ApiRecognitionDocumentInput;
@@ -935,8 +1689,10 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
                 storageProvider: options.storageProvider
               })
             : (body.document ?? undefined);
+        assertRealRecognitionProvidersConfigured(await readProviderAvailability(options.providerRegistry));
         const job = await repositories.jobsRepository.create({
           schemaKey,
+          schemaVersionId: body.schemaVersionId ?? null,
           sourceFileId: body.sourceFileId ?? null,
           createdById: body.createdById ?? null,
           options: toInputJsonValue(body.options),
@@ -949,40 +1705,98 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             documentId: job.id
           }
         };
+        if (body.schemaVersionId !== undefined) {
+          orchestratorInput.schemaVersionId = body.schemaVersionId;
+        }
 
         const providerSelection = readProviderSelectionConfig(body.providerConfig);
         if (providerSelection) {
           orchestratorInput.providerConfig = providerSelection;
         }
 
-        const result = await options.recognitionOrchestrator.start(orchestratorInput);
-        await repositories.resultsRepository.upsertByJobId({
+        if (jobExecutionMode === "asynchronous") {
+          jobQueueExecutor.enqueue(async () => {
+            await executeRecognitionJob({
+              jobId: job.id,
+              orchestratorInput
+            });
+          });
+
+          return assertRouteRecord(
+            {
+              ...job,
+              status: "queued",
+              executionMode: "asynchronous",
+              statusUrl: `/jobs/${job.id}`,
+              resultUrl: `/results/${job.id}`,
+              statusSemantics: {
+                queued: "accepted-for-background-execution",
+                running: "background-worker-executing-orchestrator",
+                terminal: "poll-job-until-completed-needs_review-partial_completed-failed-writeback_completed-or-writeback_failed"
+              }
+            },
+            "JOB_RESPONSE_INVALID"
+          );
+        }
+
+        const result = await executeRecognitionJob({
           jobId: job.id,
-          fields: toResultFields(result),
-          normalizedFields: (result.validation.normalizedCandidates ?? []) as Prisma.InputJsonValue,
-          evidence: toResultEvidence(result),
-          payload: result as unknown as Prisma.InputJsonValue,
-          reviewRequired: shouldReviewResult(result)
+          orchestratorInput
         });
 
-        return {
-          ...job,
-          status: result.status,
-          trace: result.trace
-        };
+        return assertRouteRecord(
+          {
+            ...job,
+            status: result.status,
+            executionMode: "synchronous",
+            statusSemantics: {
+              queued: "transition-recorded-before-inline-orchestrator-start",
+              running: "transition-recorded-during-inline-orchestrator-execution",
+              terminal: result.status
+            },
+            trace: result.trace
+          },
+          "JOB_RESPONSE_INVALID"
+        );
       },
-      get(id) {
-        return repositories.jobsRepository.findById(id);
+      async get(id) {
+        const job = await repositories.jobsRepository.findById(id);
+        if (job === null) {
+          return null;
+        }
+        if (!isRecord(job)) {
+          throw createApiServiceError("JOB_RESPONSE_INVALID", 500);
+        }
+
+        return assertRouteRecord(
+          {
+            ...job,
+            executionMode: "asynchronous",
+            statusUrl: `/jobs/${id}`,
+            resultUrl: `/results/${id}`,
+            statusSemantics: {
+              queued: "accepted-for-background-execution",
+              running: "background-worker-executing-orchestrator",
+              terminal: "completed-partial_completed-needs_review-failed-writeback_completed-or-writeback_failed"
+            }
+          },
+          "JOB_RESPONSE_INVALID"
+        );
       }
     },
     resultService: {
-      getByJobId(jobId) {
-        return repositories.resultsRepository.findByJobId(jobId);
+      async getByJobId(jobId) {
+        const result = await repositories.resultsRepository.findByJobId(jobId);
+
+        return result === null ? null : assertRouteRecord(result, "RESULT_RESPONSE_INVALID");
       }
     },
     feedbackService: {
-      create(input) {
-        return repositories.feedbackRepository.create(input);
+      async create(input) {
+        return assertRouteRecord(
+          await repositories.feedbackRepository.create(input),
+          "FEEDBACK_RESPONSE_INVALID"
+        );
       }
     },
     writebackService: {
@@ -993,32 +1807,47 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           .map(normalizeEligibleWritebackJob)
           .filter((item): item is NonNullable<ReturnType<typeof normalizeEligibleWritebackJob>> => Boolean(item));
       },
-      async execute(input) {
-        const body = input as {
-          jobId?: string;
-          payload?: unknown;
-          idempotencyKey?: string;
-        };
-        const jobId = body.jobId ?? "unknown-job";
+      async execute(input: ExecuteWritebackRouteInput) {
+        const job = await repositories.jobsRepository.findById(input.jobId);
+        const result = await repositories.resultsRepository.findByJobId(input.jobId);
+        const readyFields = isRecord(result) ? readReadyFieldsFromPayload(result.payload) : [];
+
+        if (!canExecuteServerReadyWriteback(job, result, readyFields)) {
+          throw createApiServiceError("WRITEBACK_NOT_READY", 409);
+        }
+
+        if (repositories.writebackRepository.listByJobId) {
+          const attempts = await repositories.writebackRepository.listByJobId(input.jobId);
+          if (attempts.some(isBlockingWritebackAttempt)) {
+            throw createApiServiceError("WRITEBACK_ALREADY_RUNNING_OR_COMPLETED", 409);
+          }
+        }
+
         const attempt = await repositories.writebackRepository.create({
-          jobId,
+          jobId: input.jobId,
           targetSystem: "lims",
           endpoint: "configured-lims-writeback",
-          idempotencyKey: body.idempotencyKey ?? `${jobId}:${now().toISOString()}`,
-          requestPayload: toInputJsonValue(body.payload ?? input)
+          idempotencyKey: input.idempotencyKey ?? `${input.jobId}:${now().toISOString()}`,
+          requestPayload: toInputJsonValue(buildReadyFieldsPayload(readyFields))
         });
 
-        return repositories.writebackRepository.complete(attempt.id, {
-          status: "succeeded",
-          responsePayload: {
-            accepted: true
-          },
-          retryable: false,
-          completedAt: now()
-        });
+        return assertRouteRecord(
+          await repositories.writebackRepository.complete(attempt.id, {
+            status: "succeeded",
+            responsePayload: {
+              accepted: true
+            },
+            retryable: false,
+            completedAt: now()
+          }),
+          "WRITEBACK_RESPONSE_INVALID"
+        );
       }
     },
     providerService,
-    evaluationService
+    evaluationService,
+    jobQueue: jobQueueExecutor
   };
+
+  return services;
 }

@@ -27,6 +27,7 @@ export interface CreateEvaluationRunInput {
   datasetId: string;
   schemaVersionId?: string | null;
   createdById?: string | null;
+  schemaConfig?: Prisma.InputJsonValue;
   providerConfig?: Prisma.InputJsonValue;
 }
 
@@ -34,6 +35,7 @@ export interface CompleteEvaluationRunInput {
   status: EvaluationRunStatus;
   summary: Prisma.InputJsonValue;
   error?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+  schemaVersionId?: string | null;
   completedAt: Date;
 }
 
@@ -174,6 +176,9 @@ export function createEvaluationRepository(dependencies: EvaluationRepositoryDep
 
       if (input.error !== undefined) {
         data.error = input.error;
+      }
+      if (input.schemaVersionId !== undefined) {
+        data.schemaVersion = input.schemaVersionId === null ? { disconnect: true } : { connect: { id: input.schemaVersionId } };
       }
 
       return dependencies.evaluationRun.update({

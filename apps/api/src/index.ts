@@ -1,5 +1,9 @@
 import { createDemoApiServices } from "./demo-services";
-import { createProductionApiServices } from "./bootstrap/production-services";
+import {
+  buildProductionSessionInvalidationStoreContract,
+  buildSecretResolverContract,
+  createProductionApiServices
+} from "./bootstrap/production-services";
 import { loadEnv } from "./config/env";
 import { createApiServer } from "./server";
 
@@ -24,7 +28,13 @@ const server = await createApiServer({
             llm: "mock",
             storage: "memory",
             writeback: "demo"
-          }
+          },
+    ...(serviceMode === "production"
+      ? {
+          secretResolver: buildSecretResolverContract(process.env),
+          sessionInvalidationStore: buildProductionSessionInvalidationStoreContract(process.env)
+        }
+      : {})
   },
   logger: true
 });

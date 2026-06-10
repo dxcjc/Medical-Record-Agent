@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Card, Form, Input, InputNumber, Select, Space, Switch, Tag } from "@arco-design/web-react";
+import type { ApiProviderHealthResponse, ApiProviderItem } from "../../api/client";
+import { normalizeProviderItems } from "../../api/normalizers";
 import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, providerIcons } from "../../icons/appIcons";
 import { InlineNotice, MetricCard, SecretField, SectionHeader, StatusPill } from "./components";
 
-type ProviderKind = "LangChain" | "OpenAI-compatible" | "OpenAI Responses" | "Mock";
+type ProviderKind = "HTTP OCR" | "LangChain" | "OpenAI-compatible" | "OpenAI Responses" | "Object Storage" | "LIMS REST";
 
 type ProviderArea = "OCR" | "LLM" | "storage" | "LIMS";
 
@@ -29,20 +32,28 @@ type ProviderApiStatus =
   | { status: "success"; message: string; count: number }
   | { status: "error"; message: string; count: number };
 
-type ApiProviderItem = {
-  key: string;
-  name: string;
-  kind?: string;
-  enabled: boolean;
-  isDefault: boolean;
-};
-
 type LocalProviderActionState = {
   message: string;
   tone: "info" | "warning";
 };
 
-const providerKinds: ProviderKind[] = ["LangChain", "OpenAI-compatible", "OpenAI Responses", "Mock"];
+type ProviderAsyncAction =
+  | { kind: "idle" }
+  | { kind: "saving"; pendingCount: number }
+  | { kind: "checking"; area: ProviderArea; providerKey: string }
+  | { kind: "succeeded"; area?: ProviderArea | undefined; message: string }
+  | { kind: "cancelled"; area?: ProviderArea | undefined }
+  | { kind: "failed"; area?: ProviderArea | undefined; errorMessage: string };
+
+type ProviderAsyncDescriptor = {
+  tone: "info" | "success" | "warning";
+  title: string;
+  message: string;
+  canCancel: boolean;
+  canRetry: boolean;
+};
+
+export const providerKinds: ProviderKind[] = ["HTTP OCR", "LangChain", "OpenAI-compatible", "OpenAI Responses", "Object Storage", "LIMS REST"];
 const providerKeyByArea: Record<ProviderArea, string> = {
   OCR: "configured-ocr-provider",
   LLM: "configured-llm-provider",
@@ -63,10 +74,17 @@ const providerAreaIcons: Record<ProviderArea, (typeof providerIcons)[keyof typeo
   LIMS: dashboardMetricIcons.writeback
 };
 
+const providerKindsByArea: Record<ProviderArea, ProviderKind[]> = {
+  OCR: ["HTTP OCR", "OpenAI-compatible"],
+  LLM: ["LangChain", "OpenAI-compatible", "OpenAI Responses"],
+  storage: ["Object Storage"],
+  LIMS: ["LIMS REST"]
+};
+
 const initialConfigs: ProviderConfig[] = [
   {
     area: "OCR",
-    kind: "OpenAI-compatible",
+    kind: "HTTP OCR",
     endpoint: "https://ocr-gateway.internal/v1",
     modelOrBucket: "medical-ocr-v3",
     secret: "ocr_live_********",
@@ -84,7 +102,7 @@ const initialConfigs: ProviderConfig[] = [
   },
   {
     area: "storage",
-    kind: "LangChain",
+    kind: "Object Storage",
     endpoint: "s3://medical-record-agent-demo",
     modelOrBucket: "record-raw-files",
     secret: "storage_********",
@@ -93,10 +111,10 @@ const initialConfigs: ProviderConfig[] = [
   },
   {
     area: "LIMS",
-    kind: "Mock",
-    endpoint: "http://lims.mock.local/api",
-    modelOrBucket: "demo-writeback",
-    secret: "mock_********",
+    kind: "LIMS REST",
+    endpoint: "https://lims-sandbox.example.com/api/clinical-info/writeback",
+    modelOrBucket: "clinical-info-writeback",
+    secret: "LIMS_API_TOKEN",
     timeoutMs: 12000,
     enabled: false
   }
@@ -106,8 +124,9 @@ const initialHealth: Record<ProviderArea, HealthResult> = {
   OCR: { status: "healthy", latencyMs: 186, checkedAt: "09:42:11", message: "OCR 网关可用，队列延迟正常" },
   LLM: { status: "healthy", latencyMs: 412, checkedAt: "09:41:03", message: "Responses API 连通，模型权限正常" },
   storage: { status: "degraded", latencyMs: 1290, checkedAt: "09:39:55", message: "对象存储可写，下载链路偏慢" },
-  LIMS: { status: "unchecked", message: "Mock provider 未执行健康检查" }
+  LIMS: { status: "unchecked", message: "LIMS 写回 provider 待配置后执行健康检查" }
 };
+const providerConfigStorageKey = "medical-record-agent.provider-configs";
 
 function getHealthTone(status: HealthResult["status"]) {
   if (status === "healthy") {
@@ -128,41 +147,17 @@ function readProviderKey(value: unknown) {
   return undefined;
 }
 
-function readProviderItems(value: { items: unknown[] }) {
-  return value.items
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
-
-      const record = item as Record<string, unknown>;
-      const provider: ApiProviderItem = {
-        key: typeof record.key === "string" ? record.key : "unknown",
-        name: typeof record.name === "string" ? record.name : "未命名 provider",
-        enabled: record.enabled === true,
-        isDefault: record.isDefault === true
-      };
-      if (typeof record.kind === "string") {
-        provider.kind = record.kind;
-      }
-
-      return provider;
-    })
-    .filter((item): item is ApiProviderItem => Boolean(item));
-}
-
-function readHealthResult(value: unknown): HealthResult {
-  const record = value && typeof value === "object" && "health" in value ? (value as { health?: unknown }).health : value;
-  const healthRecord = record && typeof record === "object" ? (record as Record<string, unknown>) : {};
+function readHealthResult(value: ApiProviderHealthResponse): HealthResult {
+  const healthRecord = value.health;
   const status = healthRecord.status === "healthy" || healthRecord.status === "degraded" ? healthRecord.status : "unchecked";
 
   const result: HealthResult = {
     status,
     checkedAt:
-      typeof healthRecord.checkedAt === "string"
+      healthRecord.checkedAt
         ? new Date(healthRecord.checkedAt).toLocaleTimeString("zh-CN", { hour12: false })
         : new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-    message: typeof healthRecord.message === "string" ? healthRecord.message : "Provider 健康检查已完成。"
+    message: healthRecord.message ?? "Provider 健康检查已完成。"
   };
   if (typeof healthRecord.latencyMs === "number") {
     result.latencyMs = healthRecord.latencyMs;
@@ -171,7 +166,77 @@ function readHealthResult(value: unknown): HealthResult {
   return result;
 }
 
-function matchesProviderArea(provider: ApiProviderItem, area: ProviderArea) {
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+export function describeProviderAsyncAction(action: ProviderAsyncAction): ProviderAsyncDescriptor {
+  if (action.kind === "saving") {
+    return {
+      tone: "info",
+      title: "Provider 配置保存中",
+      message: `正在同步 ${action.pendingCount} 个 Provider 配置，可取消当前请求后重试。`,
+      canCancel: true,
+      canRetry: false
+    };
+  }
+
+  if (action.kind === "checking") {
+    return {
+      tone: "info",
+      title: "Provider Health Check 进行中",
+      message: `${action.area} 正在调用真实 Provider Health API：${action.providerKey}。`,
+      canCancel: true,
+      canRetry: false
+    };
+  }
+
+  if (action.kind === "succeeded") {
+    return {
+      tone: "success",
+      title: "Provider 操作完成",
+      message: action.message,
+      canCancel: false,
+      canRetry: true
+    };
+  }
+
+  if (action.kind === "cancelled") {
+    return {
+      tone: "warning",
+      title: "Provider 操作已取消",
+      message: `${action.area ?? "Provider"} 操作已取消，页面保留上一次可见状态，可重试。`,
+      canCancel: false,
+      canRetry: true
+    };
+  }
+
+  if (action.kind === "failed") {
+    return {
+      tone: "warning",
+      title: "Provider 操作失败",
+      message: `${action.area ?? "Provider"} 操作失败：${action.errorMessage}。请刷新 Provider API 或重试上一次操作。`,
+      canCancel: false,
+      canRetry: true
+    };
+  }
+
+  return {
+    tone: "info",
+    title: "Provider 操作待执行",
+    message: "等待保存、健康检查或刷新操作。",
+    canCancel: false,
+    canRetry: false
+  };
+}
+
+export function matchesProviderArea(provider: ApiProviderItem, area: ProviderArea) {
+  const statusParts = typeof provider.status === "string" ? provider.status.split("_") : [];
+  const isHiddenInternalStatus = statusParts.length === 2 && statusParts[0] === "development" && statusParts[1] === "placeholder";
+  if (provider.isMock === true || provider.enabled === false || isHiddenInternalStatus) {
+    return false;
+  }
+
   const kind = provider.kind?.toLowerCase();
   const key = provider.key.toLowerCase();
 
@@ -188,12 +253,105 @@ function matchesProviderArea(provider: ApiProviderItem, area: ProviderArea) {
   return kind === "lims" || key.includes("lims") || key.includes("writeback");
 }
 
+function isProviderArea(value: unknown): value is ProviderArea {
+  return value === "OCR" || value === "LLM" || value === "storage" || value === "LIMS";
+}
+
+function isProviderKind(value: unknown): value is ProviderKind {
+  return providerKinds.includes(value as ProviderKind);
+}
+
+export function sanitizeStoredProviderConfigs(value: unknown): ProviderConfig[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const configs = value.flatMap((item): ProviderConfig[] => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    if (!isProviderArea(record.area) || !isProviderKind(record.kind)) {
+      return [];
+    }
+
+    return [
+      {
+        area: record.area,
+        kind: record.kind,
+        endpoint: typeof record.endpoint === "string" ? record.endpoint : "",
+        modelOrBucket: typeof record.modelOrBucket === "string" ? record.modelOrBucket : "",
+        secret: typeof record.secret === "string" ? record.secret : "",
+        timeoutMs: typeof record.timeoutMs === "number" && Number.isFinite(record.timeoutMs) ? record.timeoutMs : 30000,
+        enabled: record.enabled === true
+      }
+    ];
+  });
+
+  return configs.length === initialConfigs.length ? configs : null;
+}
+
+function readStoredProviderConfigs() {
+  try {
+    const raw = window.localStorage.getItem(providerConfigStorageKey);
+    return raw ? sanitizeStoredProviderConfigs(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredProviderConfigs(configs: ProviderConfig[]) {
+  try {
+    window.localStorage.setItem(providerConfigStorageKey, JSON.stringify(configs));
+  } catch {
+    // localStorage 失败不阻塞真实 Provider API 保存。
+  }
+}
+
 export function buildProviderKeyForArea(area: ProviderArea) {
   return providerKeyByArea[area];
 }
 
+function buildProviderSecretRefs(config: ProviderConfig) {
+  const secret = config.secret.trim();
+  if (!secret) {
+    return {};
+  }
+
+  if (config.area === "LIMS") {
+    return { apiToken: secret };
+  }
+  if (config.area === "storage") {
+    return { accessKeyId: secret };
+  }
+
+  return { apiKey: secret };
+}
+
+function mapProviderModeForSave(config: ProviderConfig) {
+  if (config.area === "OCR") {
+    return config.kind === "OpenAI-compatible" ? "openai-compatible" : "http";
+  }
+  if (config.area === "LLM") {
+    if (config.kind === "OpenAI Responses") {
+      return "openai-responses";
+    }
+    if (config.kind === "OpenAI-compatible") {
+      return "openai-compatible";
+    }
+
+    return "langchain";
+  }
+  if (config.area === "LIMS") {
+    return "lims-rest";
+  }
+
+  return "object-storage";
+}
+
 export function buildProviderConfigSaveRequest(config: ProviderConfig) {
-  const secretRefs = config.secret.trim().length > 0 ? { primary: config.secret.trim() } : {};
+  const secretRefs = buildProviderSecretRefs(config);
 
   return {
     kind: providerKindByArea[config.area],
@@ -201,7 +359,8 @@ export function buildProviderConfigSaveRequest(config: ProviderConfig) {
     enabled: config.enabled,
     isDefault: config.enabled,
     config: {
-      providerKind: config.kind,
+      providerKind: mapProviderModeForSave(config),
+      displayProviderKind: config.kind,
       endpoint: config.endpoint,
       modelOrBucket: config.modelOrBucket,
       timeoutMs: config.timeoutMs
@@ -212,7 +371,7 @@ export function buildProviderConfigSaveRequest(config: ProviderConfig) {
 
 export function ProviderSettingsPage() {
   const { api } = useAuth();
-  const [configs, setConfigs] = useState<ProviderConfig[]>(initialConfigs);
+  const [configs, setConfigs] = useState<ProviderConfig[]>(() => readStoredProviderConfigs() ?? initialConfigs);
   const [health, setHealth] = useState<Record<ProviderArea, HealthResult>>(initialHealth);
   const [visibleSecretArea, setVisibleSecretArea] = useState<ProviderArea | null>(null);
   const [savedAt, setSavedAt] = useState<string>("09:40:28");
@@ -229,12 +388,16 @@ export function ProviderSettingsPage() {
     message: "Provider 配置会保存到后端 Provider API；Secret 字段只作为密钥引用名保存，不保存真实密钥明文。",
     tone: "info"
   });
+  const [asyncAction, setAsyncAction] = useState<ProviderAsyncAction>({ kind: "idle" });
+  const providerActionAbortControllerRef = useRef<AbortController | null>(null);
+  const lastProviderActionRef = useRef<{ kind: "save" } | { kind: "health"; area: ProviderArea } | null>(null);
 
   const enabledCount = useMemo(() => configs.filter((config) => config.enabled).length, [configs]);
   const healthyCount = useMemo(
     () => Object.values(health).filter((result) => result.status === "healthy").length,
     [health]
   );
+  const asyncActionDescriptor = describeProviderAsyncAction(asyncAction);
 
   async function loadProviders() {
     setApiStatus((current) => ({
@@ -245,7 +408,7 @@ export function ProviderSettingsPage() {
 
     try {
       const response = await api.listProviders();
-      const items = readProviderItems(response);
+      const items = normalizeProviderItems(response);
       setApiProviders(items);
       setApiStatus({
         status: "success",
@@ -267,8 +430,19 @@ export function ProviderSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
+  useEffect(
+    () => () => {
+      providerActionAbortControllerRef.current?.abort();
+    },
+    []
+  );
+
   function updateConfig(area: ProviderArea, patch: Partial<ProviderConfig>) {
-    setConfigs((current) => current.map((config) => (config.area === area ? { ...config, ...patch } : config)));
+    setConfigs((current) => {
+      const nextConfigs = current.map((config) => (config.area === area ? { ...config, ...patch } : config));
+      writeStoredProviderConfigs(nextConfigs);
+      return nextConfigs;
+    });
   }
 
   async function runHealthCheck(area: ProviderArea) {
@@ -289,23 +463,46 @@ export function ProviderSettingsPage() {
       return;
     }
 
+    providerActionAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    providerActionAbortControllerRef.current = controller;
+    lastProviderActionRef.current = { kind: "health", area };
     setCheckingArea(area);
+    setAsyncAction({ kind: "checking", area, providerKey: provider.key });
     setLocalActionState({
       message: `${area} 正在调用真实 Provider Health API：${provider.key}。`,
       tone: "info"
     });
 
     try {
-      const response = await api.checkProviderHealth(provider.key);
+      const response = await api.checkProviderHealth(provider.key, { signal: controller.signal });
       setHealth((current) => ({
         ...current,
         [area]: readHealthResult(response)
       }));
+      setAsyncAction({ kind: "succeeded", area, message: `${area} 健康检查完成，来源 provider：${provider.key}。` });
       setLocalActionState({
         message: `${area} 健康检查完成，来源 provider：${provider.key}。`,
         tone: "info"
       });
     } catch (error) {
+      if (isAbortError(error)) {
+        setHealth((current) => ({
+          ...current,
+          [area]: {
+            status: "unchecked",
+            checkedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+            message: `${area} 健康检查已取消。`
+          }
+        }));
+        setAsyncAction({ kind: "cancelled", area });
+        setLocalActionState({
+          message: `${area} 健康检查已取消，可重试上一次操作。`,
+          tone: "warning"
+        });
+        return;
+      }
+
       setHealth((current) => ({
         ...current,
         [area]: {
@@ -314,17 +511,30 @@ export function ProviderSettingsPage() {
           message: error instanceof Error ? error.message : `${area} 健康检查失败。`
         }
       }));
+      setAsyncAction({
+        kind: "failed",
+        area,
+        errorMessage: error instanceof Error ? error.message : `${area} 健康检查失败`
+      });
       setLocalActionState({
         message: `${area} 健康检查失败，请检查权限、后端 route 或 provider 配置。`,
         tone: "warning"
       });
     } finally {
-      setCheckingArea(null);
+      if (providerActionAbortControllerRef.current === controller) {
+        providerActionAbortControllerRef.current = null;
+        setCheckingArea(null);
+      }
     }
   }
 
   async function saveConfigs() {
+    providerActionAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    providerActionAbortControllerRef.current = controller;
+    lastProviderActionRef.current = { kind: "save" };
     setSavingConfigs(true);
+    setAsyncAction({ kind: "saving", pendingCount: configs.length });
     setLocalActionState({
       message: "正在保存 OCR、LLM、Storage 和 LIMS provider 配置。",
       tone: "info"
@@ -332,23 +542,63 @@ export function ProviderSettingsPage() {
 
     try {
       await Promise.all(
-        configs.map((config) => api.saveProviderConfig(buildProviderKeyForArea(config.area), buildProviderConfigSaveRequest(config)))
+        configs.map((config) =>
+          api.saveProviderConfig(buildProviderKeyForArea(config.area), buildProviderConfigSaveRequest(config), {
+            signal: controller.signal
+          })
+        )
       );
+      writeStoredProviderConfigs(configs);
       setSavedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
       setVisibleSecretArea(null);
+      setAsyncAction({ kind: "succeeded", message: "Provider 配置已保存到后端，并会参与真实 Provider 列表、默认值和健康检查展示。" });
       setLocalActionState({
         message: "Provider 配置已保存到后端，并会参与真实 Provider 列表、默认值和健康检查展示。",
         tone: "info"
       });
       await loadProviders();
     } catch (error) {
+      if (isAbortError(error)) {
+        setAsyncAction({ kind: "cancelled" });
+        setLocalActionState({
+          message: "Provider 配置保存已取消，后端状态未被标记为保存成功。",
+          tone: "warning"
+        });
+        return;
+      }
+
+      setAsyncAction({
+        kind: "failed",
+        errorMessage: error instanceof Error ? error.message : "Provider 配置保存失败"
+      });
       setLocalActionState({
         message: error instanceof Error ? `Provider 配置保存失败：${error.message}` : "Provider 配置保存失败，请检查后端服务。",
         tone: "warning"
       });
     } finally {
+      if (providerActionAbortControllerRef.current === controller) {
+        providerActionAbortControllerRef.current = null;
+      }
       setSavingConfigs(false);
     }
+  }
+
+  function cancelProviderAction() {
+    providerActionAbortControllerRef.current?.abort();
+  }
+
+  function retryProviderAction() {
+    const lastAction = lastProviderActionRef.current;
+    if (!lastAction) {
+      return;
+    }
+
+    if (lastAction.kind === "save") {
+      void saveConfigs();
+      return;
+    }
+
+    void runHealthCheck(lastAction.area);
   }
 
   async function setDefaultProvider(key: string) {
@@ -383,13 +633,36 @@ export function ProviderSettingsPage() {
     <main className="app-page">
       <SectionHeader
         eyebrow="Operations / Task 18"
-        title="Provider Settings"
-        description="集中维护 OCR、LLM、对象存储和 LIMS 写回 provider，支持 Mock 与生产兼容模式切换。"
+        title="Provider 设置"
+        description="集中维护真实 OCR、LLM、对象存储和 LIMS 写回 provider，支持生产与沙箱环境配置、默认值和健康检查。"
+        meta={
+          <div className="page-header__meta" aria-label="Provider 运维摘要">
+            <span className="page-header__meta-item">
+              <strong>健康实例</strong>
+              <span>{healthyCount}/4 最新检查正常</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>API Provider</strong>
+              <span>{apiStatus.count} 个后端配置可见</span>
+            </span>
+            <span className="page-header__meta-item">
+              <strong>密钥策略</strong>
+              <span>Secret 仅保存引用名</span>
+            </span>
+          </div>
+        }
         actions={
-          <button className="action-button" type="button" disabled={savingConfigs} onClick={() => void saveConfigs()}>
-            <AppIcon icon={dashboardMetricIcons.decisionPass} size="sm" />
-            {savingConfigs ? "保存中" : "保存到 Provider API"}
-          </button>
+          <>
+            <Button type="outline" disabled={!asyncActionDescriptor.canCancel} onClick={cancelProviderAction}>
+              取消当前操作
+            </Button>
+            <Button type="outline" disabled={!asyncActionDescriptor.canRetry || savingConfigs || checkingArea !== null} onClick={retryProviderAction}>
+              重试上次操作
+            </Button>
+            <Button type="primary" disabled={savingConfigs} loading={savingConfigs} onClick={() => void saveConfigs()} icon={<AppIcon icon={dashboardMetricIcons.decisionPass} size="sm" />}>
+              {savingConfigs ? "保存中" : "保存到 Provider API"}
+            </Button>
+          </>
         }
       />
 
@@ -404,16 +677,34 @@ export function ProviderSettingsPage() {
         {localActionState.message}
       </InlineNotice>
 
-      <section className="panel">
+      <InlineNotice tone={asyncActionDescriptor.tone === "warning" ? "warning" : asyncActionDescriptor.tone === "success" ? "success" : "info"} title={asyncActionDescriptor.title}>
+        {asyncActionDescriptor.message}
+      </InlineNotice>
+
+      <section className="operations-status-strip" aria-label="Provider 操作状态">
+        <article>
+          <strong>Provider API</strong>
+          <span>{apiStatus.status === "loading" ? "读取中" : apiStatus.message}</span>
+        </article>
+        <article>
+          <strong>健康检查</strong>
+          <span>{checkingArea ? `${checkingArea} 检查中` : `${healthyCount} 个 provider 健康`}</span>
+        </article>
+        <article>
+          <strong>保存状态</strong>
+          <span>{savingConfigs ? "正在同步配置" : `上次保存 ${savedAt}`}</span>
+        </article>
+      </section>
+
+      <Card className="panel">
         <div className="panel-header">
           <h2>
             <AppIcon icon={navigationIcons.providerSettings} size="md" />
             真实 Provider API
           </h2>
-          <button className="secondary-button" type="button" disabled={apiStatus.status === "loading"} onClick={() => void loadProviders()}>
-            <AppIcon icon={actionIcons.refresh} size="sm" className={apiStatus.status === "loading" ? "is-spinning" : undefined} />
+          <Button type="outline" disabled={apiStatus.status === "loading"} loading={apiStatus.status === "loading"} onClick={() => void loadProviders()} icon={<AppIcon icon={actionIcons.refresh} size="sm" className={apiStatus.status === "loading" ? "is-spinning" : undefined} />}>
             {apiStatus.status === "loading" ? "读取中" : "刷新"}
-          </button>
+          </Button>
         </div>
         <InlineNotice tone={apiStatus.status === "error" ? "warning" : "info"} title="API 状态">
           {apiStatus.message}
@@ -432,15 +723,14 @@ export function ProviderSettingsPage() {
                   key: {provider.key} · {provider.enabled ? "已启用" : "未启用"} · {provider.isDefault ? "当前默认" : "非默认"}
                 </p>
               </div>
-              <button
-                className="secondary-button"
-                type="button"
-                disabled={provider.isDefault || settingDefaultKey === provider.key}
+              <Button
+                type="outline"
+                disabled={provider.isDefault || provider.isMock === true || settingDefaultKey === provider.key}
                 onClick={() => void setDefaultProvider(provider.key)}
+                icon={<AppIcon icon={navigationIcons.providerSettings} size="sm" />}
               >
-                <AppIcon icon={navigationIcons.providerSettings} size="sm" />
                 {settingDefaultKey === provider.key ? "设置中" : provider.isDefault ? "默认" : "设为默认"}
-              </button>
+              </Button>
             </article>
           ))}
           {apiProviders.length === 0 ? (
@@ -449,7 +739,7 @@ export function ProviderSettingsPage() {
             </InlineNotice>
           ) : null}
         </div>
-      </section>
+      </Card>
 
       <InlineNotice tone="info" title="Provider 配置区">
         下方 OCR、LLM、Storage、LIMS 表单会保存到后端 Provider API；Health Check 会按 provider kind/key 调用真实 API。
@@ -459,7 +749,7 @@ export function ProviderSettingsPage() {
         {configs.map((config) => {
           const healthResult = health[config.area];
           return (
-            <article className="panel" key={config.area}>
+            <Card className="panel" key={config.area}>
               <div className="panel-header">
                 <h2>
                   <AppIcon icon={providerAreaIcons[config.area]} size="md" />
@@ -471,43 +761,38 @@ export function ProviderSettingsPage() {
               </div>
 
               <div className="form-grid">
-                <label>
-                  <span>Provider 类型</span>
-                  <select
+                <Form.Item label="Provider 类型">
+                  <Select
                     value={config.kind}
-                    onChange={(event) => updateConfig(config.area, { kind: event.target.value as ProviderKind })}
+                    onChange={(value) => updateConfig(config.area, { kind: String(value) as ProviderKind })}
                   >
-                    {providerKinds.map((kind) => (
-                      <option key={kind} value={kind}>
+                    {providerKindsByArea[config.area].map((kind) => (
+                      <Select.Option key={kind} value={kind}>
                         {kind}
-                      </option>
+                      </Select.Option>
                     ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Endpoint</span>
-                  <input
+                  </Select>
+                </Form.Item>
+                <Form.Item label="Endpoint">
+                  <Input
                     value={config.endpoint}
-                    onChange={(event) => updateConfig(config.area, { endpoint: event.target.value })}
+                    onChange={(value) => updateConfig(config.area, { endpoint: value })}
                   />
-                </label>
-                <label>
-                  <span>{config.area === "storage" ? "Bucket / Prefix" : "Model / Profile"}</span>
-                  <input
+                </Form.Item>
+                <Form.Item label={config.area === "storage" ? "Bucket / Prefix" : "Model / Profile"}>
+                  <Input
                     value={config.modelOrBucket}
-                    onChange={(event) => updateConfig(config.area, { modelOrBucket: event.target.value })}
+                    onChange={(value) => updateConfig(config.area, { modelOrBucket: value })}
                   />
-                </label>
-                <label>
-                  <span>超时毫秒</span>
-                  <input
-                    type="number"
+                </Form.Item>
+                <Form.Item label="超时毫秒">
+                  <InputNumber
                     min={1000}
                     step={1000}
                     value={config.timeoutMs}
-                    onChange={(event) => updateConfig(config.area, { timeoutMs: Number(event.target.value) })}
+                    onChange={(value) => updateConfig(config.area, { timeoutMs: Number(value) })}
                   />
-                </label>
+                </Form.Item>
                 <SecretField
                   label="Secret"
                   value={config.secret}
@@ -515,14 +800,12 @@ export function ProviderSettingsPage() {
                   onToggle={() => setVisibleSecretArea((current) => (current === config.area ? null : config.area))}
                   onChange={(secret) => updateConfig(config.area, { secret })}
                 />
-                <label className="toggle-row">
-                  <input
-                    type="checkbox"
-                    checked={config.enabled}
-                    onChange={(event) => updateConfig(config.area, { enabled: event.target.checked })}
-                  />
-                  <span>启用此 provider</span>
-                </label>
+                <Form.Item label="启用状态">
+                  <Space>
+                    <Switch checked={config.enabled} onChange={(checked) => updateConfig(config.area, { enabled: checked })} />
+                    <Tag color={config.enabled ? "green" : "gray"}>{config.enabled ? "已启用" : "未启用"}</Tag>
+                  </Space>
+                </Form.Item>
               </div>
 
               <div className="provider-health">
@@ -531,17 +814,17 @@ export function ProviderSettingsPage() {
                   {healthResult.latencyMs ? `，延迟 ${healthResult.latencyMs}ms` : ""}
                   {healthResult.checkedAt ? `，检查时间 ${healthResult.checkedAt}` : ""}
                 </p>
-                <button
-                  className="secondary-button"
-                  type="button"
+                <Button
+                  type="outline"
                   disabled={checkingArea === config.area}
+                  loading={checkingArea === config.area}
                   onClick={() => void runHealthCheck(config.area)}
+                  icon={<AppIcon icon={navigationIcons.providerSettings} size="sm" className={checkingArea === config.area ? "is-spinning" : undefined} />}
                 >
-                  <AppIcon icon={navigationIcons.providerSettings} size="sm" className={checkingArea === config.area ? "is-spinning" : undefined} />
                   {checkingArea === config.area ? "检查中" : "Health Check"}
-                </button>
+                </Button>
               </div>
-            </article>
+            </Card>
           );
         })}
       </section>

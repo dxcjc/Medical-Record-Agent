@@ -1,9 +1,66 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createApiClient } from "./client";
+import type {
+  ApiAuditListResponse,
+  ApiCollectionResponse,
+  ApiEvaluationDataset,
+  ApiEvaluationMetricsResponse,
+  ApiEvaluationRun,
+  ApiEvaluationRunResponse,
+  ApiEvaluationSamplesResponse,
+  ApiFeedbackResponse,
+  ApiFileRecord,
+  ApiProviderHealthResponse,
+  ApiProviderItem,
+  ApiProviderResponse,
+  ApiRecognitionJob,
+  ApiRecognitionResult,
+  ApiSchemaCompareResponse,
+  ApiSchemaDraftResponse,
+  ApiSchemaValidationResponse,
+  ApiSchemaVersionResponse,
+  ApiWritebackEligibleItem,
+  ApiWritebackResponse
+} from "./types";
 
 describe("createApiClient", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("对页面使用的 API 方法暴露集中契约类型，避免退回 unknown", () => {
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    expectTypeOf(client.listSchemas).returns.resolves.toEqualTypeOf<ApiCollectionResponse<ApiSchemaVersionResponse>>();
+    expectTypeOf(client.createSchemaDraft).returns.resolves.toEqualTypeOf<ApiSchemaDraftResponse>();
+    expectTypeOf(client.updateSchemaDraft).returns.resolves.toEqualTypeOf<ApiSchemaDraftResponse>();
+    expectTypeOf(client.validateSchemaDraft).returns.resolves.toEqualTypeOf<ApiSchemaValidationResponse>();
+    expectTypeOf(client.publishSchemaDraft).returns.resolves.toEqualTypeOf<ApiSchemaVersionResponse>();
+    expectTypeOf(client.deactivateSchemaVersion).returns.resolves.toEqualTypeOf<ApiSchemaVersionResponse>();
+    expectTypeOf(client.rollbackSchemaVersion).returns.resolves.toEqualTypeOf<ApiSchemaVersionResponse>();
+    expectTypeOf(client.compareSchemaVersions).returns.resolves.toEqualTypeOf<ApiSchemaCompareResponse>();
+    expectTypeOf(client.listProviders).returns.resolves.toEqualTypeOf<ApiCollectionResponse<ApiProviderItem>>();
+    expectTypeOf(client.setDefaultProvider).returns.resolves.toEqualTypeOf<ApiProviderResponse>();
+    expectTypeOf(client.saveProviderConfig).returns.resolves.toEqualTypeOf<ApiProviderResponse>();
+    expectTypeOf(client.checkProviderHealth).returns.resolves.toEqualTypeOf<ApiProviderHealthResponse>();
+    expectTypeOf(client.listEvaluationDatasets).returns.resolves.toEqualTypeOf<ApiCollectionResponse<ApiEvaluationDataset>>();
+    expectTypeOf(client.createEvaluationDataset).returns.resolves.toEqualTypeOf<{ dataset: ApiEvaluationDataset }>();
+    expectTypeOf(client.importEvaluationSamples).returns.resolves.toEqualTypeOf<ApiEvaluationSamplesResponse>();
+    expectTypeOf(client.listEvaluationRuns).returns.resolves.toEqualTypeOf<ApiCollectionResponse<ApiEvaluationRun>>();
+    expectTypeOf(client.createEvaluationRun).returns.resolves.toEqualTypeOf<ApiEvaluationRunResponse>();
+    expectTypeOf(client.getEvaluationRun).returns.resolves.toEqualTypeOf<ApiEvaluationRunResponse>();
+    expectTypeOf(client.listEvaluationRunMetrics).returns.resolves.toEqualTypeOf<ApiEvaluationMetricsResponse>();
+    expectTypeOf(client.createFile).returns.resolves.toEqualTypeOf<ApiFileRecord>();
+    expectTypeOf(client.createRecognitionJob).returns.resolves.toEqualTypeOf<ApiRecognitionJob>();
+    expectTypeOf(client.getJob).returns.resolves.toEqualTypeOf<ApiRecognitionJob>();
+    expectTypeOf(client.getResult).returns.resolves.toEqualTypeOf<ApiRecognitionResult>();
+    expectTypeOf(client.createFeedback).returns.resolves.toEqualTypeOf<ApiFeedbackResponse>();
+    expectTypeOf(client.executeWriteback).returns.resolves.toEqualTypeOf<ApiWritebackResponse>();
+    expectTypeOf(client.listEligibleWritebacks).returns.resolves.toEqualTypeOf<ApiCollectionResponse<ApiWritebackEligibleItem>>();
+    expectTypeOf(client.listAudit).returns.resolves.toEqualTypeOf<ApiAuditListResponse>();
   });
 
   function stubJsonFetch(payload: unknown, calls: Array<{ input: RequestInfo | URL; init?: RequestInit }>) {
@@ -58,6 +115,44 @@ describe("createApiClient", () => {
     expect(headers).toBeInstanceOf(Headers);
     expect((headers as Headers).get("authorization")).toBe("Bearer token-demo");
     expect((headers as Headers).get("content-type")).toBe("application/json");
+    expect(fetchCalls[0]?.init?.credentials).toBe("include");
+  });
+
+  it("没有 Bearer token 时仍携带 cookie credentials 以支持 HttpOnly session", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    stubJsonFetch({ status: "ok", service: "medical-record-agent-api" }, fetchCalls);
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => null,
+    });
+
+    await client.health();
+
+    expect(fetchCalls[0]?.input).toBe("http://api.example.test/health");
+    expect(fetchCalls[0]?.init?.credentials).toBe("include");
+    expect((fetchCalls[0]?.init?.headers as Headers).get("authorization")).toBeNull();
+  });
+
+  it("logout 调用后端 session 失效端点并携带 cookie credentials", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    stubJsonFetch({ ok: true }, fetchCalls);
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => null,
+    });
+
+    await client.logout();
+
+    expect(fetchCalls[0]?.input).toBe("http://api.example.test/auth/logout");
+    expect(fetchCalls[0]?.init).toEqual(
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        headers: expect.any(Headers)
+      })
+    );
   });
 
   it("后端返回文件存储未配置时会保留错误码并给出中文提示", async () => {
@@ -216,6 +311,96 @@ describe("createApiClient", () => {
     );
   });
 
+  it("长任务 API 会把 AbortSignal 透传到底层 fetch", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    stubJsonFetch({ id: "job-001", run: { id: "run-001" }, samples: [], status: "succeeded" }, fetchCalls);
+    const controller = new AbortController();
+
+    const client = createApiClient({
+      baseUrl: "http://api.example.test",
+      getToken: () => "token-demo",
+    });
+
+    await client.createFile(
+      {
+        originalName: "synthetic-record.pdf",
+        mimeType: "application/pdf",
+        byteSize: 2048,
+        checksumSha256: "demo-checksum",
+      },
+      { signal: controller.signal }
+    );
+    await client.createRecognitionJob(
+      {
+        schemaKey: "custom-clinical-schema",
+        sourceFileId: "file-001",
+      },
+      { signal: controller.signal }
+    );
+    await client.createEvaluationRun(
+      {
+        datasetId: "dataset-001",
+        providerKey: "mock-model",
+      },
+      { signal: controller.signal }
+    );
+    await client.importEvaluationSamples(
+      "dataset-001",
+      [
+        {
+          externalId: "synthetic-001",
+          groundTruth: {
+            chiefComplaint: {
+              value: "咳嗽",
+            },
+          },
+        },
+      ],
+      { signal: controller.signal }
+    );
+    await client.executeWriteback(
+      {
+        jobId: "job-001",
+        confirmed: true,
+      },
+      { signal: controller.signal }
+    );
+    await client.checkProviderHealth("openai-compatible-model", { signal: controller.signal });
+    await client.saveProviderConfig(
+      "openai-compatible-model",
+      {
+        kind: "llm",
+        displayName: "OpenAI-compatible Model",
+        enabled: true,
+        isDefault: true,
+        config: {}
+      },
+      { signal: controller.signal }
+    );
+    await client.validateSchemaDraft("draft-001", { definition: {} }, { signal: controller.signal });
+    await client.publishSchemaDraft("draft-001", "发布草稿", { signal: controller.signal });
+    await client.deactivateSchemaVersion("schema-version-001", { signal: controller.signal });
+    await client.rollbackSchemaVersion("schema-version-002", { signal: controller.signal });
+    await client.compareSchemaVersions("custom-clinical-schema", { left: "v1", right: "v2" }, { signal: controller.signal });
+    await client.listEligibleWritebacks(10, { signal: controller.signal });
+
+    expect(fetchCalls.map((call) => call.init?.signal)).toEqual([
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+    ]);
+  });
+
   it("导入评估样本时把 samples 包装到后端约定字段", async () => {
     const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     stubJsonFetch({ samples: [{ id: "sample-001" }] }, fetchCalls);
@@ -229,7 +414,12 @@ describe("createApiClient", () => {
       {
         externalId: "synthetic-001",
         input: { text: "主诉：咳嗽" },
-        groundTruth: { chiefComplaint: "咳嗽" },
+        groundTruth: {
+          chiefComplaint: {
+            value: "咳嗽",
+            normalizedValue: "咳嗽"
+          }
+        },
       },
     ];
     const result = await client.importEvaluationSamples("dataset-001", samples);
@@ -271,7 +461,6 @@ describe("createApiClient", () => {
     const result = await client.executeWriteback({
       jobId: "job-demo-1",
       confirmed: true,
-      payload: { chiefComplaint: "咳嗽" },
     });
 
     expect(result).toEqual({ status: "succeeded" });
@@ -282,7 +471,6 @@ describe("createApiClient", () => {
         body: JSON.stringify({
           jobId: "job-demo-1",
           confirmed: true,
-          payload: { chiefComplaint: "咳嗽" },
         }),
       }),
     );

@@ -2,10 +2,13 @@ import { ApiTokenStatus, UserStatus } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createInMemorySessionInvalidationStore,
   createAuthService,
+  createRepositorySessionInvalidationStore,
   flattenPermissions,
   hashApiToken,
   hashPassword,
+  hashSessionToken,
   verifyPassword,
   type JwtSigner
 } from "./auth.service";
@@ -132,6 +135,103 @@ describe("auth service", () => {
     expect(tokenRepository.findActiveByTokenHash).toHaveBeenCalledWith(tokenHash, now);
     expect(tokenRepository.touchLastUsedAt).toHaveBeenCalledWith("token-001", now);
     expect(context.permissions).toEqual(["job:read", "writeback:execute"]);
+  });
+
+  it("session invalidation store 只持久化 token hash、遵守 TTL，并暴露非多实例生产姿态", async () => {
+    const token = "raw.jwt.session-token-that-must-not-be-stored";
+    const tokenHash = hashSessionToken(token);
+    const now = new Date("2026-06-09T09:00:00.000Z");
+    const writes: Array<{ tokenHash: string; invalidatedAt: Date; expiresAt: Date }> = [];
+    const repository = {
+      upsertInvalidatedSession: vi.fn(async (input: { tokenHash: string; invalidatedAt: Date; expiresAt: Date }) => {
+        writes.push(input);
+      }),
+      findInvalidatedSession: vi.fn(async (input: { tokenHash: string; now: Date }) => {
+        const row = writes.find((item) => item.tokenHash === input.tokenHash && item.expiresAt > input.now);
+        return row ?? null;
+      })
+    };
+    let currentNow = now;
+    const store = createRepositorySessionInvalidationStore({
+      repository,
+      provider: "database",
+      invalidationTtlMs: 60_000,
+      now: () => currentNow
+    });
+
+    await store.invalidate(token);
+
+    expect(repository.upsertInvalidatedSession).toHaveBeenCalledWith({
+      tokenHash,
+      invalidatedAt: now,
+      expiresAt: new Date("2026-06-09T09:01:00.000Z")
+    });
+    expect(JSON.stringify(writes)).not.toContain(token);
+    await expect(store.isInvalidated(token)).resolves.toBe(true);
+
+    currentNow = new Date("2026-06-09T09:01:01.000Z");
+    await expect(store.isInvalidated(token)).resolves.toBe(false);
+    expect(store.describe()).toEqual({
+      adapter: "repository",
+      provider: "database",
+      productionReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_SMOKE_NOT_RUN",
+      capabilities: {
+        centralized: true,
+        durable: true,
+        multiInstance: true,
+        tokenHashing: true,
+        ttl: true
+      },
+      policy: {
+        invalidationTtlMs: 60000
+      },
+      readiness: {
+        nextAction: "运行至少两个 API 实例的登出/轮换失效 smoke，确认共享 store 只保存 token hash 和 TTL。",
+        requiredChecks: [
+          "two-instance-session-invalidation-smoke",
+          "token-hash-ttl-verification",
+          "raw-token-not-persisted-check",
+          "login-rotation-cross-instance-smoke"
+        ]
+      }
+    });
+  });
+
+  it("默认 in-memory session invalidation store 本地可用但明确非生产多实例就绪", async () => {
+    const store = createInMemorySessionInvalidationStore({
+      invalidationTtlMs: 1_000,
+      now: () => new Date("2026-06-09T09:00:00.000Z")
+    });
+
+    await store.invalidate("raw.jwt.session-token");
+
+    await expect(store.isInvalidated("raw.jwt.session-token")).resolves.toBe(true);
+    expect(store.describe()).toEqual({
+      adapter: "in-memory",
+      productionReady: false,
+      blockedReason: "SESSION_INVALIDATION_STORE_IN_MEMORY",
+      capabilities: {
+        centralized: false,
+        durable: false,
+        multiInstance: false,
+        tokenHashing: true,
+        ttl: true
+      },
+      policy: {
+        invalidationTtlMs: 1000
+      },
+      readiness: {
+        nextAction:
+          "配置 SESSION_INVALIDATION_STORE_MODE=repository 与数据库/Redis adapter，并运行至少两个 API 实例的登出/轮换失效 smoke。",
+        requiredChecks: [
+          "two-instance-session-invalidation-smoke",
+          "token-hash-ttl-verification",
+          "raw-token-not-persisted-check",
+          "login-rotation-cross-instance-smoke"
+        ]
+      }
+    });
   });
 
   it("权限守卫能区分缺失认证与缺失权限", () => {
