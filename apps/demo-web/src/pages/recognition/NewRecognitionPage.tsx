@@ -93,24 +93,19 @@ const initialPrivacyOptions: PrivacyOptions = {
   allowWriteBack: false,
 };
 
-const privacyOptionContent = {
+const visiblePrivacyOptionContent = {
   deidentify: {
     icon: actionIcons.privacyPolicy,
     title: "开启患者信息脱敏",
-    description: "上传、评测和展示链路默认移除患者身份信息，降低 PHI 暴露风险。",
+    description: "上传、评测和展示链路默认移除患者身份信息，降低 PHI 暴露风险。"
   },
   keepEvidence: {
     icon: dashboardMetricIcons.decisionPass,
     title: "保留字段证据链",
-    description: "保留页码、原文引用和字段来源，便于复核人员追溯模型判断。",
-  },
-  allowWriteBack: {
-    icon: dashboardMetricIcons.writeback,
-    title: "允许绿色决策自动写回",
-    description: "仅在字段完整、证据一致、权限满足且策略为 green 时进入写回准备。",
-  },
+    description: "保留页码、原文引用和字段来源，便于复核人员追溯模型判断。"
+  }
 } as const satisfies Record<
-  keyof PrivacyOptions,
+  Exclude<keyof PrivacyOptions, "allowWriteBack">,
   {
     icon: LucideIcon;
     title: string;
@@ -124,6 +119,18 @@ const fallbackSchemaOptions: SelectOption[] = schemaOptions.map((option) => ({
 }));
 
 const fallbackProviderOptions: SelectOption[] = [];
+
+export const LOCAL_PADDLE_OCR_PROVIDER_KEY = "local-paddleocr";
+
+type RecognitionCapabilityStatus = "ready" | "blocked" | "checking";
+
+type RecognitionCapabilitySummaryItem = {
+  key: "ocr" | "storage" | "llm";
+  label: string;
+  value: string;
+  status: RecognitionCapabilityStatus;
+  description: string;
+};
 
 export const parseSchemaOptions = normalizeSchemaSelectOptions;
 export const parseProviderOptions = normalizeProviderSelectOptions;
@@ -141,12 +148,42 @@ export function getVisibleRecognitionProviderOptions(
   };
 }
 
-export function getRecognitionProviderGate(ocrProviders: SelectOption[], llmProviders: SelectOption[]) {
-  const canCreate = ocrProviders.length > 0 && llmProviders.length > 0;
+export function getRecognitionCapabilitySummary(llmProviders: SelectOption[]): RecognitionCapabilitySummaryItem[] {
+  const currentModel = llmProviders[0];
+
+  return [
+    {
+      key: "ocr",
+      label: "本地 OCR",
+      value: "PaddleOCR",
+      status: "ready",
+      description: "本项目固定使用本机 PaddleOCR，不需要录入 OCR Endpoint。"
+    },
+    {
+      key: "storage",
+      label: "文件保存",
+      value: "内置本地存储",
+      status: "ready",
+      description: "识别文件和中间结果先写入项目内置保存策略。"
+    },
+    {
+      key: "llm",
+      label: "模型提供商",
+      value: currentModel?.label ?? "待配置",
+      status: currentModel ? "ready" : "blocked",
+      description: currentModel ? "结构化抽取会使用当前选中的模型提供商。" : "请先在识别能力检查中配置一个可用模型。"
+    }
+  ];
+}
+
+export function getRecognitionProviderGate(llmProviders: SelectOption[]) {
+  const canCreate = llmProviders.length > 0;
 
   return {
     canCreate,
-    message: canCreate ? "真实 OCR/LLM Provider 已选择。" : "请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
+    message: canCreate
+      ? "本地 PaddleOCR、内置文件保存和模型提供商均已就绪。"
+      : "请先配置模型提供商；本地 PaddleOCR 和内置文件保存已作为项目内置能力。"
   };
 }
 
@@ -435,13 +472,11 @@ export default function NewRecognitionPage() {
   const [fileError, setFileError] = useState("");
   const [isDragActive, setIsDragActive] = useState(false);
   const [schemaChoices, setSchemaChoices] = useState<SelectOption[]>(fallbackSchemaOptions);
-  const [ocrProviderChoices, setOcrProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
   const [llmProviderChoices, setLlmProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
   const [optionLoadState, setOptionLoadState] = useState<OptionLoadState>("idle");
   const [optionLoadError, setOptionLoadError] = useState("");
   const [schemaName, setSchemaName] = useState(fallbackSchemaOptions[0]?.value ?? "lims-clinical-info");
   const [adapter, setAdapter] = useState<(typeof adapterOptions)[number]>(adapterOptions[0]);
-  const [ocrProvider, setOcrProvider] = useState(fallbackProviderOptions[0]?.value ?? "");
   const [provider, setProvider] = useState(fallbackProviderOptions[0]?.value ?? "");
   const [privacy, setPrivacy] = useState<PrivacyOptions>(initialPrivacyOptions);
   const [submitState, setSubmitState] = useState<SubmitState>({ status: "idle" });
@@ -480,7 +515,6 @@ export default function NewRecognitionPage() {
       try {
         const [schemaResponse, providerResponse] = await Promise.all([api.listSchemas(), api.listProviders()]);
         const nextSchemas = parseSchemaOptions(schemaResponse);
-        const nextOcrProviders = getVisibleRecognitionProviderOptions(providerResponse, "ocr").options;
         const nextLlmProviders = getVisibleRecognitionProviderOptions(providerResponse, "llm").options;
 
         if (!isActive) {
@@ -491,10 +525,6 @@ export default function NewRecognitionPage() {
           setSchemaChoices(nextSchemas);
           setSchemaName((current) => (nextSchemas.some((item) => item.value === current) ? current : nextSchemas[0]?.value ?? current));
         }
-        setOcrProviderChoices(nextOcrProviders);
-        setOcrProvider((current) =>
-          nextOcrProviders.some((item) => item.value === current) ? current : nextOcrProviders[0]?.value ?? ""
-        );
         setLlmProviderChoices(nextLlmProviders);
         setProvider((current) =>
           nextLlmProviders.some((item) => item.value === current) ? current : nextLlmProviders[0]?.value ?? ""
@@ -506,11 +536,9 @@ export default function NewRecognitionPage() {
         }
 
         setOptionLoadState("error");
-        setOcrProviderChoices([]);
         setLlmProviderChoices([]);
-        setOcrProvider("");
         setProvider("");
-        setOptionLoadError(error instanceof Error ? error.message : "识别配置 API 暂不可用，请先配置真实 Provider。");
+        setOptionLoadError(error instanceof Error ? error.message : "识别配置 API 暂不可用，请先配置模型提供商。");
       }
     }
 
@@ -722,7 +750,7 @@ export default function NewRecognitionPage() {
   }
 
   async function submitWithFile(file: File | null) {
-    const providerGate = getRecognitionProviderGate(ocrProviderChoices, llmProviderChoices);
+    const providerGate = getRecognitionProviderGate(llmProviderChoices);
     if (!providerGate.canCreate) {
       setSubmitState({ status: "error", message: providerGate.message });
       return;
@@ -746,7 +774,7 @@ export default function NewRecognitionPage() {
       file,
       schemaName,
       adapter,
-      ocrProvider,
+      ocrProvider: LOCAL_PADDLE_OCR_PROVIDER_KEY,
       provider,
       privacy
     });
@@ -772,15 +800,16 @@ export default function NewRecognitionPage() {
   }
 
   const isLoading = submitState.status === "loading" || (submitState.status === "success" && submitState.progress.shouldPoll);
-  const providerGate = getRecognitionProviderGate(ocrProviderChoices, llmProviderChoices);
+  const providerGate = getRecognitionProviderGate(llmProviderChoices);
   const canSubmitRecognition = providerGate.canCreate && !isLoading;
+  const capabilitySummary = getRecognitionCapabilitySummary(llmProviderChoices);
 
   return (
     <main className="app-page">
       <PageHeader
         eyebrow="Recognition Demo"
         title="新建识别任务"
-        description="上传病历图片或 PDF，选择模板、Adapter、Provider 与隐私策略后创建识别任务。"
+        description="上传病历图片或 PDF，选择识别模板后创建任务；OCR 使用本地 PaddleOCR，文件使用内置本地保存策略。"
         meta={
           <div className="page-header__meta" aria-label="新建识别配置摘要">
             <span className="page-header__meta-item">
@@ -792,14 +821,33 @@ export default function NewRecognitionPage() {
               <span>脱敏与证据链保留已启用</span>
             </span>
             <span className="page-header__meta-item">
-              <strong>写回策略</strong>
-              <span>{privacy.allowWriteBack ? "green 决策可自动写回" : "默认需要复核确认"}</span>
+              <strong>模型</strong>
+              <span>{llmProviderChoices[0]?.label ?? "待配置"}</span>
             </span>
           </div>
         }
       />
 
       <form className="recognition-form" onSubmit={handleSubmit} data-guide="new-recognition">
+        <Card className="panel recognition-capability-card">
+          <SectionTitle title="识别能力" />
+          <div className="recognition-capability-list">
+            {capabilitySummary.map((item) => (
+              <article key={item.key} className={`recognition-capability-item is-${item.status}`}>
+                <StatusPill label={item.status === "ready" ? "已就绪" : item.status === "checking" ? "检查中" : "待配置"} tone={item.status === "ready" ? "completed" : item.status === "checking" ? "running" : "failed"} />
+                <div>
+                  <strong>{item.label}</strong>
+                  <span>{item.value}</span>
+                  <p>{item.description}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+          {!providerGate.canCreate ? (
+            <Alert type="warning" showIcon content={providerGate.message} />
+          ) : null}
+        </Card>
+
         <Card className="panel recognition-upload-card">
           <SectionTitle title="上传病历文件" />
           <label
@@ -836,17 +884,10 @@ export default function NewRecognitionPage() {
                 : optionLoadState === "error"
                   ? `真实配置读取失败：${optionLoadError}`
                   : providerGate.canCreate
-                    ? "识别任务将使用真实 OCR/LLM Provider key。"
-                    : "未配置真实 Provider；等待接入真实模型提供商。"
+                    ? "本地 PaddleOCR、内置文件保存和模型提供商均已就绪。"
+                    : "请先配置模型提供商；本地 PaddleOCR 和内置文件保存已作为项目内置能力。"
             }
           />
-          {!providerGate.canCreate ? (
-            <Alert
-              type="warning"
-              showIcon
-              content="请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
-            />
-          ) : null}
 
           <div className="form-grid recognition-form-grid">
             <Form.Item label="Schema 模板" data-guide="schema-selection">
@@ -863,7 +904,7 @@ export default function NewRecognitionPage() {
               </Select>
             </Form.Item>
 
-            <Form.Item label="Adapter">
+            <Form.Item label="文档类型">
               <Select
                 aria-label="选择 Adapter"
                 value={adapter}
@@ -877,24 +918,9 @@ export default function NewRecognitionPage() {
               </Select>
             </Form.Item>
 
-            <Form.Item label="OCR Provider">
+            <Form.Item label="模型提供商">
               <Select
-                aria-label="选择 OCR Provider"
-                value={ocrProvider}
-                onChange={setOcrProvider}
-                placeholder="请先配置真实 OCR Provider"
-              >
-                {ocrProviderChoices.map((option) => (
-                  <Select.Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item label="LLM Provider">
-              <Select
-                aria-label="选择 LLM Provider"
+                aria-label="选择模型提供商"
                 value={provider}
                 onChange={setProvider}
                 placeholder="请先配置真实 LLM Provider"
@@ -915,8 +941,8 @@ export default function NewRecognitionPage() {
             隐私选项
           </h2>
           <div className="privacy-option-list">
-            {(Object.keys(privacyOptionContent) as Array<keyof PrivacyOptions>).map((key) => {
-              const option = privacyOptionContent[key];
+            {(Object.keys(visiblePrivacyOptionContent) as Array<keyof typeof visiblePrivacyOptionContent>).map((key) => {
+              const option = visiblePrivacyOptionContent[key];
               const checked = privacy[key];
 
               return (
@@ -953,15 +979,6 @@ export default function NewRecognitionPage() {
               icon={<AppIcon icon={isLoading ? commonUiIcons.loading : actionIcons.createRecognition} size="sm" className={isLoading ? "is-spinning" : undefined} />}
             >
               {isLoading ? "创建中" : "开始识别"}
-            </Button>
-            <Button
-              type="outline"
-              aria-label="使用合成样本创建识别任务"
-              disabled={!canSubmitRecognition}
-              onClick={handleSyntheticSubmit}
-              icon={<AppIcon icon={dashboardMetricIcons.confidence} size="sm" />}
-            >
-              合成样本
             </Button>
             <Button type="outline" aria-label="取消识别任务创建" disabled={!isLoading} onClick={handleCancelSubmit}>
               取消

@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Form, Input, Select, Space, Table } from "@arco-design/web-react";
-import type { TableColumnProps } from "@arco-design/web-react";
+import { Alert, Button, Card, Form, Input, Select, Space } from "@arco-design/web-react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { CreateFeedbackInput } from "../../api/client";
 import {
@@ -23,6 +22,7 @@ import {
 import {
   DecisionPill,
   EmptyPanel,
+  MetricCard,
   PageHeader,
   SectionTitle,
   StatusPill,
@@ -64,6 +64,134 @@ export function isExplicitDemoMode(env: DemoModeEnv = import.meta.env) {
 
 export const parseApiDetail = normalizeRecognitionDetail;
 
+type ReviewFieldStatus = "passed" | "low_confidence" | "missing" | "conflict" | "modified" | "unconfirmed";
+
+type ReviewFieldRow = FieldCandidate & {
+  reviewStatus: ReviewFieldStatus;
+  originalValue: string;
+  confirmedValue: string;
+};
+
+type ReviewSummaryInput = {
+  status?: string | undefined;
+  fields: FieldCandidate[];
+  evidence: EvidenceItem[];
+  ocrText: string;
+};
+
+type TimelineItem = {
+  key: string;
+  label: string;
+  status: "done" | "active" | "pending" | "failed";
+  message?: string;
+};
+
+function mapFieldStatus(candidate: FieldCandidate): ReviewFieldStatus {
+  if (!candidate.value) {
+    return "missing";
+  }
+  if (candidate.decision === "red") {
+    return "conflict";
+  }
+  if (candidate.decision === "yellow" || candidate.confidence < 0.75) {
+    return "low_confidence";
+  }
+  return "passed";
+}
+
+export function buildReviewFieldRows(fields: FieldCandidate[]): ReviewFieldRow[] {
+  const rank: Record<ReviewFieldStatus, number> = {
+    missing: 0,
+    conflict: 1,
+    low_confidence: 2,
+    modified: 3,
+    unconfirmed: 4,
+    passed: 5
+  };
+
+  return fields
+    .map((field) => ({
+      ...field,
+      reviewStatus: mapFieldStatus(field),
+      originalValue: field.value,
+      confirmedValue: field.value
+    }))
+    .sort((left, right) => rank[left.reviewStatus] - rank[right.reviewStatus]);
+}
+
+export function buildReviewSummary(input: ReviewSummaryInput) {
+  const rows = buildReviewFieldRows(input.fields);
+  const pendingFieldCount = rows.filter((row) => row.reviewStatus !== "passed").length;
+  const highConfidenceFieldCount = rows.filter((row) => row.reviewStatus === "passed").length;
+
+  return {
+    statusLabel:
+      input.status === "failed"
+        ? "识别失败"
+        : input.status === "completed"
+          ? "已完成"
+          : input.status === "needs_review"
+            ? "等待复核"
+            : "处理中",
+    pendingFieldCount,
+    highConfidenceFieldCount,
+    warningCount: pendingFieldCount,
+    evidenceCount: input.evidence.length,
+    hasOcrText: input.ocrText.trim().length > 0
+  };
+}
+
+export function buildTaskTimeline(status: string | undefined, failedMessage?: string): TimelineItem[] {
+  if (status === "failed") {
+    return [
+      { key: "uploaded", label: "上传完成", status: "done" },
+      { key: "stored", label: "文件保存完成", status: "done" },
+      { key: "failed", label: "识别失败", status: "failed", message: failedMessage ?? "任务执行失败，请检查识别能力后重试。" },
+      { key: "review", label: "等待复核", status: "pending" }
+    ];
+  }
+
+  const activeKey =
+    status === "ocr_running"
+      ? "ocr"
+      : status === "extracting"
+        ? "extract"
+        : status === "validating"
+          ? "validate"
+          : status === "needs_review" || status === "completed"
+            ? "review"
+            : "uploaded";
+  const order = ["uploaded", "stored", "ocr", "extract", "validate", "review"];
+  const activeIndex = order.indexOf(activeKey);
+
+  return [
+    { key: "uploaded", label: "上传完成", status: activeIndex > 0 ? "done" : activeKey === "uploaded" ? "active" : "pending" },
+    { key: "stored", label: "文件保存完成", status: activeIndex > 1 ? "done" : activeIndex === 1 ? "active" : "pending" },
+    { key: "ocr", label: activeKey === "ocr" ? "PaddleOCR 识别中" : "PaddleOCR 识别完成", status: activeIndex > 2 ? "done" : activeKey === "ocr" ? "active" : "pending" },
+    { key: "extract", label: "模型抽取", status: activeIndex > 3 ? "done" : activeKey === "extract" ? "active" : "pending" },
+    { key: "validate", label: "字段校验", status: activeIndex > 4 ? "done" : activeKey === "validate" ? "active" : "pending" },
+    { key: "review", label: "等待复核", status: status === "completed" ? "done" : activeKey === "review" ? "active" : "pending" }
+  ];
+}
+
+const REVIEW_STATUS_LABEL: Record<ReviewFieldStatus, string> = {
+  passed: "已通过",
+  low_confidence: "低置信",
+  missing: "缺失",
+  conflict: "冲突",
+  modified: "已修改",
+  unconfirmed: "未确认"
+};
+
+const REVIEW_STATUS_TONE: Record<ReviewFieldStatus, "completed" | "failed" | "review"> = {
+  passed: "completed",
+  low_confidence: "review",
+  missing: "failed",
+  conflict: "failed",
+  modified: "review",
+  unconfirmed: "review"
+};
+
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
@@ -86,21 +214,15 @@ export default function JobDetailPage() {
   const displayTraceSteps = apiDetail.trace ?? (showDemoData ? traceSteps : []);
   const displayPayload = apiDetail.payload ?? (showDemoData ? { ...payloadPreview, jobId: displayJobId } : {});
   const displayOcrText = apiDetail.ocrText ?? (showDemoData ? demoOcrText : "");
-  const fieldColumns: TableColumnProps<FieldCandidate>[] = [
-    { title: "字段", dataIndex: "field" },
-    { title: "候选值", dataIndex: "value" },
-    {
-      title: "置信度",
-      dataIndex: "confidence",
-      render: (_, candidate) => formatPercent(candidate.confidence),
-    },
-    { title: "来源", dataIndex: "source" },
-    {
-      title: "自动决策",
-      dataIndex: "decision",
-      render: (_, candidate) => <DecisionPill decision={candidate.decision} />,
-    },
-  ];
+
+  const reviewRows = buildReviewFieldRows(displayFields);
+  const reviewSummary = buildReviewSummary({
+    status: apiDetail.status,
+    fields: displayFields,
+    evidence: displayEvidenceItems,
+    ocrText: displayOcrText
+  });
+  const timelineItems = buildTaskTimeline(apiDetail.status, loadError);
 
   useEffect(() => {
     if (routeJobId === "demo") {
@@ -218,15 +340,6 @@ export default function JobDetailPage() {
     }
   }
 
-  function handleGoWriteback() {
-    if (showDemoData) {
-      return;
-    }
-
-    const search = new URLSearchParams({ jobId: displayJobId });
-    navigate(`/writeback?${search.toString()}`);
-  }
-
   async function handleOpenDocument() {
     if (!apiDetail.sourceFileId) {
       setDocumentPreview({
@@ -266,23 +379,18 @@ export default function JobDetailPage() {
     <main className="app-page">
       <PageHeader
         eyebrow="Recognition Demo"
-        title={`任务详情 ${displayJobId}`}
-        description="查看文档预览、OCR 文本、字段候选、证据、Payload、LangGraph trace 与人工反馈。"
+        title="识别结果复核"
+        description={`${displayJobId} · 查看原件、OCR 文本、结构化字段和证据，确认后保存复核结果。`}
         actions={
-          <>
-            <Button
-              type="outline"
-              aria-label="打开原始文档"
-              disabled={documentPreview.status === "loading"}
-              onClick={handleOpenDocument}
-              icon={<AppIcon icon={actionIcons.createRecognition} size="sm" />}
-            >
-              {documentPreview.status === "loading" ? "读取中" : "原始文档"}
-            </Button>
-            <Button type="primary" aria-label="确认绿色字段写回" onClick={handleGoWriteback} icon={<AppIcon icon={dashboardMetricIcons.writeback} size="sm" />}>
-              {showDemoData ? "演示不可写回" : "确认写回"}
-            </Button>
-          </>
+          <Button
+            type="outline"
+            aria-label="打开原始文档"
+            disabled={documentPreview.status === "loading"}
+            onClick={handleOpenDocument}
+            icon={<AppIcon icon={actionIcons.createRecognition} size="sm" />}
+          >
+            {documentPreview.status === "loading" ? "读取中" : "原始文档"}
+          </Button>
         }
       />
 
@@ -322,64 +430,70 @@ export default function JobDetailPage() {
         </Card>
       ) : null}
 
-      <div className="detail-grid">
-        <Card className="panel document-preview" aria-label="文档预览占位">
-          <SectionTitle title="文档预览" />
-          {documentPreview.status === "success" ? (
-            <div className="document-preview-frame">
-              {documentPreview.mimeType.startsWith("image/") ? (
-                <img alt={documentPreview.fileName} src={documentPreview.url} />
-              ) : documentPreview.mimeType === "application/pdf" ? (
-                <object aria-label={documentPreview.fileName} data={documentPreview.url} type="application/pdf">
-                  <a href={documentPreview.url} download={documentPreview.fileName}>
-                    下载 {documentPreview.fileName}
-                  </a>
-                </object>
-              ) : (
-                <a className="secondary-button" href={documentPreview.url} download={documentPreview.fileName}>
-                  下载 {documentPreview.fileName}
-                </a>
-              )}
-            </div>
-          ) : (
-            <div className="preview-placeholder">
-              <AppIcon icon={actionIcons.createRecognition} size="lg" tone="blue" tile />
-              <strong>PDF / 图片预览区域</strong>
-              <span>
-                {documentPreview.status === "error"
-                  ? `原始文档读取失败：${documentPreview.message}`
-                  : "点击原始文档读取真实上传文件，读取后展示 PDF 或图片预览。"}
-              </span>
-            </div>
-          )}
-        </Card>
+      <section className="metric-grid" aria-label="识别复核摘要">
+        <MetricCard label="任务状态" value={reviewSummary.statusLabel} description="当前识别流程状态" icon={statusIcons.running} tone="info" />
+        <MetricCard label="待复核字段" value={`${reviewSummary.pendingFieldCount}`} description="缺失、冲突或低置信字段" icon={dashboardMetricIcons.reviewQueue} tone={reviewSummary.pendingFieldCount > 0 ? "warning" : "success"} />
+        <MetricCard label="高置信字段" value={`${reviewSummary.highConfidenceFieldCount}`} description="可直接采纳的字段" icon={dashboardMetricIcons.decisionPass} tone="success" />
+        <MetricCard label="质量告警" value={`${reviewSummary.warningCount}`} description="需要人工关注的问题" icon={statusIcons.warning} tone={reviewSummary.warningCount > 0 ? "warning" : "neutral"} />
+      </section>
 
-        <Card className="panel">
-          <SectionTitle title="OCR 文本" />
-          {displayOcrText ? (
-            <pre className="ocr-text">{displayOcrText}</pre>
-          ) : (
-            <EmptyPanel icon={statusIcons.neutral} title="暂无 OCR 文本" description="当前任务还没有返回 OCR 文本。" />
-          )}
-        </Card>
-      </div>
-
-      <Card className="panel">
-        <SectionTitle title="字段候选表" />
-        {displayFields.length > 0 ? (
-          <div className="table-scroll">
-            <Table columns={fieldColumns} data={displayFields} rowKey="field" pagination={false} scroll={{ x: 760 }} />
-          </div>
-        ) : (
-          <EmptyPanel icon={statusIcons.neutral} title="暂无字段候选" description="当前任务还没有返回可复核的字段结果。" />
-        )}
+      <Card className="panel recognition-timeline-card">
+        <SectionTitle title="识别进度" />
+        <ol className="recognition-timeline">
+          {timelineItems.map((item) => (
+            <li key={item.key} className={`recognition-timeline__item is-${item.status}`}>
+              <span>{item.label}</span>
+              {item.message ? <p>{item.message}</p> : null}
+            </li>
+          ))}
+        </ol>
       </Card>
 
-      <div className="detail-grid">
-        <Card className="evidence-panel u-surface" data-guide="field-evidence">
-          <SectionTitle title="证据面板" />
+      <div className="review-workspace">
+        <section className="review-workspace__source">
+          <Card className="panel document-preview" aria-label="文档预览占位">
+            <SectionTitle title="原件预览" />
+            {documentPreview.status === "success" ? (
+              <div className="document-preview-frame">
+                {documentPreview.mimeType.startsWith("image/") ? (
+                  <img alt={documentPreview.fileName} src={documentPreview.url} />
+                ) : documentPreview.mimeType === "application/pdf" ? (
+                  <object aria-label={documentPreview.fileName} data={documentPreview.url} type="application/pdf">
+                    <a href={documentPreview.url} download={documentPreview.fileName}>
+                      下载 {documentPreview.fileName}
+                    </a>
+                  </object>
+                ) : (
+                  <a className="secondary-button" href={documentPreview.url} download={documentPreview.fileName}>
+                    下载 {documentPreview.fileName}
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="preview-placeholder">
+                <AppIcon icon={actionIcons.createRecognition} size="lg" tone="blue" tile />
+                <strong>PDF / 图片预览区域</strong>
+                <span>
+                  {documentPreview.status === "error"
+                    ? `原始文档读取失败：${documentPreview.message}`
+                    : "点击原始文档读取真实上传文件，读取后展示 PDF 或图片预览。"}
+                </span>
+              </div>
+            )}
+          </Card>
+
+          <Card className="panel">
+            <SectionTitle title="OCR 文本" />
+            {displayOcrText ? (
+              <pre className="ocr-text">{displayOcrText}</pre>
+            ) : (
+              <EmptyPanel icon={statusIcons.neutral} title="暂无 OCR 文本" description="当前任务还没有返回 OCR 文本。" />
+            )}
+          </Card>
+
           {displayEvidenceItems.length > 0 ? (
-            <>
+            <Card className="evidence-panel u-surface" data-guide="field-evidence">
+              <SectionTitle title="证据面板" />
               <div className="trace-list evidence-tabs" role="list" aria-label="证据列表">
                 {displayEvidenceItems.map((item) => (
                   <Button
@@ -402,146 +516,174 @@ export default function JobDetailPage() {
                   </span>
                 </article>
               ) : null}
-            </>
-          ) : (
-            <EmptyPanel icon={actionIcons.createRecognition} title="暂无证据" description="当前任务没有可展示证据。" />
-          )}
-        </Card>
+            </Card>
+          ) : null}
+        </section>
 
-        <Card className="panel">
-          <SectionTitle title="Payload Preview" />
-          <pre className="payload-preview">{JSON.stringify(displayPayload, null, 2)}</pre>
-        </Card>
-      </div>
+        <section className="review-workspace__fields">
+          <Card className="panel" data-guide="field-review">
+            <SectionTitle title="字段复核" />
+            {reviewRows.length > 0 ? (
+              <div className="review-field-list">
+                {reviewRows.map((field) => (
+                  <button
+                    key={field.field}
+                    type="button"
+                    className={`review-field-row is-${field.reviewStatus}`}
+                    onClick={() => setFeedback((current) => ({ ...current, field: field.field, correctedValue: field.confirmedValue }))}
+                  >
+                    <span>{field.field}</span>
+                    <strong>{field.confirmedValue || "未识别"}</strong>
+                    <small>模型值：{field.originalValue || "空"}</small>
+                    <StatusPill label={REVIEW_STATUS_LABEL[field.reviewStatus]} tone={REVIEW_STATUS_TONE[field.reviewStatus]} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyPanel icon={statusIcons.neutral} title="暂无字段候选" description="当前任务还没有返回可复核的字段结果。" />
+            )}
+          </Card>
 
-      <div className="detail-grid">
-        <Card className="panel" data-guide="langgraph-workflow">
-          <SectionTitle title="LangGraph Trace" />
-          {displayTraceSteps.length > 0 ? (
-            <ol className="trace-list">
-              {displayTraceSteps.map((step) => (
-                <li key={step.id}>
-                  <div>
-                    <strong>{step.node}</strong>
-                    <span>{step.durationMs}ms</span>
-                  </div>
-                  <StatusPill
-                    label={step.status === "done" ? "完成" : step.status === "active" ? "运行中" : "阻塞"}
-                    tone={step.status === "done" ? "completed" : step.status === "active" ? "running" : "failed"}
+          <Card className="panel" data-guide="feedback">
+            <form onSubmit={handleFeedbackSubmit}>
+              <SectionTitle title="字段复核" />
+              <div className="form-grid">
+                <Form.Item label="复核人">
+                  <Input
+                    aria-label="复核人"
+                    value={feedback.reviewer}
+                    onChange={(value) => setFeedback({ ...feedback, reviewer: value })}
                   />
-                  <p>{step.detail}</p>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <EmptyPanel icon={statusIcons.neutral} title="暂无 Trace" description="当前任务还没有返回流程节点。" />
-          )}
-        </Card>
+                </Form.Item>
 
-        <Card className="panel" data-guide="auto-decision">
-          <SectionTitle title="自动决策" />
-          <div className="decision-grid">
-            {decisionCards.map((card) => (
-              <article key={card.level} className={`decision-card is-${card.level}`}>
-                <DecisionPill decision={card.level} />
-                <h3>{card.title}</h3>
-                <p>{card.description}</p>
-                <Button type="outline" aria-label={card.action} disabled title="该决策动作需要接入复核策略 API 后启用">
-                  {card.action}
+                <Form.Item label="字段">
+                  <Select
+                    aria-label="选择反馈字段"
+                    value={feedback.field}
+                    onChange={(value) => setFeedback({ ...feedback, field: String(value) })}
+                  >
+                    {displayFields.map((candidate) => (
+                      <Select.Option key={candidate.field} value={candidate.field}>
+                        {candidate.field}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+
+                <Form.Item label="反馈结论">
+                  <Select
+                    aria-label="选择反馈结论"
+                    value={feedback.decision}
+                    onChange={(value) => setFeedback({ ...feedback, decision: String(value) as FeedbackState["decision"] })}
+                  >
+                    <Select.Option value="accept">采纳候选值</Select.Option>
+                    <Select.Option value="reject">驳回候选值</Select.Option>
+                    <Select.Option value="needs_more_evidence">需要更多证据</Select.Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item label="修正值">
+                  <Input
+                    aria-label="修正值"
+                    placeholder="不填写则沿用候选值"
+                    value={feedback.correctedValue}
+                    onChange={(value) => setFeedback({ ...feedback, correctedValue: value })}
+                  />
+                </Form.Item>
+              </div>
+
+              <Form.Item label="反馈说明">
+                <Input.TextArea
+                  aria-label="反馈说明"
+                  rows={4}
+                  value={feedback.note}
+                  onChange={(value) => setFeedback({ ...feedback, note: value })}
+                />
+              </Form.Item>
+
+              <Space className="toolbar" wrap>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  aria-label="保存复核"
+                  disabled={submitState === "loading"}
+                  loading={submitState === "loading"}
+                  icon={<AppIcon icon={submitState === "loading" ? commonUiIcons.loading : actionIcons.next} size="sm" className={submitState === "loading" ? "is-spinning" : undefined} />}
+                >
+                  {submitState === "loading" ? "保存中" : "保存复核"}
                 </Button>
-              </article>
-            ))}
+                <Button
+                  type="outline"
+                  aria-label="插入证据说明"
+                  onClick={() =>
+                    setFeedback({
+                      ...feedback,
+                      note: selectedEvidence ? `参考证据：${selectedEvidence.quote}` : feedback.note,
+                    })
+                  }
+                  icon={<AppIcon icon={dashboardMetricIcons.reviewQueue} size="sm" />}
+                >
+                  引用证据
+                </Button>
+              </Space>
+
+              {submittedMessage ? <Alert type="success" showIcon content={submittedMessage} /> : null}
+              {submitState === "error" ? <Alert type="error" showIcon content={`反馈提交失败：${submitError}`} /> : null}
+            </form>
+          </Card>
+
+          <div className="detail-grid">
+            <Card className="panel" data-guide="auto-decision">
+              <SectionTitle title="自动决策" />
+              <div className="decision-grid">
+                {decisionCards.map((card) => (
+                  <article key={card.level} className={`decision-card is-${card.level}`}>
+                    <DecisionPill decision={card.level} />
+                    <h3>{card.title}</h3>
+                    <p>{card.description}</p>
+                    <Button type="outline" aria-label={card.action} disabled title="该决策动作需要接入复核策略 API 后启用">
+                      {card.action}
+                    </Button>
+                  </article>
+                ))}
+              </div>
+            </Card>
           </div>
-        </Card>
+        </section>
       </div>
 
-      <Card className="panel" data-guide="feedback">
-      <form onSubmit={handleFeedbackSubmit}>
-        <SectionTitle title="反馈提交" />
-        <div className="form-grid">
-          <Form.Item label="复核人">
-            <Input
-              aria-label="复核人"
-              value={feedback.reviewer}
-              onChange={(value) => setFeedback({ ...feedback, reviewer: value })}
-            />
-          </Form.Item>
+      <details className="technical-details">
+        <summary>技术详情</summary>
+        <div className="detail-grid">
+          <Card className="panel">
+            <SectionTitle title="Payload" />
+            <pre className="payload-preview">{JSON.stringify(displayPayload, null, 2)}</pre>
+          </Card>
 
-          <Form.Item label="字段">
-            <Select
-              aria-label="选择反馈字段"
-              value={feedback.field}
-              onChange={(value) => setFeedback({ ...feedback, field: String(value) })}
-            >
-              {displayFields.map((candidate) => (
-                <Select.Option key={candidate.field} value={candidate.field}>
-                  {candidate.field}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="反馈结论">
-            <Select
-              aria-label="选择反馈结论"
-              value={feedback.decision}
-              onChange={(value) => setFeedback({ ...feedback, decision: String(value) as FeedbackState["decision"] })}
-            >
-              <Select.Option value="accept">采纳候选值</Select.Option>
-              <Select.Option value="reject">驳回候选值</Select.Option>
-              <Select.Option value="needs_more_evidence">需要更多证据</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="修正值">
-            <Input
-              aria-label="修正值"
-              placeholder="不填写则沿用候选值"
-              value={feedback.correctedValue}
-              onChange={(value) => setFeedback({ ...feedback, correctedValue: value })}
-            />
-          </Form.Item>
+          <Card className="panel" data-guide="langgraph-workflow">
+            <SectionTitle title="LangGraph Trace" />
+            {displayTraceSteps.length > 0 ? (
+              <ol className="trace-list">
+                {displayTraceSteps.map((step) => (
+                  <li key={step.id}>
+                    <div>
+                      <strong>{step.node}</strong>
+                      <span>{step.durationMs}ms</span>
+                    </div>
+                    <StatusPill
+                      label={step.status === "done" ? "完成" : step.status === "active" ? "运行中" : "阻塞"}
+                      tone={step.status === "done" ? "completed" : step.status === "active" ? "running" : "failed"}
+                    />
+                    <p>{step.detail}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <EmptyPanel icon={statusIcons.neutral} title="暂无 Trace" description="当前任务还没有返回流程节点。" />
+            )}
+          </Card>
         </div>
-
-        <Form.Item label="反馈说明">
-          <Input.TextArea
-            aria-label="反馈说明"
-            rows={4}
-            value={feedback.note}
-            onChange={(value) => setFeedback({ ...feedback, note: value })}
-          />
-        </Form.Item>
-
-        <Space className="toolbar" wrap>
-          <Button
-            type="primary"
-            htmlType="submit"
-            aria-label="提交复核反馈"
-            disabled={submitState === "loading"}
-            loading={submitState === "loading"}
-            icon={<AppIcon icon={submitState === "loading" ? commonUiIcons.loading : actionIcons.next} size="sm" className={submitState === "loading" ? "is-spinning" : undefined} />}
-          >
-            {submitState === "loading" ? "提交中" : "提交反馈"}
-          </Button>
-          <Button
-            type="outline"
-            aria-label="插入证据说明"
-            onClick={() =>
-              setFeedback({
-                ...feedback,
-                note: selectedEvidence ? `参考证据：${selectedEvidence.quote}` : feedback.note,
-              })
-            }
-            icon={<AppIcon icon={dashboardMetricIcons.reviewQueue} size="sm" />}
-          >
-            引用证据
-          </Button>
-        </Space>
-
-        {submittedMessage ? <Alert type="success" showIcon content={submittedMessage} /> : null}
-        {submitState === "error" ? <Alert type="error" showIcon content={`反馈提交失败：${submitError}`} /> : null}
-      </form>
-      </Card>
+      </details>
     </main>
   );
 }

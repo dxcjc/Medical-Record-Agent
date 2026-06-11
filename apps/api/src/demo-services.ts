@@ -201,6 +201,37 @@ export function createDemoApiServices(): DemoApiServices {
       apiToken: "demo-secret"
     }
   });
+  demoProviders.set("paddle-ocr", {
+    key: "paddle-ocr",
+    name: "PaddleOCR 本地服务",
+    displayName: "PaddleOCR 本地服务",
+    kind: "ocr",
+    enabled: true,
+    isDefault: true,
+    isMock: false,
+    config: {
+      endpoint: "http://localhost:8866",
+      mode: "http-ocr"
+    },
+    secretRefs: {}
+  });
+  demoProviders.set("gpt5-llm", {
+    key: "gpt5-llm",
+    name: "GPT-5.5 (110.42.215.22)",
+    displayName: "GPT-5.5 (110.42.215.22)",
+    kind: "llm",
+    enabled: true,
+    isDefault: true,
+    isMock: false,
+    config: {
+      endpoint: "http://110.42.215.22/v1",
+      model: "gpt-5.5",
+      mode: "openai-compatible"
+    },
+    secretRefs: {
+      apiKey: "sk-433682dc026db1b850cb6f9aadd8708d0474d42e00938a1e7be03c3077982238"
+    }
+  });
 
   function createDemoError(code: string, statusCode: number) {
     return Object.assign(new Error(code), {

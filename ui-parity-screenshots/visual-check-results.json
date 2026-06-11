@@ -1,0 +1,2450 @@
+{
+  "generatedAt": "2026-06-08T15:40:16.080Z",
+  "medicalResults": [
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "login",
+      "route": "/login",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-login.png",
+      "title": "面向病历 OCR、结构化抽取、评测与写回的企业级控制台",
+      "textLength": 264,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "dashboard",
+      "route": "/",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-dashboard.png",
+      "title": "识别任务看板",
+      "textLength": 1123,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "识别看板",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 1090,
+          "hostClientWidth": 1090,
+          "hostScrollWidth": 1090,
+          "innerClientWidth": 1090,
+          "innerScrollWidth": 1090,
+          "contained": true,
+          "hasInternalOverflow": false
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "new-task",
+      "route": "/recognition/new",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-new-task.png",
+      "title": "新建识别任务",
+      "textLength": 510,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "新建识别",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "task-detail",
+      "route": "/recognition/jobs/demo",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-task-detail.png",
+      "title": "任务详情 demo",
+      "textLength": 662,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "任务详情",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "evaluation",
+      "route": "/evaluation",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-evaluation.png",
+      "title": "评测中心",
+      "textLength": 1189,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "评测中心",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 1090,
+          "hostClientWidth": 1090,
+          "hostScrollWidth": 1090,
+          "innerClientWidth": 1090,
+          "innerScrollWidth": 1090,
+          "contained": true,
+          "hasInternalOverflow": false
+        },
+        {
+          "tableWidth": 1090,
+          "hostClientWidth": 1090,
+          "hostScrollWidth": 1090,
+          "innerClientWidth": 1090,
+          "innerScrollWidth": 1090,
+          "contained": true,
+          "hasInternalOverflow": false
+        },
+        {
+          "tableWidth": 1090,
+          "hostClientWidth": 1090,
+          "hostScrollWidth": 1090,
+          "innerClientWidth": 1090,
+          "innerScrollWidth": 1090,
+          "contained": true,
+          "hasInternalOverflow": false
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "schema",
+      "route": "/schema",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-schema.png",
+      "title": "Schema 管理",
+      "textLength": 1979,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "Schema 管理",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 516,
+          "hostClientWidth": 516,
+          "hostScrollWidth": 516,
+          "innerClientWidth": 516,
+          "innerScrollWidth": 720,
+          "contained": true,
+          "hasInternalOverflow": true
+        },
+        {
+          "tableWidth": 516,
+          "hostClientWidth": 516,
+          "hostScrollWidth": 516,
+          "innerClientWidth": 516,
+          "innerScrollWidth": 720,
+          "contained": true,
+          "hasInternalOverflow": true
+        },
+        {
+          "tableWidth": 1090,
+          "hostClientWidth": 1090,
+          "hostScrollWidth": 1090,
+          "innerClientWidth": 1090,
+          "innerScrollWidth": 1090,
+          "contained": true,
+          "hasInternalOverflow": false
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 2,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "providers",
+      "route": "/providers",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-providers.png",
+      "title": "Provider 设置",
+      "textLength": 1347,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "Provider 设置",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 3,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "writeback",
+      "route": "/writeback",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-writeback.png",
+      "title": "写回中心",
+      "textLength": 823,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "写回控制",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 616,
+          "hostClientWidth": 616,
+          "hostScrollWidth": 616,
+          "innerClientWidth": 616,
+          "innerScrollWidth": 940,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "trace",
+      "route": "/trace",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-trace.png",
+      "title": "Agent Trace 追踪",
+      "textLength": 1359,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "Agent Trace",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 616,
+          "hostClientWidth": 616,
+          "hostScrollWidth": 616,
+          "innerClientWidth": 616,
+          "innerScrollWidth": 820,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "desktop",
+      "name": "audit",
+      "route": "/audit",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-desktop-audit.png",
+      "title": "审计日志",
+      "textLength": 504,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "flex",
+        "bg": "rgb(255, 255, 255)",
+        "width": 260
+      },
+      "activeNav": {
+        "text": "审计日志",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 616,
+          "hostClientWidth": 616,
+          "hostScrollWidth": 616,
+          "innerClientWidth": 616,
+          "innerScrollWidth": 860,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 40,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 42,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "login",
+      "route": "/login",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-login.png",
+      "title": "面向病历 OCR、结构化抽取、评测与写回的企业级控制台",
+      "textLength": 264,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "dashboard",
+      "route": "/",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-dashboard.png",
+      "title": "识别任务看板",
+      "textLength": 1123,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "识别看板",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 860,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "new-task",
+      "route": "/recognition/new",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-new-task.png",
+      "title": "新建识别任务",
+      "textLength": 510,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "新建识别",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "task-detail",
+      "route": "/recognition/jobs/demo",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-task-detail.png",
+      "title": "任务详情 demo",
+      "textLength": 662,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "任务详情",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "evaluation",
+      "route": "/evaluation",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-evaluation.png",
+      "title": "评测中心",
+      "textLength": 1189,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "评测中心",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 860,
+          "contained": true,
+          "hasInternalOverflow": true
+        },
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 900,
+          "contained": true,
+          "hasInternalOverflow": true
+        },
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 760,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "schema",
+      "route": "/schema",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-schema.png",
+      "title": "Schema 管理",
+      "textLength": 1979,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "Schema 管理",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 720,
+          "contained": true,
+          "hasInternalOverflow": true
+        },
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 720,
+          "contained": true,
+          "hasInternalOverflow": true
+        },
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 720,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 2,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "providers",
+      "route": "/providers",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-providers.png",
+      "title": "Provider 设置",
+      "textLength": 1347,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "Provider 设置",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 3,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "writeback",
+      "route": "/writeback",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-writeback.png",
+      "title": "写回中心",
+      "textLength": 823,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "写回控制",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 940,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "trace",
+      "route": "/trace",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-trace.png",
+      "title": "Agent Trace 追踪",
+      "textLength": 1359,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "Agent Trace",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 820,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "medical",
+      "viewportName": "mobile",
+      "name": "audit",
+      "route": "/audit",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/medical-mobile-audit.png",
+      "title": "审计日志",
+      "textLength": 504,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": {
+        "display": "none",
+        "bg": "rgb(255, 255, 255)",
+        "width": 0
+      },
+      "activeNav": {
+        "text": "审计日志",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "999px"
+      },
+      "tableData": [
+        {
+          "tableWidth": 317,
+          "hostClientWidth": 317,
+          "hostScrollWidth": 317,
+          "innerClientWidth": 317,
+          "innerScrollWidth": 860,
+          "contained": true,
+          "hasInternalOverflow": true
+        }
+      ],
+      "cards": [
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        },
+        {
+          "radius": "10px",
+          "shadow": "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+          "border": "rgb(229, 230, 235)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [
+        {
+          "height": 0,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        },
+        {
+          "height": 24,
+          "radius": "6px"
+        }
+      ],
+      "alertCount": 1,
+      "modalCount": 0,
+      "drawerCount": 0
+    }
+  ],
+  "arrowResults": [
+    {
+      "project": "arrow",
+      "viewportName": "desktop",
+      "name": "login",
+      "route": "/",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-desktop-login.png",
+      "title": "箭牌区域经营中台",
+      "textLength": 145,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(51, 112, 255)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgba(229, 230, 235, 0.8)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.12) 0px 8px 24px 0px",
+          "border": "rgba(229, 230, 235, 0.9)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 32,
+          "radius": "8px"
+        },
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "desktop",
+      "name": "dashboard",
+      "route": "/dashboard",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-desktop-dashboard.png",
+      "title": "箭牌区域经营中台",
+      "textLength": 145,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(51, 112, 255)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgba(229, 230, 235, 0.8)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.12) 0px 8px 24px 0px",
+          "border": "rgba(229, 230, 235, 0.9)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 32,
+          "radius": "8px"
+        },
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "desktop",
+      "name": "orders",
+      "route": "/orders",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-desktop-orders.png",
+      "title": "箭牌区域经营中台",
+      "textLength": 145,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": true,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(51, 112, 255)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgba(229, 230, 235, 0.8)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.12) 0px 8px 24px 0px",
+          "border": "rgba(229, 230, 235, 0.9)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 32,
+          "radius": "8px"
+        },
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "desktop",
+      "name": "approvals",
+      "route": "/approvals",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-desktop-approvals.png",
+      "error": "page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    },
+    {
+      "project": "arrow",
+      "viewportName": "desktop",
+      "name": "permissions",
+      "route": "/permissions",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-desktop-permissions.png",
+      "title": "",
+      "textLength": 98,
+      "blank": false,
+      "bodyScrollWidth": 1440,
+      "viewportWidth": 1440,
+      "bodyOverflow": false,
+      "titleVisible": false,
+      "titleClipped": true,
+      "sidebar": {
+        "display": "block",
+        "bg": "rgb(255, 255, 255)",
+        "width": 240
+      },
+      "activeNav": {
+        "text": "权限设置",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "8px"
+      },
+      "tableData": [],
+      "cards": [],
+      "buttons": [
+        {
+          "height": 36,
+          "radius": "8px"
+        },
+        {
+          "height": 36,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "mobile",
+      "name": "login",
+      "route": "/",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-mobile-login.png",
+      "title": "箭牌区域经营中台",
+      "textLength": 145,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": false,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(51, 112, 255)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgba(229, 230, 235, 0.8)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.12) 0px 8px 24px 0px",
+          "border": "rgba(229, 230, 235, 0.9)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 32,
+          "radius": "8px"
+        },
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "mobile",
+      "name": "dashboard",
+      "route": "/dashboard",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-mobile-dashboard.png",
+      "title": "",
+      "textLength": 95,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": false,
+      "titleClipped": true,
+      "sidebar": {
+        "display": "block",
+        "bg": "rgb(255, 255, 255)",
+        "width": 280
+      },
+      "activeNav": {
+        "text": "经营驾驶舱",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "8px"
+      },
+      "tableData": [],
+      "cards": [],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "mobile",
+      "name": "orders",
+      "route": "/orders",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-mobile-orders.png",
+      "title": "",
+      "textLength": 95,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": false,
+      "titleClipped": true,
+      "sidebar": {
+        "display": "block",
+        "bg": "rgb(255, 255, 255)",
+        "width": 280
+      },
+      "activeNav": {
+        "text": "报价/订单",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "8px"
+      },
+      "tableData": [],
+      "cards": [],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "mobile",
+      "name": "approvals",
+      "route": "/approvals",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-mobile-approvals.png",
+      "title": "箭牌区域经营中台",
+      "textLength": 145,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": false,
+      "titleClipped": false,
+      "sidebar": null,
+      "activeNav": null,
+      "tableData": [],
+      "cards": [
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgb(51, 112, 255)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
+          "border": "rgba(229, 230, 235, 0.8)"
+        },
+        {
+          "radius": "12px",
+          "shadow": "rgba(0, 0, 0, 0.12) 0px 8px 24px 0px",
+          "border": "rgba(229, 230, 235, 0.9)"
+        }
+      ],
+      "buttons": [
+        {
+          "height": 32,
+          "radius": "8px"
+        },
+        {
+          "height": 44,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    },
+    {
+      "project": "arrow",
+      "viewportName": "mobile",
+      "name": "permissions",
+      "route": "/permissions",
+      "screenshot": "/tmp/Medical-Record-Agent/ui-parity-screenshots/arrow-mobile-permissions.png",
+      "title": "",
+      "textLength": 94,
+      "blank": false,
+      "bodyScrollWidth": 375,
+      "viewportWidth": 375,
+      "bodyOverflow": false,
+      "titleVisible": false,
+      "titleClipped": true,
+      "sidebar": {
+        "display": "block",
+        "bg": "rgb(255, 255, 255)",
+        "width": 280
+      },
+      "activeNav": {
+        "text": "权限设置",
+        "bg": "rgb(232, 243, 255)",
+        "color": "rgb(51, 112, 255)",
+        "radius": "8px"
+      },
+      "tableData": [],
+      "cards": [],
+      "buttons": [
+        {
+          "height": 0,
+          "radius": "8px"
+        },
+        {
+          "height": 0,
+          "radius": "8px"
+        }
+      ],
+      "tags": [],
+      "alertCount": 0,
+      "modalCount": 0,
+      "drawerCount": 0
+    }
+  ]
+}

@@ -89,6 +89,7 @@ function createEmptyValidationResult(): ValidationEngineResult {
   return {
     decision: "blocked",
     fieldResults: [],
+    requiredFieldKeys: [],
     missingRequiredFieldKeys: [],
     acceptedFieldKeys: [],
     reviewFieldKeys: [],

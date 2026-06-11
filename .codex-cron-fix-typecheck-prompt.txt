@@ -1,0 +1,24 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器询问确认。直接执行。必须遵循 superpowers 流程：brainstorming → writing-plans → TDD/测试优先 → verification-before-completion。
+
+任务：修复医疗项目最新 P1/P2 审计闭环中的构建回归，并生成修复报告与再审计报告。
+
+工作目录：/tmp/Medical-Record-Agent
+
+背景：统一产品审计调度员刚刚在当前环境重新验证，命令 `corepack pnpm typecheck && corepack pnpm test && corepack pnpm --filter @medical-record-agent/demo-web build` 失败。失败点：
+- `apps/demo-web/src/pages/recognition/NewRecognitionPage.test.ts` 从 `./NewRecognitionPage` 导入了 `describeRecognitionAsyncProgress`、`isRecognitionPollingStatus`、`isRecognitionSuccessfulTerminalStatus`
+- 但 `apps/demo-web/src/pages/recognition/NewRecognitionPage.tsx` 当前没有导出这些成员
+
+必须完成：
+1. 修复上述 typecheck/build 回归。优先检查测试意图和页面实现，不要删除有效测试来掩盖问题；应补齐/导出异步识别进度归一化逻辑，使 queued/running/completed/failed 等状态与测试和产品体验一致。
+2. 保持医疗项目已有 Material + Arco UI，不要粗暴重写 CSS，不要破坏 9901 部署/API 代理。
+3. 重新运行并记录结果：
+   - `corepack pnpm typecheck`
+   - `corepack pnpm test`
+   - `corepack pnpm --filter @medical-record-agent/demo-web build`
+   - 如可行，运行 `PRODUCTION_SMOKE_MODE=mock-production PRODUCTION_SMOKE_RUN_WRITEBACK=1 corepack pnpm smoke:production`
+4. 生成/更新报告：
+   - `MEDICAL-P1-P2-NEXT-FIX-REPORT.md`：记录本次构建回归修复、涉及文件、验证命令、剩余问题。
+   - `MEDICAL-P1-P2-NEXT-AUDIT-REPORT.md`：必须包含 7 个维度：产品概述、功能完整性、业务流程完整性、用户体验、技术实现、P0/P1/P2 问题清单、验收结论。若仍有失败，结论必须是不通过。
+5. 不要 git commit，不要修改 .env/node_modules/无关缓存。
+
+不要问问题，直接修复、验证、生成报告。

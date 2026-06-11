@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 export type ApiRouteResponseObject = Record<string, unknown>;
+export type ProviderConfigFieldError = {
+  path: string;
+  message: string;
+};
 
 const nonEmptyString = z.string().min(1);
 const optionalNonEmptyString = nonEmptyString.optional();
@@ -116,6 +120,89 @@ function maskSecretRefsRecord(value: Record<string, unknown>) {
       }
     ])
   );
+}
+
+function readProviderConfigString(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function hasSecretRef(record: Record<string, unknown> | undefined, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function addRequiredFieldError(errors: ProviderConfigFieldError[], path: string, message: string) {
+  errors.push({ path, message });
+}
+
+export function validateProviderConfigRequiredFields(input: {
+  kind: string;
+  config?: Record<string, unknown>;
+  secretRefs?: Record<string, unknown>;
+}): ProviderConfigFieldError[] {
+  const errors: ProviderConfigFieldError[] = [];
+  const config = input.config ?? {};
+  const mode = readProviderConfigString(config, ["providerKind", "provider", "kind"])?.toLowerCase() ?? "";
+  const kind = input.kind.toLowerCase();
+  const endpoint = readProviderConfigString(config, ["endpoint", "baseUrl"]);
+  const model = readProviderConfigString(config, ["modelOrBucket", "model"]);
+
+  if (kind === "llm") {
+    if (mode === "openai-responses" || mode === "openai-compatible" || mode === "http") {
+      if (!endpoint) {
+        addRequiredFieldError(errors, "config.endpoint", "Base URL 不能为空");
+      }
+      if (!model) {
+        addRequiredFieldError(errors, "config.modelOrBucket", "模型名称不能为空");
+      }
+      if (!hasSecretRef(input.secretRefs, "apiKey")) {
+        addRequiredFieldError(errors, "secretRefs.apiKey", "API Key 引用名不能为空");
+      }
+    } else if (mode === "langchain" && !model) {
+      addRequiredFieldError(errors, "config.modelOrBucket", "模型名称不能为空");
+    }
+  }
+
+  if (kind === "ocr") {
+    if (mode === "http" || mode === "openai-compatible") {
+      if (!endpoint) {
+        addRequiredFieldError(errors, "config.endpoint", mode === "openai-compatible" ? "Base URL 不能为空" : "OCR Endpoint 不能为空");
+      }
+      if (mode === "openai-compatible" && !model) {
+        addRequiredFieldError(errors, "config.modelOrBucket", "模型名称不能为空");
+      }
+      if (mode === "openai-compatible" && !hasSecretRef(input.secretRefs, "apiKey")) {
+        addRequiredFieldError(errors, "secretRefs.apiKey", "API Key 引用名不能为空");
+      }
+    }
+  }
+
+  if (kind === "storage") {
+    if (!endpoint) {
+      addRequiredFieldError(errors, "config.endpoint", "存储地址不能为空");
+    }
+    if (!model) {
+      addRequiredFieldError(errors, "config.modelOrBucket", "Bucket / Prefix 不能为空");
+    }
+  }
+
+  if (kind === "lims") {
+    if (!endpoint) {
+      addRequiredFieldError(errors, "config.endpoint", "LIMS Endpoint 不能为空");
+    }
+    if (!hasSecretRef(input.secretRefs, "apiToken")) {
+      addRequiredFieldError(errors, "secretRefs.apiToken", "API Token 引用名不能为空");
+    }
+  }
+
+  return errors;
 }
 
 export function redactSensitiveRouteValue(value: unknown, path: string[] = []): unknown {

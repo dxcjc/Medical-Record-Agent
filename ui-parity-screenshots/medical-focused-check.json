@@ -1,0 +1,184 @@
+{
+  "trace": {
+    "title": "Agent Trace 追踪",
+    "bodyScrollWidth": 466,
+    "viewportWidth": 375,
+    "overflow": true,
+    "offenders": [
+      {
+        "tag": "DIV",
+        "cls": "arco-card arco-card-size-default panel",
+        "text": "Trace Runs0 条Trace样本开始时间耗时状态暂无数据",
+        "left": 12,
+        "right": 466,
+        "width": 454
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-card-body",
+        "text": "Trace Runs0 条Trace样本开始时间耗时状态暂无数据",
+        "left": 13,
+        "right": 465,
+        "width": 452
+      },
+      {
+        "tag": "DIV",
+        "cls": "panel-header",
+        "text": "Trace Runs0 条",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "H2",
+        "cls": "",
+        "text": "Trace Runs",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-table arco-table-size-default arco-table-hover arco-table-layout-fixed arco-table-scroll-position-left",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-spin",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-spin-children",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-table-container",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-table-content-scroll",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-table-content-inner",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 449,
+        "width": 420
+      },
+      {
+        "tag": "TABLE",
+        "cls": "",
+        "text": "Trace样本开始时间耗时状态暂无数据",
+        "left": 29,
+        "right": 849,
+        "width": 820
+      },
+      {
+        "tag": "COLGROUP",
+        "cls": "",
+        "text": "",
+        "left": 29,
+        "right": 849,
+        "width": 820
+      },
+      {
+        "tag": "COL",
+        "cls": "",
+        "text": "",
+        "left": 357,
+        "right": 521,
+        "width": 164
+      },
+      {
+        "tag": "COL",
+        "cls": "",
+        "text": "",
+        "left": 521,
+        "right": 685,
+        "width": 164
+      },
+      {
+        "tag": "COL",
+        "cls": "",
+        "text": "",
+        "left": 685,
+        "right": 849,
+        "width": 164
+      },
+      {
+        "tag": "THEAD",
+        "cls": "",
+        "text": "Trace样本开始时间耗时状态",
+        "left": 29,
+        "right": 849,
+        "width": 820
+      },
+      {
+        "tag": "TR",
+        "cls": "arco-table-tr",
+        "text": "Trace样本开始时间耗时状态",
+        "left": 29,
+        "right": 849,
+        "width": 820
+      },
+      {
+        "tag": "TH",
+        "cls": "arco-table-th",
+        "text": "开始时间",
+        "left": 357,
+        "right": 521,
+        "width": 164
+      },
+      {
+        "tag": "DIV",
+        "cls": "arco-table-th-item",
+        "text": "开始时间",
+        "left": 357,
+        "right": 521,
+        "width": 164
+      },
+      {
+        "tag": "SPAN",
+        "cls": "arco-table-th-item-title",
+        "text": "开始时间",
+        "left": 373,
+        "right": 429,
+        "width": 56
+      }
+    ],
+    "tables": [
+      {
+        "clientWidth": 420,
+        "scrollWidth": 420
+      }
+    ]
+  },
+  "login": {
+    "title": "",
+    "bodyScrollWidth": 375,
+    "viewportWidth": 375,
+    "overflow": false,
+    "offenders": [],
+    "tables": []
+  }
+}

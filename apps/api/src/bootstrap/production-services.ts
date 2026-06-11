@@ -1407,6 +1407,7 @@ function createConfigurationFailureResult(jobId: string, error: JobOrchestratorR
     validation: {
       decision: "blocked",
       fieldResults: [],
+      requiredFieldKeys: [],
       missingRequiredFieldKeys: [],
       acceptedFieldKeys: [],
       reviewFieldKeys: [],

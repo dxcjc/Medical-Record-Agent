@@ -1431,6 +1431,190 @@ button:disabled,
   background: #FFFFFF;
 }
 
+.recognition-capability-card .arco-card-body {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recognition-capability-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.recognition-capability-item {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  background: #FAFBFC;
+}
+
+.recognition-capability-item > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.recognition-capability-item strong {
+  color: var(--color-title);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.recognition-capability-item span,
+.recognition-capability-item p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.recognition-capability-item.is-blocked {
+  border-color: #FFB9B0;
+  background: var(--color-danger-soft);
+}
+
+.review-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.review-workspace__source,
+.review-workspace__fields {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.review-field-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.review-field-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.75fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3) var(--space-4);
+  background: #FFFFFF;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.review-field-row:hover,
+.review-field-row:focus-visible {
+  border-color: #BEDAFF;
+  box-shadow: var(--shadow-1);
+}
+
+.review-field-row strong,
+.review-field-row small,
+.review-field-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-field-row strong {
+  color: var(--color-title);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.review-field-row small {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.review-field-row.is-missing,
+.review-field-row.is-conflict,
+.review-field-row.is-low_confidence {
+  background: #FFF7E8;
+}
+
+.recognition-timeline-card .arco-card-body {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recognition-timeline {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recognition-timeline__item {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  background: #F7F8FA;
+}
+
+.recognition-timeline__item span {
+  display: block;
+  color: var(--color-title);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.recognition-timeline__item p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.recognition-timeline__item.is-done {
+  border-color: #95E0A6;
+  background: var(--color-success-soft);
+}
+
+.recognition-timeline__item.is-active {
+  border-color: #A9C5FF;
+  background: var(--color-primary-soft);
+}
+
+.recognition-timeline__item.is-failed {
+  border-color: #FFB9B0;
+  background: var(--color-danger-soft);
+}
+
+.technical-details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: #FFFFFF;
+  padding: var(--space-4);
+}
+
+.technical-details summary {
+  min-height: 44px;
+  color: var(--color-title);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.technical-details[open] summary {
+  margin-bottom: var(--space-4);
+}
+
 .async-recognition-panel .arco-card-body {
   display: grid;
   gap: var(--space-4);
@@ -2213,6 +2397,17 @@ meter {
   .operations-split,
   .provider-grid {
     grid-template-columns: 1fr;
+  }
+
+  .recognition-capability-list,
+  .review-workspace,
+  .recognition-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .review-field-row {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 }
 

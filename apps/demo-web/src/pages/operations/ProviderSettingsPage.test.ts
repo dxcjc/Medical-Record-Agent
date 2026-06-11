@@ -46,7 +46,7 @@ describe("ProviderSettingsPage provider config mapping", () => {
         { area: "OCR", kind: "HTTP OCR", endpoint: "https://ocr.example/v1", modelOrBucket: "ocr", secret: "OCR_SECRET", timeoutMs: 1000, enabled: true },
         { area: "LLM", kind: "OpenAI Responses", endpoint: "http://llm", modelOrBucket: "gpt", secret: "LLM_SECRET", timeoutMs: 2000, enabled: true },
         { area: "storage", kind: "Object Storage", endpoint: "s3://bucket", modelOrBucket: "records", secret: "STORAGE_SECRET", timeoutMs: 3000, enabled: true },
-        { area: "LIMS", kind: "LIMS REST", endpoint: "https://lims.example/api", modelOrBucket: "lims", secret: "LIMS_SECRET", timeoutMs: 4000, enabled: false }
+        { area: "storage", kind: "LIMS REST", endpoint: "https://lims.example/api", modelOrBucket: "lims", secret: "LIMS_SECRET", timeoutMs: 4000, enabled: false }
       ])
     )?.toHaveLength(4);
 
@@ -103,7 +103,7 @@ describe("ProviderSettingsPage provider config mapping", () => {
       canRetry: false
     });
 
-    expect(describeProviderAsyncAction({ kind: "failed", area: "LIMS", errorMessage: "PROVIDER_NOT_FOUND" })).toEqual({
+    expect(describeProviderAsyncAction({ kind: "failed", area: "storage", errorMessage: "PROVIDER_NOT_FOUND" })).toEqual({
       tone: "warning",
       title: "Provider 操作失败",
       message: "LIMS 操作失败：PROVIDER_NOT_FOUND。请刷新 Provider API 或重试上一次操作。",

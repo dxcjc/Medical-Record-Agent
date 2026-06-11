@@ -210,7 +210,7 @@ describe("Arco Design 全局 UI 守护", () => {
       expect(styles).toContain(`.${className}`);
     }
 
-    expect(newRecognition).toContain("privacyOptionContent");
+    expect(newRecognition).toContain("visiblePrivacyOptionContent");
     expect(newRecognition).toContain('onClick={() => updatePrivacy(key)}');
     expect(newRecognition).toContain("已启用");
     expect(newRecognition).toContain("未启用");

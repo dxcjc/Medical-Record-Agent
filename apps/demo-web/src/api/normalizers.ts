@@ -24,6 +24,7 @@ export type SelectOption = {
 export type RecognitionDetailState = {
   jobId?: string;
   sourceFileId?: string;
+  status?: string;
   ocrText?: string;
   fields?: FieldCandidate[];
   evidence?: EvidenceItem[];
@@ -610,6 +611,7 @@ export function normalizeRecognitionDetail(job: ApiRecognitionJob, result: ApiRe
   const detail: RecognitionDetailState = {};
   const jobId = readString(jobRecord, ["id", "jobId"]);
   const sourceFileId = readString(jobRecord, ["sourceFileId", "fileId"]);
+  const status = readString(jobRecord, ["status"]);
   const ocrText = normalizeOcrText(result);
   const fields = normalizeRecognitionFields(result);
   const evidence = normalizeEvidenceItems(result);
@@ -622,6 +624,10 @@ export function normalizeRecognitionDetail(job: ApiRecognitionJob, result: ApiRe
 
   if (sourceFileId) {
     detail.sourceFileId = sourceFileId;
+  }
+
+  if (status) {
+    detail.status = status;
   }
 
   if (ocrText) {

@@ -6,10 +6,12 @@ import {
   createSyntheticRecognitionFile,
   describeRecognitionAsyncProgress,
   getRecognitionAsyncRecoveryHint,
+  getRecognitionCapabilitySummary,
   getRecognitionProviderGate,
   getVisibleRecognitionProviderOptions,
   isRecognitionPollingStatus,
   isRecognitionSuccessfulTerminalStatus,
+  LOCAL_PADDLE_OCR_PROVIDER_KEY,
   parseProviderOptions,
   parseSchemaOptions,
   validateRecognitionFile
@@ -205,20 +207,72 @@ describe("NewRecognitionPage option parsing", () => {
     ]);
   });
 
-  it("没有真实 OCR/LLM provider 时禁用识别创建并提示等待接入真实模型提供商", () => {
+  it("新建识别只要求模型提供商，本地 PaddleOCR 和内置存储不再要求用户配置 Provider", () => {
     const response = {
       items: [
         { key: "mock-ocr", kind: "ocr", name: "Mock OCR Provider", isMock: true },
         { key: "mock-model", kind: "llm", name: "Mock Model Provider", isMock: true }
       ]
     };
-    const ocrProviders = parseProviderOptions(response, "ocr");
     const llmProviders = parseProviderOptions(response, "llm");
 
     expect(getVisibleRecognitionProviderOptions(response, "ocr").mockOnly).toBe(true);
-    expect(getRecognitionProviderGate(ocrProviders, llmProviders)).toEqual({
+    expect(getRecognitionProviderGate(llmProviders)).toEqual({
       canCreate: false,
-      message: "请先配置真实 OCR/LLM Provider；等待接入真实模型提供商。"
+      message: "请先配置模型提供商；本地 PaddleOCR 和内置文件保存已作为项目内置能力。"
+    });
+
+    expect(
+      getRecognitionProviderGate([
+        {
+          value: "openai-compatible-model",
+          label: "OpenAI-compatible Provider"
+        }
+      ])
+    ).toEqual({
+      canCreate: true,
+      message: "本地 PaddleOCR、内置文件保存和模型提供商均已就绪。"
+    });
+  });
+
+  it("能力摘要把 OCR 和 Storage 显示成内置能力，只把 LLM 显示成待配置或已连接", () => {
+    expect(getRecognitionCapabilitySummary([])).toEqual([
+      {
+        key: "ocr",
+        label: "本地 OCR",
+        value: "PaddleOCR",
+        status: "ready",
+        description: "本项目固定使用本机 PaddleOCR，不需要录入 OCR Endpoint。"
+      },
+      {
+        key: "storage",
+        label: "文件保存",
+        value: "内置本地存储",
+        status: "ready",
+        description: "识别文件和中间结果先写入项目内置保存策略。"
+      },
+      {
+        key: "llm",
+        label: "模型提供商",
+        value: "待配置",
+        status: "blocked",
+        description: "请先在识别能力检查中配置一个可用模型。"
+      }
+    ]);
+
+    expect(
+      getRecognitionCapabilitySummary([
+        {
+          value: "deepseek-chat",
+          label: "DeepSeek Chat"
+        }
+      ])[2]
+    ).toEqual({
+      key: "llm",
+      label: "模型提供商",
+      value: "DeepSeek Chat",
+      status: "ready",
+      description: "结构化抽取会使用当前选中的模型提供商。"
     });
   });
 
@@ -239,7 +293,7 @@ describe("NewRecognitionPage option parsing", () => {
       buildRecognitionFileUploadInput({
         file,
         adapter: "lims-clinical-payload",
-        ocrProvider: "http-ocr",
+        ocrProvider: LOCAL_PADDLE_OCR_PROVIDER_KEY,
         provider: "openai-responses-model",
         privacy: {
           deidentify: true,
@@ -255,7 +309,7 @@ describe("NewRecognitionPage option parsing", () => {
       contentBase64: "REVNT19QREZfQllURVM=",
       metadata: {
         adapter: "lims-clinical-payload",
-        ocrProvider: "http-ocr",
+        ocrProvider: LOCAL_PADDLE_OCR_PROVIDER_KEY,
         provider: "openai-responses-model",
         privacy: {
           deidentify: true,
@@ -277,7 +331,7 @@ describe("NewRecognitionPage option parsing", () => {
           type: "application/pdf"
         }),
         adapter: "lims-clinical-payload",
-        ocrProvider: "http-ocr",
+        ocrProvider: LOCAL_PADDLE_OCR_PROVIDER_KEY,
         provider: "openai-responses-model",
         privacy: {
           deidentify: true,
@@ -299,7 +353,7 @@ describe("NewRecognitionPage option parsing", () => {
       file,
       schemaName: "lims-clinical-info",
       adapter: "OutpatientPdfAdapter" as const,
-      ocrProvider: "http-ocr",
+      ocrProvider: LOCAL_PADDLE_OCR_PROVIDER_KEY,
       provider: "openai-responses-model",
       privacy: {
         deidentify: true,
