@@ -1956,7 +1956,7 @@ function createProviderRegistry(
           {
             key: "http-ocr",
             kind: "ocr" as const,
-            displayName: "HTTP OCR Provider",
+            displayName: "PaddleOCR 本地服务",
             enabled: true,
             isDefault: true,
             isMock: false,
@@ -1973,7 +1973,7 @@ function createProviderRegistry(
           {
             key: env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`,
             kind: "llm" as const,
-            displayName: `${env.providers.llm.provider} Model Provider`,
+            displayName: env.providers.llm.model ? `${env.providers.llm.model.toUpperCase()} (${env.providers.llm.provider})` : `${env.providers.llm.provider} Model Provider`,
             enabled: true,
             isDefault: true,
             isMock: false,

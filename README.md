@@ -34,6 +34,7 @@ corepack pnpm test                                                   # 单元测
 corepack pnpm --filter @medical-record-agent/demo-web test:styles    # 样式测试
 corepack pnpm --filter @medical-record-agent/demo-web test:mobile    # 移动端测试
 corepack pnpm readiness:deployment                                   # 部署就绪检查
+corepack pnpm e2e:demo-web:browser                                 # 浏览器 E2E 测试（browserE2E=passed / blocked）
 ```
 
 ## 项目结构

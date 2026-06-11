@@ -124,7 +124,7 @@ export default function LoginPage() {
               <p className="page-subtle-note">使用演示账号进入医疗 AI 识别与运维环境。</p>
             </header>
             {demoPrefillEnabled ? (
-              <Alert type="info" showIcon content="当前为开发/demo 环境，已预填演示账号；生产构建不会预填默认凭据。" />
+              <Alert type="info" showIcon content={`演示账号：${demoEmail} / ${demoPassword}`} />
             ) : null}
 
             <Form.Item label="邮箱">

@@ -55,9 +55,9 @@ type ProviderAsyncDescriptor = {
 
 export const providerKinds: ProviderKind[] = ["HTTP OCR", "LangChain", "OpenAI-compatible", "OpenAI Responses", "LIMS REST", "Object Storage"];
 const providerKeyByArea: Record<ProviderArea, string> = {
-  OCR: "configured-ocr-provider",
-  LLM: "configured-llm-provider",
-  storage: "configured-storage-provider"
+  OCR: "http-ocr",
+  LLM: "openai-compatible-model",
+  storage: "local-storage"
 };
 const providerKindByArea: Record<ProviderArea, "ocr" | "llm" | "storage"> = {
   OCR: "ocr",

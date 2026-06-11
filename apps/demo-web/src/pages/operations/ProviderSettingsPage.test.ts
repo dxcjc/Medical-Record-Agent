@@ -21,7 +21,7 @@ describe("ProviderSettingsPage provider config mapping", () => {
       enabled: true
     });
 
-    expect(buildProviderKeyForArea("LLM")).toBe("configured-llm-provider");
+    expect(buildProviderKeyForArea("LLM")).toBe("openai-compatible-model");
     expect(request).toEqual({
       kind: "llm",
       displayName: "LLM OpenAI Responses Provider",
