@@ -71,7 +71,7 @@ export default function LoginPage() {
     } catch (caughtError) {
       const message =
         caughtError instanceof ApiClientError
-          ? `登录失败：${caughtError.code}`
+          ? caughtError.message
           : "登录失败：请确认 API 服务已启动。";
       setError(message);
     } finally {

@@ -104,6 +104,7 @@ export function describeApiErrorCode(code: string) {
   // API 只暴露稳定错误码，前端在这里集中转成用户可理解的中文提示。
   // 这样页面不需要认识每个后端 code，也避免把原始 Error.message 或敏感配置细节直接展示出来。
   const messages: Record<string, string> = {
+    BAD_REQUEST: "请求格式不正确，请检查输入。",
     API_ERROR: "接口请求失败，请稍后重试。",
     AUTH_INVALID_CREDENTIALS: "账号或密码不正确，请检查后重试。",
     FORBIDDEN: "当前账号没有执行该操作的权限。",
@@ -116,7 +117,9 @@ export function describeApiErrorCode(code: string) {
     SCHEMA_VERSION_NOT_FOUND: "未找到 Schema 版本，请刷新列表后重试。",
     SOURCE_FILE_NOT_FOUND: "未找到已上传的病历文件，请重新上传后再创建识别任务。",
     STORED_FILE_NOT_FOUND: "病历文件在受控存储中不存在，请重新上传后再试。",
-    UNAUTHORIZED: "登录状态已失效，请重新登录。"
+    UNAUTHORIZED: "登录状态已失效，请重新登录。",
+    RATE_LIMITED: "登录尝试过于频繁，请稍后重试。",
+    INTERNAL_ERROR: "服务暂时不可用，请稍后重试。"
   };
 
   return messages[code] ?? code;
