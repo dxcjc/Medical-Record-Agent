@@ -1815,7 +1815,7 @@ async function runOcrHealthProbe(input: {
   healthFetch: ProviderHealthFetch;
 }) {
   const startedAt = Date.now();
-  const method = "HEAD";
+  const method = "GET";
   const requestInit: RequestInit = {
     method
   };
@@ -1827,7 +1827,7 @@ async function runOcrHealthProbe(input: {
   }
 
   try {
-    // OCR 健康检查只做 HEAD 最小探针，不发送病历文本、文件内容或识别 payload。
+    // OCR 健康检查用 GET 最小探针
     const response = await input.healthFetch(input.endpoint, requestInit);
 
     return {
@@ -2224,7 +2224,7 @@ function createProviderRegistry(
         }
 
         const requestInit: RequestInit = {
-          method: "HEAD"
+          method: "GET"
         };
         if (secret.value !== undefined) {
           requestInit.headers = {
@@ -2233,7 +2233,9 @@ function createProviderRegistry(
         }
         const startedAt = Date.now();
         try {
-          const response = await providerHealthFetch(endpoint, requestInit);
+          // LLM 健康检查用 GET /models 端点
+          const healthUrl = endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`;
+          const response = await providerHealthFetch(healthUrl, requestInit);
 
           return {
             key: provider.key,
@@ -2243,8 +2245,8 @@ function createProviderRegistry(
             message: response.ok ? "HTTP LLM provider 最小健康探针通过。" : "HTTP LLM provider 最小健康探针未通过。",
             latencyMs: Date.now() - startedAt,
             probe: {
-              method: "HEAD",
-              url: endpoint,
+              method: "GET",
+              url: healthUrl,
               statusCode: response.status
             },
             secretRefs: provider.secretRefs,
@@ -2259,7 +2261,7 @@ function createProviderRegistry(
             message: "HTTP LLM provider 健康探针失败，请检查 endpoint、认证或内网连通性。",
             latencyMs: Date.now() - startedAt,
             probe: {
-              method: "HEAD",
+              method: "GET",
               url: endpoint
             },
             secretRefs: provider.secretRefs,
