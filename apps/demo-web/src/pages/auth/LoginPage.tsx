@@ -5,7 +5,7 @@ import { LockKeyhole, LogIn, ShieldCheck } from "lucide-react";
 import { ApiClientError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 
-const demoEmail = "demo@example.local";
+const demoEmail = "admin.dev@example.local";
 const demoPassword = "ChangeMe123!";
 
 type DemoAuthEnv = {

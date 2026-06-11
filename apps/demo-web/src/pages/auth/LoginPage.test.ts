@@ -16,6 +16,6 @@ describe("LoginPage demo credentials guard", () => {
   it("开发或显式 demo 环境才预填默认凭据", () => {
     expect(isDemoAuthPrefillEnabled({ DEV: true, MODE: "development" })).toBe(true);
     expect(isDemoAuthPrefillEnabled({ DEV: false, MODE: "production", VITE_DEMO_AUTH_ENABLED: "true" })).toBe(true);
-    expect(getInitialLoginCredentials({ DEV: true, MODE: "development" }).email).toBe("demo@example.local");
+    expect(getInitialLoginCredentials({ DEV: true, MODE: "development" }).email).toBe("admin.dev@example.local");
   });
 });
