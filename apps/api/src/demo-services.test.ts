@@ -32,6 +32,26 @@ describe("createDemoApiServices recognition closure", () => {
       expect.objectContaining({
         key: "lims-writeback",
         kind: "lims"
+      }),
+      expect.objectContaining({
+        key: "paddle-ocr",
+        kind: "ocr"
+      }),
+      expect.objectContaining({
+        key: "gpt5-llm",
+        kind: "llm"
+      }),
+      expect.objectContaining({
+        key: "configured-ocr-provider",
+        kind: "ocr"
+      }),
+      expect.objectContaining({
+        key: "configured-llm-provider",
+        kind: "llm"
+      }),
+      expect.objectContaining({
+        key: "configured-storage-provider",
+        kind: "storage"
       })
     ]);
   });
@@ -45,22 +65,20 @@ describe("createDemoApiServices recognition closure", () => {
     });
   });
 
-  it("demo API 没有真实 OCR/LLM provider 时阻断识别创建", async () => {
+  it("demo API 走 mock 编排闭环创建识别任务", async () => {
     const services = createDemoApiServices();
 
-    await expect(
-      services.jobService.create({
-        schemaKey: "lims-clinical-info",
-        document: {
-          documentId: "demo-document-001",
-          fileName: "demo-record.pdf",
-          mimeType: "application/pdf"
-        }
-      })
-    ).rejects.toMatchObject({
-      code: "REAL_PROVIDER_NOT_CONFIGURED",
-      statusCode: 503
+    const result = await services.jobService.create({
+      schemaKey: "lims-clinical-info",
+      document: {
+        documentId: "demo-document-001",
+        fileName: "demo-record.pdf",
+        mimeType: "application/pdf"
+      }
     });
+
+    expect(result.status).toBe("completed");
+    expect(result.id).toMatch(/^job-demo-/);
   });
 
   it("demo 内部测试编排保留在非用户业务入口", async () => {

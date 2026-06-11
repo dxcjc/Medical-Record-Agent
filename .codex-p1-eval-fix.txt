@@ -1,0 +1,24 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器。直接开始工作。
+
+任务：修复 /tmp/Medical-Record-Agent 项目 P1-4 Evaluation schema 硬编码问题。
+
+【背景】
+审计报告 MEDICAL-AUDIT-2026-06-11.md 中 P1-4 指出：
+Evaluation 生产 runner 固定使用 limsClinicalInfoSchema，未按用户创建 run 时传入的 schemaKey 动态解析。
+
+代码位置：apps/api/src/bootstrap/production-services.ts 中多处引用 limsClinicalInfoSchema。
+
+【修复要求】
+1. 修改 `apps/api/src/bootstrap/production-services.ts`：
+   - createProductionEvaluationRunner 应按 runInput.schemaConfig.schemaKey/schemaVersionId 解析 active schema
+   - 与生产识别的 schema resolution 复用同一逻辑
+   - metrics 中记录实际使用的 schemaVersionId
+2. 修改 evaluation runner 中创建识别任务的部分，使用动态解析的 schema 而非硬编码
+3. 补充测试验证 Evaluation 可使用自定义 schema
+
+【验证要求】
+1. pnpm typecheck 必须通过
+2. pnpm build 必须通过
+3. pnpm test 必须通过
+4. 生成修复报告到 /tmp/Medical-Record-Agent/P1-4-EVALUATION-FIX-REPORT.md
+

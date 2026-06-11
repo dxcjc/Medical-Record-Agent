@@ -151,7 +151,7 @@ function createFixedWindowRateLimiter(rule: ApiRateLimitRule, scope: string): pr
     buckets.set(key, bucket);
 
     if (bucket.count > rule.max) {
-      throw createRateLimitError((bucket.resetAt - now) / 1000);
+      throw createRateLimitError(Math.ceil((bucket.resetAt - now) / 1000));
     }
   };
 }

@@ -1,0 +1,81 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器询问确认。直接执行。必须遵循 superpowers 流程：brainstorming → writing-plans → TDD/测试优先 → verification-before-completion。
+
+任务：继续推进医疗项目 demo-web/api/core 的 P1/P2 业务闭环修复。
+
+工作目录：/tmp/Medical-Record-Agent
+
+## 背景
+
+MEDICAL-AUDIT-2026-06-11.md 审计结论：阶段通过，P0 已清零，P1-1/P1-4 已修复。
+当前仍阻断最终通过的问题：
+
+### P1（必须修复）
+
+1. **P1-0（新增）**：ProviderSettingsPage.test.ts 有一个失败测试
+   - `buildProviderKeyForArea("LLM")` 测试期望 `"configured-llm-provider"`，实际代码返回 `"gpt5-llm"`
+   - 需要修正测试期望或实现，使测试通过
+
+2. **P1-2**：Demo API 不执行 OCR/LLM 编排
+   - `apps/api/src/services/demo-services.ts` 创建任务只返回 queued 内存任务，不触发真实编排
+   - 需要让 demo 模式也走 mock 编排（mock OCR + mock LLM），产出至少一个识别结果字段，使 demo 体验闭环
+   - 不能影响生产模式
+
+3. **P1-3**：静态 demo 数据兜底
+   - `apps/demo-web/src/pages/recognition/JobDetailPage.tsx` 在 API 失败时用硬编码 demo 数据兜底
+   - 生产模式应显示错误状态或"暂无数据"，不应显示假数据
+   - 需要在生产构建中禁用 demo fallback，或加明显标识
+
+4. **P1-5**：生产 smoke 未配置
+   - `scripts/production-smoke.test.ts` 需要 PRODUCTION_SMOKE_BASE_URL
+   - 需要创建一个可选的 smoke 测试脚本，能在有 URL 时运行，无 URL 时跳过（不失败）
+
+5. **P1-6**：API 路由 unknown 契约
+   - 部分路由接受 unknown 输入未用 Zod 校验
+   - 需要逐步为关键路由（writeback、feedback、jobs）补充请求体 Zod schema
+
+### P2（优化项）
+
+1. **P2-1**：关键字段规则硬编码 clinicalDiagnosis
+   - `packages/core/src/engine/validationEngine.ts` 硬编码
+   - 改为从 Schema 动态读取 required 字段
+
+2. **P2-2**：任务创建同步执行
+   - 生产 api-services.ts 同步调用编排，大文件可能超时
+   - 改为返回 jobId + queued 状态，后台异步执行
+
+3. **P2-3**：JWT 存 localStorage
+   - AuthContext.tsx 用 localStorage 存 JWT
+   - 改为 httpOnly cookie 或至少加 XSS 防护说明
+
+4. **P2-4**：Provider secretRefs 未接入密钥库
+   - production-services.ts 直接从数据库读明文 secret
+   - 添加密钥库接口层（可选接入 Vault/KMS）
+
+5. **P2-5**：无 E2E 测试
+   - 添加基础 Playwright E2E 测试（登录、新建识别、查看结果）
+
+## 必须完成
+
+1. **先修 P1-0**：让全量测试通过（corepack pnpm test）
+2. **修 P1-2**：demo 模式走 mock 编排，产出真实识别结果
+3. **修 P1-3**：生产模式禁用 demo fallback
+4. **修 P1-5**：smoke 测试可选化
+5. **修 P1-6**：关键路由 Zod 校验
+6. **P2 按优先级推进**：P2-1 > P2-2 > P2-3 > P2-4 > P2-5
+7. **验证**：
+   - corepack pnpm test 必须全部通过
+   - corepack pnpm --filter @medical-record-agent/demo-web build 必须通过
+   - corepack pnpm typecheck 必须通过
+8. **生成报告**：
+   - MEDICAL-P1-P2-BUSINESS-CLOSURE-FIX-REPORT.md：本轮修复内容、文件、验证结果
+   - MEDICAL-P1-P2-BUSINESS-CLOSURE-AUDIT-REPORT.md：7 维度审计报告
+
+## 约束
+
+- 保持 Material + Arco Design UI，不粗暴重写 CSS
+- 不要提交 git commit
+- 不要修改 .env、node_modules、无关缓存
+- 不要并发启动其他 agent
+- 不要只写计划，必须实际修复、验证、生成报告
+- 若遇到 429/上游断流，保留已完成改动，明确记录中断点
+- 不要问问题，直接执行

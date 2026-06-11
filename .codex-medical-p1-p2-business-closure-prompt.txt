@@ -1,0 +1,64 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器询问确认。直接执行。必须遵循 superpowers 流程：brainstorming → writing-plans → TDD/测试优先 → verification-before-completion。
+
+任务：继续推进医疗项目 demo-web/api 的业务层闭环，重点修复三个本地可完成的 P1/P2 项。
+
+工作目录：/tmp/Medical-Record-Agent
+
+背景：
+- 构建通过，77 个测试文件全部通过，9901 和 /api/health 正常
+- UI 阶段已通过（Material + Arco Design），不要动 UI/CSS
+- 写回可信边界已收紧，API response contract 已加固
+- 以下三个问题仍需修复：
+
+## 必须修复的问题
+
+### P1-A: 路由服务接口仍用 unknown 返回类型
+- 文件：`apps/api/src/routes/auth.routes.ts`
+- `login(input: LoginInput): Promise<unknown>` 应返回具体 DTO
+- 检查所有 route service interface，将 `unknown` 返回类型替换为具体类型
+- 相关文件：`apps/api/src/routes/evaluation.routes.ts`（`metadata?: unknown` 等）
+- 用 Zod schema 或 interface 定义请求/响应类型
+
+### P1-B: demo API 创建识别任务不执行编排
+- 文件：`apps/api/src/demo-services.ts`
+- 当前 `jobService.create` 只创建 `queued` 内存任务
+- `resultService.getByJobId` 对任意 jobId 返回固定演示诊断
+- 修复：demo 模式应使用 mock OCR + mock LLM + core orchestrator 完整跑一遍
+- 结果必须与 jobId/sourceFileId 关联，不是固定返回
+- 参考 `packages/core/src/engine/langgraphRecognitionWorkflow.ts` 的编排流程
+- mock provider 已存在于 `packages/core/src/providers/`
+
+### P1-C: Evaluation runner 硬编码 LIMS schema
+- 文件：`apps/api/src/bootstrap/production-services.ts`
+- `createProductionEvaluationRunner` 固定使用 `limsClinicalInfoSchema`
+- 修复：按 `runInput.schemaConfig.schemaKey` 解析 active schema
+- 与生产识别 schema resolution 复用同一逻辑
+- metrics 中记录实际 schemaVersionId
+
+## 约束
+- 不要修改 UI/CSS，保持 Material + Arco Design
+- 不要提交 git commit
+- 不要修改 .env、node_modules
+- 不要并发启动其他 agent
+- 若遇到 429/上游断流，保留已完成改动和报告草稿
+- 每个修复必须有对应的测试（TDD：先写红灯测试，再修复）
+
+## 必须生成的报告
+完成后生成 `MEDICAL-P1-P2-BUSINESS-CLOSURE-FIX-REPORT.md`，必须包含 7 个维度：
+1. 产品概述
+2. 功能完整性
+3. 业务流程完整性
+4. 用户体验
+5. 技术实现
+6. 问题清单（P0/P1/P2）
+7. 验收结论
+
+## 验证命令
+修复后必须运行：
+```bash
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm --filter @medical-record-agent/demo-web test:styles
+corepack pnpm --filter @medical-record-agent/demo-web test:mobile
+corepack pnpm --filter @medical-record-agent/demo-web build
+```

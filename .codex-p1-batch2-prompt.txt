@@ -1,0 +1,64 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器询问确认。直接执行。必须遵循 superpowers 流程：brainstorming → writing-plans → TDD/测试优先 → verification-before-completion。
+
+任务：修复医疗项目剩余 P1 问题（P1-2、P1-3、P1-5、P1-6），推进业务/安全/集成闭环。
+
+工作目录：/tmp/Medical-Record-Agent
+
+背景：
+- 当前 build/typecheck/test 全部通过（454 tests passed）
+- UI 已升级为 Material + Arco Design，当前阶段 UI 审计通过
+- P1-1（写回安全边界）和 P1-4（Evaluation schema）已修复
+- 现在需要推进剩余 P1 和 P2 业务/安全/集成问题
+
+必须修复的问题（按优先级）：
+
+## P1-2：Demo API 执行真实 mock 编排
+文件：`apps/api/src/demo-services.ts`
+问题：demo 模式下 `jobService.create` 只创建 queued 内存任务，`resultService.getByJobId` 对任意 jobId 返回固定演示诊断，不执行 OCR/LLM/校验。
+要求：
+- demo 模式创建任务时，使用 mock OCR provider + mock LLM provider + core orchestrator 完整跑一遍识别流程
+- 将结果与 jobId/sourceFileId 关联存储（内存 map 即可）
+- 后续 getByJobId 返回该 job 的真实编排结果，不是固定 demo 数据
+- 如果任务处理需要时间，支持 queued → running → completed 状态流转
+- 更新对应的 demo-services.test.ts 测试
+
+## P1-3：生产模式禁用静态 demo fallback
+文件：
+- `apps/demo-web/src/pages/recognition/JobDetailPage.tsx`
+- `apps/demo-web/src/pages/operations/WritebackPage.tsx`
+问题：API 失败后页面继续展示静态 demo 数据，用户可能误以为有真实结果。
+要求：
+- 用 `import.meta.env.VITE_DEMO_MODE` 判断是否为 demo 模式
+- 非 demo 模式下，API 失败显示空态 + 错误提示 + 重试按钮，不展示静态数据
+- demo 模式下可以展示静态样例，但必须在 UI 上标识"演示数据"
+- 更新相关测试
+
+## P1-5：Production smoke 可配置
+文件：`scripts/production-smoke.ts`
+问题：`pnpm smoke:production` 因未配置 BASE_URL 直接失败。
+要求：
+- 未配置 BASE_URL 时，自动尝试 localhost:9901 作为默认值
+- 至少覆盖：GET /health、POST /auth/login、GET /providers
+- 输出清晰的 pass/fail 日志
+- 更新 smoke 测试或添加说明
+
+## P1-6：关键 API 路由添加类型契约（优先写回和识别）
+文件：
+- `apps/api/src/routes/writeback.routes.ts`（service 接口）
+- `apps/api/src/routes/jobs.routes.ts`（service 接口）
+- `apps/api/src/routes/results.routes.ts`（service 接口）
+问题：service 方法签名用 `unknown`，前后端契约漂移。
+要求：
+- 为 writeback execute、job create、result getByJobId 的 input 添加 Zod schema
+- service 接口使用 Zod inferred type 而非 unknown
+- 路由层用 Zod schema 做 validation
+- 保持向后兼容，不破坏现有前端调用
+
+约束：
+- 保持 Material + Arco Design UI，不粗暴重写 CSS
+- 不要修改 .env、node_modules
+- 不要提交 git commit
+- 不要并发启动其他 agent
+- 修完后必须验证：corepack pnpm build、corepack pnpm test、corepack pnpm --filter demo-web test:styles
+- 生成修复报告：P1-BATCH2-FIX-REPORT.md（7 维度审计格式）
+- 若遇到 429/断流，保留已完成改动，记录中断点

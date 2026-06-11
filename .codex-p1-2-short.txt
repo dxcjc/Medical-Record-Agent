@@ -1,0 +1,16 @@
+任务：修复 demo-services.ts 中 jobService.create 在 demo 模式下的行为。
+
+工作目录：/tmp/Medical-Record-Agent
+
+问题：demo-services.ts 的 jobService.create() 检测到无真实 provider 时抛 REAL_PROVIDER_NOT_CONFIGURED 错误。需要改为走 mock 缫排。
+
+修复：
+1. 在 apps/api/src/demo-services.ts 的 jobService.create 方法中，不抛错，改用 mock 数据返回完整识别结果
+2. 返回 status="completed"，extractedFields 至少包含 clinicalDiagnosis、patientName、examDate
+3. 在 apps/api/src/demo-services.test.ts 中添加测试验证 demo 创建任务成功
+4. 在 apps/demo-web/src/pages/recognition/JobDetailPage.tsx 中，生产模式下 API 失败不显示 demo 数据
+5. 运行 corepack pnpm test 确保全部通过
+6. 运行 corepack pnpm build 确保通过
+7. 生成报告 MEDICAL-P1-2-P1-3-FIX-REPORT.md
+
+不要问问题，直接执行。

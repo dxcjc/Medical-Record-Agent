@@ -446,7 +446,7 @@ export async function buildRecognitionFileUploadInput(input: {
   input.signal?.throwIfAborted();
   const contentBase64 = input.file instanceof Blob ? await blobToBase64(input.file, input.signal) : undefined;
   input.signal?.throwIfAborted();
-  const checksumSha256 = input.file instanceof Blob ? await blobSha256Hex(input.file, input.signal) : "unknown";
+  const checksumSha256 = input.file instanceof Blob ? await blobSha256Hex(input.file, input.signal).catch(() => "unsupported") : "unknown";
   input.signal?.throwIfAborted();
 
   return {

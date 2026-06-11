@@ -6,6 +6,8 @@ import {
   createJobOrchestrator,
   createMockModelProvider,
   createMockOcrProvider,
+  createModelProvider,
+  createOcrProvider,
   limsClinicalInfoSchema,
   type JobOrchestratorResult,
   type JobStatusTransition
@@ -233,6 +235,15 @@ export function createDemoApiServices(): DemoApiServices {
     }
   });
 
+  // Generic key aliases for frontend contract compatibility
+  // Frontend uses configured-*-provider keys for user-configured providers
+  const ocrProvider = demoProviders.get("paddle-ocr")!;
+  demoProviders.set("configured-ocr-provider", { ...ocrProvider, key: "configured-ocr-provider" });
+  const llmProvider = demoProviders.get("gpt5-llm")!;
+  demoProviders.set("configured-llm-provider", { ...llmProvider, key: "configured-llm-provider" });
+  const storageProvider = demoProviders.get("local-storage")!;
+  demoProviders.set("configured-storage-provider", { ...storageProvider, key: "configured-storage-provider" });
+
   function createDemoError(code: string, statusCode: number) {
     return Object.assign(new Error(code), {
       code,
@@ -258,53 +269,32 @@ export function createDemoApiServices(): DemoApiServices {
     return typeof mode === "string" ? mode.toLowerCase() : "";
   }
 
+  // 使用真实 OCR 和 LLM Provider（不再使用 mock）
+  const realOcrProvider = createOcrProvider({
+    kind: "http",
+    http: {
+      endpoint: "http://localhost:9001",
+      headers: {},
+      timeoutMs: 30_000
+    }
+  });
+
+  const realModelProvider = createModelProvider({
+    kind: "http",
+    http: {
+      endpoint: "http://110.42.215.22/v1",
+      model: "gpt-5.5",
+      apiKey: "tp-c0yx2mg2aaix6cfirip572fmfxtrv2issmnwoxu71t2hgp2j",
+      timeoutMs: 30_000
+    }
+  });
+
   const demoJobRepository = createInMemoryJobRepository();
   const demoRecognitionOrchestrator = createJobOrchestrator({
     repository: demoJobRepository,
     schema: limsClinicalInfoSchema,
-    ocrProvider: createMockOcrProvider({
-      blocks: [
-        {
-          page: 1,
-          blockId: "demo-ocr-block-1",
-          text: "合成病历：临床诊断：模拟诊断。送检样本：组织。",
-          confidence: 0.99,
-          coordinates: { x: 0, y: 0, width: 100, height: 20 }
-        }
-      ]
-    }),
-    modelProvider: createMockModelProvider({
-      candidates: [
-        {
-          fieldKey: "clinicalDiagnosis",
-          value: "模拟诊断",
-          rawValue: "临床诊断：模拟诊断",
-          confidence: 0.99,
-          evidence: [
-            {
-              snippet: "临床诊断：模拟诊断",
-              startOffset: 5,
-              endOffset: 16,
-              pageNumber: 1
-            }
-          ]
-        },
-        {
-          fieldKey: "sampleType",
-          value: "组织",
-          rawValue: "送检样本：组织",
-          confidence: 0.98,
-          evidence: [
-            {
-              snippet: "送检样本：组织",
-              startOffset: 17,
-              endOffset: 24,
-              pageNumber: 1
-            }
-          ]
-        }
-      ]
-    }),
+    ocrProvider: realOcrProvider,
+    modelProvider: realModelProvider,
     knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
     permissions: demoPermissions,
     autoWritebackEnabled: false,
@@ -554,8 +544,49 @@ export function createDemoApiServices(): DemoApiServices {
       }
     },
     jobService: {
-      async create() {
-        throw createRealProviderNotConfiguredError();
+      async create(input) {
+        const body = input as { schemaKey?: string; sourceFileId?: string; document?: { documentId?: string; fileName?: string; mimeType?: string } };
+        const jobId = `job-demo-${jobs.size + 1}`;
+        const job: { id: string; status: string; schemaKey: string; sourceFileId?: string } = {
+          id: jobId,
+          status: "queued",
+          schemaKey: body.schemaKey ?? "lims-clinical-info"
+        };
+
+        if (body.sourceFileId !== undefined) {
+          job.sourceFileId = body.sourceFileId;
+        }
+
+        jobs.set(job.id, job);
+
+        // Run mock orchestration for demo mode
+        const result = await demoRecognitionOrchestrator.start({
+          jobId: job.id,
+          schemaKey: job.schemaKey,
+          document: {
+            documentId: body.document?.documentId ?? body.sourceFileId ?? job.id,
+            fileName: body.document?.fileName ?? "demo-medical-record.pdf",
+            mimeType: body.document?.mimeType ?? "application/pdf"
+          }
+        });
+
+        const completedJob: { id: string; status: string; schemaKey: string; sourceFileId?: string } = {
+          id: job.id,
+          status: result.status,
+          schemaKey: job.schemaKey
+        };
+
+        if (job.sourceFileId !== undefined) {
+          completedJob.sourceFileId = job.sourceFileId;
+        }
+
+        jobs.set(job.id, completedJob);
+        results.set(job.id, result);
+
+        return {
+          ...completedJob,
+          trace: toDemoTrace(job.id)
+        };
       },
       async get(id) {
         return jobs.get(id) ?? null;
@@ -739,13 +770,40 @@ export function createDemoApiServices(): DemoApiServices {
           throw createDemoError("PROVIDER_NOT_FOUND", 404);
         }
 
+        const startTime = Date.now();
+        let status = "healthy";
+        let message = "";
+
+        try {
+          if (provider.kind === "ocr") {
+            // 真正调用 OCR 服务健康检查
+            const resp = await fetch(`${provider.config.endpoint}/health`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json() as { status?: string };
+            message = `OCR 服务连接正常 (${provider.config.endpoint})`;
+            if (data.status !== "ok") status = "degraded";
+          } else if (provider.kind === "llm") {
+            // 真正调用 LLM 服务健康检查
+            const resp = await fetch(`${provider.config.endpoint}/models`, {
+              headers: { "Authorization": `Bearer ${provider.secretRefs?.apiKey || ""}` }
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            message = `LLM 服务连接正常 (${provider.config.endpoint})`;
+          } else {
+            message = `Provider ${provider.kind} 配置已加载`;
+          }
+        } catch (err) {
+          status = "error";
+          message = `连接失败: ${err instanceof Error ? err.message : String(err)}`;
+        }
+
         return {
           key: input.key,
           kind: provider.kind,
-          status: "healthy",
-          latencyMs: 12,
+          status,
+          latencyMs: Date.now() - startTime,
           checkedAt: new Date().toISOString(),
-          message: "Demo provider 健康检查通过；未调用外部真实服务。"
+          message
         };
       }
     },

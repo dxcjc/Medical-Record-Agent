@@ -6,7 +6,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, actionIcons, dashboardMetricIcons, navigationIcons, providerIcons } from "../../icons/appIcons";
 import { InlineNotice, MetricCard, SecretField, SectionHeader, StatusPill } from "./components";
 
-type ProviderKind = "HTTP OCR" | "LangChain" | "OpenAI-compatible" | "OpenAI Responses";
+type ProviderKind = "HTTP OCR" | "LangChain" | "OpenAI-compatible" | "OpenAI Responses" | "LIMS REST" | "Object Storage";
 
 type ProviderArea = "OCR" | "LLM" | "storage";
 
@@ -53,7 +53,7 @@ type ProviderAsyncDescriptor = {
   canRetry: boolean;
 };
 
-export const providerKinds: ProviderKind[] = ["HTTP OCR", "LangChain", "OpenAI-compatible", "OpenAI Responses"];
+export const providerKinds: ProviderKind[] = ["HTTP OCR", "LangChain", "OpenAI-compatible", "OpenAI Responses", "LIMS REST", "Object Storage"];
 const providerKeyByArea: Record<ProviderArea, string> = {
   OCR: "configured-ocr-provider",
   LLM: "configured-llm-provider",
@@ -95,7 +95,7 @@ const initialConfigs: ProviderConfig[] = [
   {
     area: "OCR",
     kind: "HTTP OCR",
-    endpoint: "http://localhost:8866",
+    endpoint: "http://localhost:9001",
     modelOrBucket: "",
     secret: "",
     timeoutMs: 30000,
@@ -122,7 +122,7 @@ const initialConfigs: ProviderConfig[] = [
 ];
 
 const initialHealth: Record<ProviderArea, HealthResult> = {
-  OCR: { status: "unchecked", message: "PaddleOCR 服务已配置 (localhost:8866)，点击健康检查验证连通性" },
+  OCR: { status: "unchecked", message: "PaddleOCR 服务已配置 (localhost:9001)，点击健康检查验证连通性" },
   LLM: { status: "unchecked", message: "GPT-5.5 已配置 (110.42.215.22)，点击健康检查验证连通性" },
   storage: { status: "healthy", latencyMs: 5, checkedAt: "09:39:55", message: `本地存储路径 ${STORAGE_PATH} 可用` }
 };
@@ -201,10 +201,11 @@ export function describeProviderAsyncAction(action: ProviderAsyncAction): Provid
   }
 
   if (action.kind === "failed") {
+    const areaLabel = action.area === "storage" ? "LIMS" : action.area ?? "Provider";
     return {
       tone: "warning",
-      title: "操作失败",
-      message: `${action.area ?? "Provider"} 操作失败：${action.errorMessage}。请刷新 Provider API 或重试上一次操作。`,
+      title: "Provider 操作失败",
+      message: `${areaLabel} 操作失败：${action.errorMessage}。请刷新 Provider API 或重试上一次操作。`,
       canCancel: false,
       canRetry: true
     };
@@ -278,7 +279,7 @@ export function sanitizeStoredProviderConfigs(value: unknown): ProviderConfig[] 
     ];
   });
 
-  return configs.length === initialConfigs.length ? configs : null;
+  return configs.length > 0 ? configs : null;
 }
 
 function readStoredProviderConfigs() {
@@ -669,6 +670,7 @@ export function ProviderSettingsPage() {
 
     try {
       const resp = await fetch(`/api/providers/${providerKey}/health`, {
+        method: "POST",
         headers: { Authorization: `Bearer ${auth?.token ?? ""}` }
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -744,11 +746,23 @@ export function ProviderSettingsPage() {
   }
 
   return (
-    <main className="provider-settings-page">
+    <main className="app-page provider-settings-page">
       <SectionHeader
         title="Provider 设置"
         description="集中维护 OCR、LLM 与本地存储 Provider，支持配置、健康检查与启用管理。"
       />
+
+      <div className="page-header__meta" aria-label="Provider 摘要">
+        <span className="page-header__meta-item">
+          <strong>{enabledCount}</strong> 已启用
+        </span>
+        <span className="page-header__meta-item">
+          <strong>{healthyCount}</strong> 健康
+        </span>
+        <span className="page-header__meta-item">
+          <strong>{apiStatus.count}</strong> API Provider
+        </span>
+      </div>
 
       {/* ── Async action banner ── */}
       <InlineNotice
@@ -798,6 +812,15 @@ export function ProviderSettingsPage() {
           <span className="provider-stat__label">上次保存</span>
           <span className="provider-stat__value">{savedAt}</span>
         </div>
+      </section>
+
+      <section className="operations-status-strip" aria-label="Provider 操作状态">
+        {configs.map((config) => (
+          <div key={config.area} className="operations-status-strip__item">
+            <span className="operations-status-strip__label">{providerAreaLabels[config.area]}</span>
+            <Tag color={config.enabled ? "green" : "gray"}>{config.enabled ? "已启用" : "未启用"}</Tag>
+          </div>
+        ))}
       </section>
 
       {/* ── Status banner (only show when relevant) ── */}

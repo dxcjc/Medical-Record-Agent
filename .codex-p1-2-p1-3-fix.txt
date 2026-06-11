@@ -1,0 +1,55 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器询问确认。直接执行。必须遵循 superpowers 流程：brainstorming → writing-plans → TDD/测试优先 → verification-before-completion。
+
+任务：修复医疗项目 P1-2 和 P1-3 — Demo API 编排闭环 + 禁用生产模式 demo fallback。
+
+工作目录：/tmp/Medical-Record-Agent
+
+## P1-2：Demo API 走 mock 编排
+
+当前问题：`apps/api/src/demo-services.ts` 的 `jobService.create()` 方法在检测到没有真实 OCR/LLM provider 时抛出 `createRealProviderNotConfiguredError()`，导致 demo 模式无法创建识别任务。
+
+修复要求：
+1. 在 demo-services.ts 中，当 demo 模式下创建识别任务时，不要抛错，而是走 mock 编排流程
+2. 使用 demo 数据模拟 OCR 结果（从上传的文件中提取文本）
+3. 使用 demo 数据模拟 LLM 抽取结果（返回预设的医疗字段）
+4. 返回完整的识别结果，包含：status="completed"、extractedFields（至少 3 个字段：clinicalDiagnosis、patientName、examDate）、confidence、evidence
+5. 结果应该可以被前端 JobDetailPage 正确展示
+6. 添加测试验证 demo 编排闭环
+
+关键文件：
+- `apps/api/src/demo-services.ts` — jobService.create 方法
+- `apps/api/src/demo-services.test.ts` — 添加 demo 编排测试
+
+## P1-3：生产模式禁用 demo fallback
+
+当前问题：`apps/demo-web/src/pages/recognition/JobDetailPage.tsx` 在 API 失败时用硬编码 demo 数据兜底，生产用户可能误以为有可用结果。
+
+修复要求：
+1. 检查 JobDetailPage.tsx 中的 demo fallback 逻辑
+2. 在生产构建中（import.meta.env.PROD === true），API 失败时显示错误状态，不显示 demo 数据
+3. 在开发模式中，可以保留 demo fallback 但加明显标识（如 "⚠️ 以下为演示数据"）
+4. 添加测试验证生产模式不显示 demo 数据
+
+关键文件：
+- `apps/demo-web/src/pages/recognition/JobDetailPage.tsx`
+
+## 验证要求
+
+1. corepack pnpm test 必须全部通过（454+ passed）
+2. corepack pnpm build 必须通过
+3. corepack pnpm typecheck 必须通过
+4. 9901 部署后 /api/health 返回 200
+
+## 报告要求
+
+生成 `MEDICAL-P1-2-P1-3-FIX-REPORT.md`，包含：
+1. 修复内容（每个问题的修改文件和具体改动）
+2. 验证结果（测试、构建、typecheck）
+3. 剩余问题
+
+## 约束
+
+- 保持 Material + Arco Design UI
+- 不要提交 git commit
+- 不要修改 .env、node_modules
+- 不要问问题，直接执行

@@ -1,0 +1,36 @@
+【重要】不要问问题，不要请求确认，不要启动浏览器询问确认。直接执行。必须遵循 superpowers 流程：brainstorming → writing-plans → TDD/测试优先 → verification-before-completion。
+
+任务：修复医疗项目浏览器 E2E 测试失败，并验证所有测试通过。
+
+工作目录：/tmp/Medical-Record-Agent
+
+背景：
+- 浏览器 E2E 测试 `corepack pnpm e2e:demo-web:browser` 在 `/recognition/new` 路由失败
+- 错误信息：`privacyTouchOk=false,checkboxTouchOk=false`
+- 测试断言要求：
+  - `.privacy-option` 元素至少 3 个，每个高度 >= 44px
+  - `.privacy-option__checkbox` 元素至少 3 个，每个宽度 >= 44px 且高度 >= 44px
+- CSS 中 `.privacy-option` 已设置 `min-height: 72px`，`.privacy-option__checkbox` 已设置 `min-width: 44px; min-height: 44px`
+- 但 E2E 测试中 `getBoundingClientRect()` 返回的尺寸不满足要求
+
+需要做的事：
+1. 读取 `scripts/demo-web-browser-e2e.ts` 中 `/recognition/new` 的断言逻辑（约 663-691 行）
+2. 读取 `apps/demo-web/src/pages/recognition/NewRecognitionPage.tsx` 中隐私选项的渲染代码（约 940-965 行）
+3. 读取 `apps/demo-web/src/styles.css` 中 `.privacy-option` 和 `.privacy-option__checkbox` 的样式（约 1349-1382 行，移动端覆盖约 2563-2575 行）
+4. 诊断为什么 `getBoundingClientRect()` 返回的尺寸不满足 44px 要求
+5. 修复 CSS 或组件代码，确保在移动端视口下：
+   - `.privacy-option` 高度 >= 44px
+   - `.privacy-option__checkbox` 宽度和高度都 >= 44px
+6. 运行验证：
+   - `corepack pnpm --filter @medical-record-agent/demo-web build` 必须通过
+   - `corepack pnpm --filter @medical-record-agent/demo-web test:styles` 必须通过
+   - `corepack pnpm --filter @medical-record-agent/demo-web test:mobile` 必须通过
+   - `corepack pnpm test` 必须全部通过
+   - `corepack pnpm e2e:demo-web:browser` 必须通过
+
+约束：
+- 保持 Material + Arco Design 设计系统
+- 不要粗暴重写 CSS，只修复 touch target 尺寸问题
+- 不要修改测试断言逻辑，修复实现代码
+- 不要提交 git commit
+- 不要修改 .env、node_modules
