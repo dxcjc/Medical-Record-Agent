@@ -24,12 +24,12 @@ const rawEnvSchema = z.object({
 
   OCR_PROVIDER: z.enum(["none", "http"]).default("none"),
   OCR_ENDPOINT: z.string().url("OCR_ENDPOINT 必须是合法 URL").optional(),
-  OCR_API_KEY: z.string().min(1, "OCR_API_KEY 不能为空").optional(),
+  OCR_API_KEY: z.string().optional().transform(v => v || undefined),
 
   LLM_PROVIDER: z.enum(["none", "langchain", "openai-compatible", "openai-responses"]).default("none"),
   LLM_MODEL: z.string().min(1, "LLM_MODEL 不能为空").optional(),
   LLM_BASE_URL: z.string().url("LLM_BASE_URL 必须是合法 URL").optional(),
-  LLM_API_KEY: z.string().min(1, "LLM_API_KEY 不能为空").optional(),
+  LLM_API_KEY: z.string().optional().transform(v => v || undefined),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY 不能为空").optional(),
 
   LIMS_BASE_URL: z.string().url("LIMS_BASE_URL 必须是合法 URL"),

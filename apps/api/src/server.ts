@@ -157,7 +157,7 @@ function createFixedWindowRateLimiter(rule: ApiRateLimitRule, scope: string): pr
 }
 
 /**
- * 创建完整 API server。这里保持依赖注入，便于测试、demo 和生产启动分别接入不同 provider。
+ * 创建完整 API server。依赖注入，便于测试和生产启动。
  */
 export async function createApiServer(options: CreateApiServerOptions) {
   const server = Fastify({
@@ -207,15 +207,10 @@ export async function createApiServer(options: CreateApiServerOptions) {
   }));
 
   server.get("/status", async () => {
-    const runtime = options.runtimeInfo ?? {
-        serviceMode: "demo",
-        providers: {
-          ocr: "mock",
-          llm: "mock",
-          storage: "memory",
-          writeback: "demo"
-        }
-      };
+    const runtime = options.runtimeInfo;
+    if (!runtime) {
+      throw new Error("runtimeInfo is required");
+    }
     const queue = options.services.jobQueue?.describe?.();
     const sessionInvalidationStore =
       runtime.sessionInvalidationStore ?? options.services.authService.describeSessionInvalidationStore?.();

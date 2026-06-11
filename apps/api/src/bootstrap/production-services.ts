@@ -2630,7 +2630,6 @@ function createProductionEvaluationRunner(input: {
 
 /**
  * 创建生产模式 API services。
- * 默认 `pnpm dev:api` 仍可使用 demo services；设置 API_SERVICE_MODE=production 后会走这里，
  * 把 Prisma repositories、真实 provider factory、Schema service 和 LIMS 写回 adapter 一次性装配起来。
  */
 export function createProductionApiServices(options: CreateProductionApiServicesOptions): ApiServerServices {
