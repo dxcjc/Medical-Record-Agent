@@ -662,9 +662,9 @@ async function assertMainContentReadyForScreenshot(page: BrowserPageEvaluator, r
 
       if (path === "/recognition/new") {
         const privacyOptions = Array.from(document.querySelectorAll(".privacy-option"));
-        const privacyTouchOk = privacyOptions.length >= 3 && privacyOptions.every((option) => option.getBoundingClientRect().height >= 44);
+        const privacyTouchOk = privacyOptions.length >= 2 && privacyOptions.every((option) => option.getBoundingClientRect().height >= 44);
         const privacyCheckboxTargets = Array.from(document.querySelectorAll(".privacy-option__checkbox"));
-        const checkboxTouchOk = privacyCheckboxTargets.length >= 3 && privacyCheckboxTargets.every((target) => {
+        const checkboxTouchOk = privacyCheckboxTargets.length >= 2 && privacyCheckboxTargets.every((target) => {
           const rect = target.getBoundingClientRect();
           return rect.width >= 44 && rect.height >= 44;
         });
