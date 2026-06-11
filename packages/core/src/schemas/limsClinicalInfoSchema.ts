@@ -77,6 +77,7 @@ export const limsClinicalInfoSchema: CoreSchemaDraft = {
       key: "clinicalDiagnosis",
       label: "临床诊断",
       type: "string",
+      required: true,
       comments: [
         "识别病历首页、入院记录或临床诊断段落中的主要诊断原文。",
         "诊断文本通常需要作为 LIMS 写回和人工复核的核心证据，不能用归一化值覆盖原文。"

@@ -29,7 +29,7 @@ export function getRequiredFieldKeys(schema: CoreSchemaDraft): string[] {
     return schemaRequiredFieldKeys;
   }
 
-  return schema.fields.some((field) => field.key === "clinicalDiagnosis") ? ["clinicalDiagnosis"] : [];
+  return schema.fields.map((field) => field.key);
 }
 
 function getField(schema: CoreSchemaDraft, fieldKey: string): CoreFieldDefinition | undefined {
