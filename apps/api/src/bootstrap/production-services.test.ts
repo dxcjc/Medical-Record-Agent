@@ -1558,7 +1558,7 @@ describe("production api services bootstrap", () => {
     expect(healthFetch).toHaveBeenCalledWith(
       "http://ocr.internal/api/recognize",
       expect.objectContaining({
-        method: "HEAD",
+        method: "GET",
         headers: {
           Authorization: "Bearer secret-ocr-api-key"
         }
@@ -1572,7 +1572,7 @@ describe("production api services bootstrap", () => {
         status: "healthy",
         message: "HTTP OCR provider 最小健康探针通过。",
         probe: {
-          method: "HEAD",
+          method: "GET",
           url: "http://ocr.internal/api/recognize",
           statusCode: 204
         },
@@ -1614,9 +1614,10 @@ describe("production api services bootstrap", () => {
         status: "unhealthy",
         message: "HTTP OCR provider 健康探针失败，请检查 endpoint、认证或内网连通性。",
         probe: expect.objectContaining({
-          method: "HEAD",
+          method: "GET",
           url: "http://ocr.internal/api/recognize"
-        })
+        }),
+        secretRefs: { apiKey: "configured" }
       })
     );
   });
