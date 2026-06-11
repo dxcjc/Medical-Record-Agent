@@ -6,6 +6,7 @@ import type { AuthLayerService } from "./middleware/auth.middleware";
 import { createAuthHooks } from "./middleware/auth.middleware";
 import type { AuditRecorder } from "./middleware/audit.middleware";
 import { createAuditHooks } from "./middleware/audit.middleware";
+import { registerSecurityHeaders } from "./middleware/security.middleware";
 import { registerAuditRoutes, type AuditRouteService } from "./routes/audit.routes";
 import { registerAuthRoutes, type AuthRouteService } from "./routes/auth.routes";
 import { registerEvaluationRoutes, type EvaluationRouteService } from "./routes/evaluation.routes";
@@ -200,6 +201,8 @@ export async function createApiServer(options: CreateApiServerOptions) {
     credentials: true,
     methods: ["GET", "POST", "PUT", "OPTIONS"]
   });
+
+  await registerSecurityHeaders(server);
 
   server.get("/health", async () => ({
     status: "ok",

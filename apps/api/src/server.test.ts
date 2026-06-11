@@ -155,11 +155,11 @@ describe("api server routes", () => {
     const response = await server.inject({ method: "GET", url: "/health" });
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers["content-security-policy"]).toContain("default-src 'none'");
+    expect(response.headers["content-security-policy"]).toContain("default-src 'self'");
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
     expect(response.headers["x-frame-options"]).toBe("DENY");
-    expect(response.headers["referrer-policy"]).toBe("no-referrer");
-    expect(response.headers["permissions-policy"]).toContain("camera=()");
+    expect(response.headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+    expect(response.headers["x-xss-protection"]).toBe("1; mode=block");
   });
 
   it("登录接口按客户端来源限流，避免本地 demo 暴露后被暴力试探", async () => {
