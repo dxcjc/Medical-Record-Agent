@@ -30,3 +30,6 @@ evaluation-data/intranet-deidentified/
 Thumbs.db
 .idea/
 .vscode/
+
+# Codex temporary files
+.codex-*
