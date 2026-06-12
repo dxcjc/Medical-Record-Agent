@@ -4,17 +4,8 @@ import {
   buildReviewFieldRows,
   buildReviewSummary,
   buildTaskTimeline,
-  isExplicitDemoMode,
   parseApiDetail,
 } from "./JobDetailPage";
-
-describe("isExplicitDemoMode", () => {
-  it("只有 VITE_DEMO_MODE=true 时允许详情页静态演示数据", () => {
-    expect(isExplicitDemoMode({ VITE_DEMO_MODE: "true" })).toBe(true);
-    expect(isExplicitDemoMode({ VITE_DEMO_MODE: "false" })).toBe(false);
-    expect(isExplicitDemoMode({ VITE_DEMO_MODE: undefined })).toBe(false);
-  });
-});
 
 describe("parseApiDetail", () => {
   it("从真实任务响应里读取 sourceFileId 供原始文档预览使用", () => {

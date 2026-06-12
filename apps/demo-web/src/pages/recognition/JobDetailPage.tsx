@@ -8,16 +8,10 @@ import {
 } from "../../api/normalizers";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
 import {
-  decisionCards,
-  demoOcrText,
-  evidenceItems,
   type EvidenceItem,
   type FieldCandidate,
-  fieldCandidates,
   formatPercent,
-  payloadPreview,
   type TraceStep,
-  traceSteps,
 } from "./components/demoData";
 import {
   DecisionPill,
@@ -39,7 +33,7 @@ type FeedbackState = {
 
 const initialFeedback: FeedbackState = {
   reviewer: "复核员 A",
-  field: fieldCandidates[0]?.field ?? "主诉",
+  field: "主诉",
   decision: "accept",
   correctedValue: "",
   note: "",
@@ -53,14 +47,6 @@ type DocumentPreviewState =
   | { status: "loading" }
   | { status: "success"; url: string; fileName: string; mimeType: string }
   | { status: "error"; message: string };
-
-type DemoModeEnv = {
-  readonly [key: string]: string | boolean | undefined;
-};
-
-export function isExplicitDemoMode(env: DemoModeEnv = import.meta.env) {
-  return env.VITE_DEMO_MODE === "true";
-}
 
 export const parseApiDetail = normalizeRecognitionDetail;
 
@@ -196,7 +182,7 @@ export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { api } = useAuth();
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState(evidenceItems[0]?.id ?? "");
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState("");
   const [feedback, setFeedback] = useState<FeedbackState>(initialFeedback);
   const [submittedMessage, setSubmittedMessage] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
@@ -205,15 +191,15 @@ export default function JobDetailPage() {
   const [loadError, setLoadError] = useState("");
   const [apiDetail, setApiDetail] = useState<RecognitionDetailState>({});
   const [documentPreview, setDocumentPreview] = useState<DocumentPreviewState>({ status: "idle" });
-  const demoMode = isExplicitDemoMode();
-  const routeJobId = jobId ?? "demo";
+  const routeJobId = jobId ?? "";
   const displayJobId = apiDetail.jobId ?? routeJobId;
-  const showDemoData = demoMode && routeJobId === "demo";
-  const displayFields = apiDetail.fields ?? (showDemoData ? fieldCandidates : []);
-  const displayEvidenceItems = apiDetail.evidence ?? (showDemoData ? evidenceItems : []);
-  const displayTraceSteps = apiDetail.trace ?? (showDemoData ? traceSteps : []);
-  const displayPayload = apiDetail.payload ?? (showDemoData ? { ...payloadPreview, jobId: displayJobId } : {});
-  const displayOcrText = apiDetail.ocrText ?? (showDemoData ? demoOcrText : "");
+
+  // Always use real API data only - no demo/mock fallback
+  const displayFields = apiDetail.fields ?? [];
+  const displayEvidenceItems = apiDetail.evidence ?? [];
+  const displayTraceSteps = apiDetail.trace ?? [];
+  const displayPayload = apiDetail.payload ?? {};
+  const displayOcrText = apiDetail.ocrText ?? "";
 
   const reviewRows = buildReviewFieldRows(displayFields);
   const reviewSummary = buildReviewSummary({
@@ -225,7 +211,7 @@ export default function JobDetailPage() {
   const timelineItems = buildTaskTimeline(apiDetail.status, loadError);
 
   useEffect(() => {
-    if (routeJobId === "demo") {
+    if (!routeJobId) {
       setLoadState("idle");
       setLoadError("");
       setApiDetail({});
@@ -394,25 +380,29 @@ export default function JobDetailPage() {
         }
       />
 
-      <Alert
-        type={loadState === "error" ? "warning" : loadState === "loading" ? "info" : "success"}
-        showIcon
-        content={
-          routeJobId === "demo"
-            ? demoMode
-              ? "当前为 demo 任务，展示静态识别样例。演示数据，不可写回。"
-              : "当前未指定真实任务，请从识别任务列表进入详情页。"
-            : loadState === "loading"
+      {!routeJobId ? (
+        <Alert
+          type="warning"
+          showIcon
+          content="当前未指定任务 ID，请从识别任务列表进入详情页。"
+        />
+      ) : (
+        <Alert
+          type={loadState === "error" ? "warning" : loadState === "loading" ? "info" : "success"}
+          showIcon
+          content={
+            loadState === "loading"
               ? `正在加载任务 ${routeJobId} 的真实识别数据。`
               : loadState === "error"
                 ? `真实接口读取失败：${loadError}`
                 : `已加载任务 ${displayJobId} 的真实数据。`
-        }
-      />
+          }
+        />
+      )}
 
-      {loadState === "error" && !showDemoData ? (
+      {loadState === "error" ? (
         <Card className="panel">
-          <EmptyPanel icon={statusIcons.danger} title="真实接口读取失败" description="当前不会展示静态演示数据，请重试或返回重新选择任务。" />
+          <EmptyPanel icon={statusIcons.danger} title="真实接口读取失败" description="请重试或返回重新选择任务。" />
           <Space className="toolbar" wrap>
             <Button
               type="primary"
@@ -430,7 +420,7 @@ export default function JobDetailPage() {
         </Card>
       ) : null}
 
-      {displayFields.length === 0 && displayEvidenceItems.length === 0 && !displayOcrText && loadState !== "loading" ? (
+      {displayFields.length === 0 && displayEvidenceItems.length === 0 && !displayOcrText && loadState !== "loading" && routeJobId ? (
         <Card
           className="panel"
           style={{ borderColor: "#3370FF", borderWidth: 2, borderStyle: "solid" }}
@@ -703,18 +693,54 @@ export default function JobDetailPage() {
           <div className="detail-grid">
             <Card className="panel" data-guide="auto-decision">
               <SectionTitle title="自动决策" />
-              <div className="decision-grid">
-                {decisionCards.map((card) => (
-                  <article key={card.level} className={`decision-card is-${card.level}`}>
-                    <DecisionPill decision={card.level} />
-                    <h3>{card.title}</h3>
-                    <p>{card.description}</p>
-                    <Button type="outline" aria-label={card.action} disabled title="该决策动作需要接入复核策略 API 后启用">
-                      {card.action}
-                    </Button>
-                  </article>
-                ))}
-              </div>
+              {displayFields.length > 0 ? (
+                <div className="decision-grid">
+                  {(() => {
+                    const greenFields = displayFields.filter((f) => f.decision === "green");
+                    const yellowFields = displayFields.filter((f) => f.decision === "yellow");
+                    const redFields = displayFields.filter((f) => f.decision === "red");
+
+                    const cards = [];
+                    if (greenFields.length > 0) {
+                      cards.push({
+                        level: "green" as const,
+                        title: "绿色：可自动写回",
+                        description: `${greenFields.length} 个字段证据清晰，满足自动写回阈值。`,
+                        action: "写入草稿",
+                      });
+                    }
+                    if (yellowFields.length > 0) {
+                      cards.push({
+                        level: "yellow" as const,
+                        title: "黄色：需要复核",
+                        description: `${yellowFields.length} 个字段置信度较低，需要复核员确认。`,
+                        action: "加入复核",
+                      });
+                    }
+                    if (redFields.length > 0) {
+                      cards.push({
+                        level: "red" as const,
+                        title: "红色：阻断",
+                        description: `${redFields.length} 个字段缺少明确原文证据，不允许自动写回。`,
+                        action: "标记阻断",
+                      });
+                    }
+
+                    return cards.map((card) => (
+                      <article key={card.level} className={`decision-card is-${card.level}`}>
+                        <DecisionPill decision={card.level} />
+                        <h3>{card.title}</h3>
+                        <p>{card.description}</p>
+                        <Button type="outline" aria-label={card.action} disabled title="该决策动作需要接入复核策略 API 后启用">
+                          {card.action}
+                        </Button>
+                      </article>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                <EmptyPanel icon={statusIcons.neutral} title="暂无决策数据" description="识别完成后，自动决策将在此处展示。" />
+              )}
             </Card>
           </div>
         </section>

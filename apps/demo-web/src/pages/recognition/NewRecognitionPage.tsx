@@ -11,12 +11,21 @@ import {
 import { useAuth } from "../../auth/AuthContext";
 import { blobSha256Hex, blobToBase64 } from "../../utils/fileContent";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons, statusIcons } from "../../icons/appIcons";
-import {
-  adapterOptions,
-  schemaOptions,
-} from "./components/demoData";
 import { EmptyPanel, PageHeader, SectionTitle, StatusPill } from "./components/RecognitionShared";
 
+const adapterOptions = [
+  "OutpatientPdfAdapter",
+  "InpatientImageAdapter",
+  "LabReportAdapter",
+  "ImagingAdapter",
+] as const;
+
+const schemaOptions = [
+  "门诊病历结构化模板",
+  "住院首页抽取模板",
+  "检验报告字段模板",
+  "影像报告摘要模板",
+] as const;
 type SubmitState =
   | { status: "idle" }
   | { status: "loading" }

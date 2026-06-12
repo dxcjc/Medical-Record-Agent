@@ -8,11 +8,9 @@ import { useAuth } from "../../auth/AuthContext";
 import { AppIcon, actionIcons, commonUiIcons, dashboardMetricIcons } from "../../icons/appIcons";
 import {
   dashboardActions,
-  dashboardMetrics,
   formatPercent,
-  providerStatuses,
-  recentJobs,
-  writeBackSummaries,
+  type RecognitionJob,
+  type ProviderStatus,
 } from "./components/demoData";
 import {
   JobStatusPill,
@@ -26,11 +24,11 @@ import {
 } from "./components/RecognitionShared";
 
 export type RecognitionDashboardPageProps = {
-  jobs?: typeof recentJobs;
-  providers?: typeof providerStatuses;
+  jobs?: RecognitionJob[];
+  providers?: ProviderStatus[];
 };
 
-type RecentJob = (typeof recentJobs)[number];
+type RecentJob = RecognitionJob;
 
 type RuntimeStatus = {
   apiStatus: string;
@@ -67,13 +65,14 @@ function formatRuntimeError(error: unknown) {
 }
 
 export default function RecognitionDashboardPage({
-  jobs: initialJobs = recentJobs,
-  providers = providerStatuses,
+  jobs: initialJobs = [],
+  providers: initialProviders = [],
 }: RecognitionDashboardPageProps) {
   const { api } = useAuth();
   const navigate = useNavigate();
   const [refreshToken, setRefreshToken] = useState(0);
   const [jobs, setJobs] = useState(initialJobs);
+  const [providers, setProviders] = useState(initialProviders);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
     try {
       return localStorage.getItem("hasSeenOnboarding") === "true";
@@ -98,7 +97,6 @@ export default function RecognitionDashboardPage({
       }));
 
       try {
-        // Dashboard 运行状态来自真实 API；静态业务指标继续作为演示兜底独立展示。
         const [health, providerList, schemaList, evaluationDatasetList, jobListResponse] = await Promise.all([
           api.health(),
           api.listProviders(),
@@ -124,6 +122,17 @@ export default function RecognitionDashboardPage({
             createdAt: new Date(job.createdAt || Date.now()).toLocaleString("zh-CN"),
             owner: "system",
             autoWriteBack: false,
+          })));
+        }
+
+        // 更新 Provider 列表
+        if (providerList.items && providerList.items.length > 0) {
+          setProviders(providerList.items.map((p: any) => ({
+            name: p.name || p.displayName || p.key || "未知 Provider",
+            health: (p.status === "online" ? "online" : p.status === "degraded" ? "degraded" : "online") as any,
+            latencyMs: p.latencyMs ?? 0,
+            successRate: p.successRate ?? 1,
+            activeJobs: p.activeJobs ?? 0,
           })));
         }
 
@@ -194,6 +203,91 @@ export default function RecognitionDashboardPage({
     ] satisfies RuntimeMetric[],
     [runtimeState]
   );
+
+  // Compute dashboard metrics from real jobs data
+  const dashboardMetrics = useMemo<RuntimeMetric[]>(() => {
+    const totalJobs = jobs.length;
+    const avgConfidence = totalJobs > 0
+      ? jobs.reduce((sum, job) => sum + job.confidence, 0) / totalJobs
+      : 0;
+    const autoWriteBackCount = jobs.filter((job) => job.autoWriteBack).length;
+    const reviewCount = jobs.filter((job) => job.status === "review").length;
+
+    return [
+      {
+        label: "今日任务",
+        value: `${totalJobs}`,
+        description: totalJobs > 0 ? `共 ${totalJobs} 个识别任务` : "暂无任务",
+        icon: dashboardMetricIcons.taskVolume,
+        tone: "info",
+      },
+      {
+        label: "平均置信度",
+        value: totalJobs > 0 ? `${Math.round(avgConfidence * 1000) / 10}%` : "-",
+        description: totalJobs > 0 ? "高风险字段单独复核" : "暂无数据",
+        icon: dashboardMetricIcons.confidence,
+        tone: totalJobs > 0 ? "success" : "neutral",
+      },
+      {
+        label: "自动写回",
+        value: `${autoWriteBackCount}`,
+        description: autoWriteBackCount > 0 ? "绿色决策直接进入 HIS 草稿" : "暂无自动写回",
+        icon: dashboardMetricIcons.writeback,
+        tone: autoWriteBackCount > 0 ? "success" : "neutral",
+      },
+      {
+        label: "待复核",
+        value: `${reviewCount}`,
+        description: reviewCount > 0 ? "黄色决策等待人工确认" : "暂无待复核任务",
+        icon: dashboardMetricIcons.reviewQueue,
+        tone: reviewCount > 0 ? "warning" : "success",
+      },
+    ];
+  }, [jobs]);
+
+  // Compute write-back summaries from real jobs data
+  const writeBackSummaries = useMemo<RuntimeMetric[]>(() => {
+    const totalJobs = jobs.length;
+    if (totalJobs === 0) {
+      return [
+        {
+          label: "暂无数据",
+          value: "-",
+          description: "创建识别任务后，写回统计将在此处展示",
+          icon: dashboardMetricIcons.decisionPass,
+          tone: "neutral",
+        },
+      ];
+    }
+
+    const completedCount = jobs.filter((j) => j.status === "completed").length;
+    const reviewCount = jobs.filter((j) => j.status === "review").length;
+    const failedCount = jobs.filter((j) => j.status === "failed").length;
+
+    return [
+      {
+        label: "已完成任务",
+        value: `${completedCount}`,
+        description: `${totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 0}%`,
+        icon: dashboardMetricIcons.decisionPass,
+        tone: "success",
+      },
+      {
+        label: "待复核",
+        value: `${reviewCount}`,
+        description: "低置信度或字段冲突",
+        icon: dashboardMetricIcons.decisionReview,
+        tone: reviewCount > 0 ? "warning" : "neutral",
+      },
+      {
+        label: "失败任务",
+        value: `${failedCount}`,
+        description: "识别失败的任务",
+        icon: dashboardMetricIcons.decisionBlock,
+        tone: failedCount > 0 ? "danger" : "neutral",
+      },
+    ];
+  }, [jobs]);
 
   const runtimeTone = runtimeState.status === "error" ? "offline" : runtimeState.status === "loading" ? "degraded" : "online";
   const showOnboarding = jobs.length === 0 && !hasSeenOnboarding;
@@ -341,7 +435,7 @@ export default function RecognitionDashboardPage({
           <span className="mono">{api.baseUrl}</span>
         </div>
         {runtimeState.error ? (
-          <Alert type="warning" showIcon content={`运行状态加载失败：${runtimeState.error}。下方业务演示数据仍可正常查看。`} />
+          <Alert type="warning" showIcon content={`运行状态加载失败：${runtimeState.error}。`} />
         ) : null}
         <div className="metric-grid compact">
           {runtimeMetrics.map((metric) => (
