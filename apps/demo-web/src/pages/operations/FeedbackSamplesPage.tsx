@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Space, Table } from "@arco-design/web-react";
 import type { TableColumnProps } from "@arco-design/web-react";
 import type {
@@ -45,41 +45,7 @@ type FeedbackSubmitResult = {
 
 export const DEFAULT_FEEDBACK_EVALUATION_DATASET_ID = "ds-admission-0605";
 
-const initialSamples: FeedbackSample[] = [
-  {
-    id: "FB-1187",
-    source: "门诊病历 OCR",
-    field: "出院日期",
-    expected: "2026-05-28",
-    actual: "",
-    label: "字段缺失",
-    status: "new",
-    confidence: 0.61,
-    payload: { page: 3, bbox: [120, 356, 220, 388], reviewerNote: "字段被印章遮挡，需加入困难样本集" }
-  },
-  {
-    id: "FB-1186",
-    source: "检验申请单",
-    field: "检验项目",
-    expected: "NGS-肺癌 520 基因",
-    actual: "NGS-肺癌 52O 基因",
-    label: "识别错误",
-    status: "triaged",
-    confidence: 0.79,
-    payload: { page: 1, confusion: "0/O", suggestedRule: "项目编码优先于 OCR 文本" }
-  },
-  {
-    id: "FB-1185",
-    source: "住院首页",
-    field: "诊断列表",
-    expected: "肺恶性肿瘤；高血压",
-    actual: "肺恶性肿瘤高血压",
-    label: "结构错位",
-    status: "golden",
-    confidence: 0.84,
-    payload: { splitter: "；", trainingSet: "golden-medical-record-v1", approvedBy: "reviewer-a" }
-  }
-];
+
 
 const statusToneMap: Record<FeedbackStatus, "info" | "warning" | "success" | "neutral"> = {
   new: "info",
@@ -212,13 +178,56 @@ export async function submitFeedbackSampleStatus(
 
 export function FeedbackSamplesPage() {
   const { api } = useAuth();
-  const [samples, setSamples] = useState<FeedbackSample[]>(initialSamples);
-  const [selectedId, setSelectedId] = useState<string>(initialSamples[0]?.id ?? "");
+  const [samples, setSamples] = useState<FeedbackSample[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [confirmGoldenId, setConfirmGoldenId] = useState<string | null>(null);
   const [apiState, setApiState] = useState<FeedbackApiState>({
     status: "idle",
-    message: "当前列表使用本地复核样本兜底；入集和忽略会提交到真实 feedback API。"
+    message: "入集和忽略会提交到真实 feedback API。"
   });
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadFeedback() {
+      setLoadState("loading");
+
+      try {
+        const response = await (api as any).listFeedback?.();
+        if (!isActive) return;
+
+        if (response?.items && Array.isArray(response.items)) {
+          const parsed: FeedbackSample[] = response.items.map((item: any, index: number) => ({
+            id: item.id ?? `FB-${index + 1}`,
+            source: item.source ?? item.sourceType ?? "未知来源",
+            field: item.field ?? item.fieldKey ?? "-",
+            expected: item.expected ?? item.groundTruth ?? "",
+            actual: item.actual ?? item.predictedValue ?? "",
+            label: item.label ?? "可接受",
+            status: (item.status ?? "new") as FeedbackStatus,
+            confidence: typeof item.confidence === "number" ? item.confidence : 0,
+            payload: item.payload ?? item.metadata ?? {},
+            apiFeedbackId: item.id
+          }));
+
+          setSamples(parsed);
+          setSelectedId(parsed[0]?.id ?? "");
+        }
+
+        setLoadState("success");
+      } catch {
+        if (!isActive) return;
+        setLoadState("success");
+      }
+    }
+
+    void loadFeedback();
+
+    return () => {
+      isActive = false;
+    };
+  }, [api]);
 
   const selectedSample = useMemo(
     () => samples.find((sample) => sample.id === selectedId) ?? samples[0],
@@ -319,15 +328,15 @@ export function FeedbackSamplesPage() {
       <section className="metric-grid" aria-label="反馈指标">
         <MetricCard label="反馈样本" value={`${samples.length}`} hint="来自人工复核与写回拦截" tone="info" />
         <MetricCard label="黄金样本" value={`${goldenCount}`} hint="可进入回归评测集合" tone="success" />
-        <MetricCard label="平均置信度" value={`${Math.round((samples.reduce((sum, item) => sum + item.confidence, 0) / samples.length) * 100)}%`} hint="用于决定复核优先级" tone="warning" />
+        <MetricCard label="平均置信度" value={samples.length > 0 ? `${Math.round((samples.reduce((sum, item) => sum + item.confidence, 0) / samples.length) * 100)}%` : "-"} hint="用于决定复核优先级" tone="warning" />
       </section>
 
       <InlineNotice tone="warning" title="危险动作说明">
         加入黄金样本会影响后续评测基准，必须由复核人员确认；忽略样本只改变演示状态，不删除原始记录。
       </InlineNotice>
 
-      <InlineNotice tone={apiState.status === "error" ? "warning" : apiState.status === "success" ? "success" : "info"} title="API 状态">
-        {apiState.message}
+      <InlineNotice tone={samples.length === 0 && loadState === "success" ? "warning" : apiState.status === "error" ? "warning" : apiState.status === "success" ? "success" : "info"} title={samples.length === 0 && loadState === "success" ? "暂无反馈样本" : "API 状态"}>
+        {samples.length === 0 && loadState === "success" ? "暂无反馈样本，请通过识别流程或复核队列添加反馈。" : apiState.message}
       </InlineNotice>
 
       <section className="operations-split">

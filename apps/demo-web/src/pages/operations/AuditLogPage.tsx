@@ -24,48 +24,7 @@ type AuditLoadState = {
   message: string;
 };
 
-const auditEntries: AuditEntry[] = [
-  {
-    id: "AUD-90021",
-    time: "2026-06-05 09:51:22",
-    actor: "ops-admin",
-    action: "writeback.confirmed",
-    target: "WB-20260605-001",
-    risk: "high",
-    ip: "10.0.8.21",
-    detail: { confirmDialog: true, targetSystem: "LIMS", fields: 42, result: "accepted" }
-  },
-  {
-    id: "AUD-90020",
-    time: "2026-06-05 09:46:10",
-    actor: "ops-admin",
-    action: "provider.updated",
-    target: "LLM / OpenAI Responses",
-    risk: "medium",
-    ip: "10.0.8.21",
-    detail: { secretVisibleAfterSave: false, timeoutMs: 45000, healthCheck: "healthy" }
-  },
-  {
-    id: "AUD-90019",
-    time: "2026-06-05 09:43:38",
-    actor: "reviewer-a",
-    action: "feedback.tagged",
-    target: "FB-1187",
-    risk: "low",
-    ip: "10.0.12.9",
-    detail: { label: "字段缺失", sampleField: "出院日期", queue: "golden-set-candidate" }
-  },
-  {
-    id: "AUD-90018",
-    time: "2026-06-05 09:38:45",
-    actor: "developer-demo",
-    action: "trace.opened",
-    target: "TR-20260605-7781",
-    risk: "low",
-    ip: "127.0.0.1",
-    detail: { spanCount: 11, slowestNode: "llm.extract", durationMs: 4812 }
-  }
-];
+const auditEntries: AuditEntry[] = [];
 
 const riskToneMap: Record<AuditEntry["risk"], "success" | "warning" | "danger"> = {
   low: "success",

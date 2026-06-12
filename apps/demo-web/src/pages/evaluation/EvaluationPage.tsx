@@ -27,16 +27,23 @@ import {
   type EvaluationDataset,
   type EvaluationRun,
   type EvaluationRunDraft,
-  type ImportFlowState
+  type ImportFlowState,
+  type DatasetStatus,
+  type GroundTruthStatus
 } from "./components/evaluationData";
 
 function getFallbackDataset(): EvaluationDataset {
-  const dataset = datasets[0];
-  if (!dataset) {
-    throw new Error("Evaluation 页面缺少演示数据集");
-  }
-
-  return dataset;
+  return datasets[0] ?? {
+    id: "",
+    name: "",
+    scenario: "",
+    sampleCount: 0,
+    status: "ready" as DatasetStatus,
+    groundTruthStatus: "missing" as GroundTruthStatus,
+    deidentified: true,
+    owner: "",
+    updatedAt: ""
+  };
 }
 
 const fallbackDataset = getFallbackDataset();

@@ -50,117 +50,9 @@ export type FlowState = {
   compareBase: string;
 };
 
-export const schemaRecords: SchemaRecord[] = [
-  {
-    id: "medical-history",
-    name: "病史结构化 Schema",
-    domain: "入院记录",
-    owner: "临床信息组",
-    activeVersion: "v3.4.1",
-    draftVersion: "v3.5.0-draft",
-    affectedPipelines: ["住院病历抽取", "质控规则预审", "报告摘要生成"],
-    deactivationRisk: "高"
-  },
-  {
-    id: "lab-result",
-    name: "检验结果 Schema",
-    domain: "检验单",
-    owner: "检验运营组",
-    activeVersion: "v2.8.0",
-    draftVersion: "v2.9.0-draft",
-    affectedPipelines: ["检验 OCR 归一化", "异常值预警"],
-    deactivationRisk: "中"
-  },
-  {
-    id: "discharge",
-    name: "出院小结 Schema",
-    domain: "出院记录",
-    owner: "病案运营组",
-    activeVersion: "v1.9.6",
-    draftVersion: "v2.0.0-draft",
-    affectedPipelines: ["随访任务生成", "医保编码辅助"],
-    deactivationRisk: "中"
-  }
-];
+export const schemaRecords: SchemaRecord[] = [];
 
-export const schemaVersionsById: Record<string, SchemaVersion[]> = {
-  "medical-history": [
-    {
-      id: "mh-v350",
-      version: "v3.5.0-draft",
-      status: "draft",
-      author: "配置管理员 A",
-      updatedAt: "2026-06-05 09:12",
-      coverage: 96.4,
-      errorRate: 1.8,
-      changeSummary: "新增既往史别名和药物过敏枚举映射"
-    },
-    {
-      id: "mh-v341",
-      version: "v3.4.1",
-      status: "active",
-      author: "配置管理员 B",
-      updatedAt: "2026-06-01 17:20",
-      coverage: 94.7,
-      errorRate: 2.4,
-      changeSummary: "修复家族史空值归一化"
-    },
-    {
-      id: "mh-v333",
-      version: "v3.3.3",
-      status: "archived",
-      author: "质控角色 A",
-      updatedAt: "2026-05-18 11:06",
-      coverage: 91.2,
-      errorRate: 3.9,
-      changeSummary: "旧版抽取规则，保留回滚引用"
-    }
-  ],
-  "lab-result": [
-    {
-      id: "lab-v290",
-      version: "v2.9.0-draft",
-      status: "draft",
-      author: "配置管理员 C",
-      updatedAt: "2026-06-04 15:40",
-      coverage: 97.8,
-      errorRate: 1.2,
-      changeSummary: "补充单位换算和参考区间验证"
-    },
-    {
-      id: "lab-v280",
-      version: "v2.8.0",
-      status: "active",
-      author: "配置管理员 C",
-      updatedAt: "2026-05-29 10:22",
-      coverage: 96.1,
-      errorRate: 1.9,
-      changeSummary: "稳定生产版本"
-    }
-  ],
-  discharge: [
-    {
-      id: "dc-v200",
-      version: "v2.0.0-draft",
-      status: "draft",
-      author: "病案专员",
-      updatedAt: "2026-06-03 18:04",
-      coverage: 89.6,
-      errorRate: 4.7,
-      changeSummary: "拆分诊疗经过和出院医嘱字段"
-    },
-    {
-      id: "dc-v196",
-      version: "v1.9.6",
-      status: "active",
-      author: "病案专员",
-      updatedAt: "2026-05-25 14:35",
-      coverage: 88.9,
-      errorRate: 5.1,
-      changeSummary: "现网版本"
-    }
-  ]
-};
+export const schemaVersionsById: Record<string, SchemaVersion[]> = {};
 
 export const initialDraftFields: SchemaFieldDraft[] = [
   {
@@ -195,29 +87,7 @@ export const initialDraftFields: SchemaFieldDraft[] = [
   }
 ];
 
-export const validationResults: ValidationResult[] = [
-  {
-    id: "vr-1",
-    level: "success",
-    title: "字段覆盖率通过",
-    target: "病史结构化 Schema / v3.5.0-draft",
-    detail: "最近 120 条样本中核心字段覆盖率 96.4%，高于发布阈值 95%。"
-  },
-  {
-    id: "vr-2",
-    level: "warning",
-    title: "别名存在潜在冲突",
-    target: "pastHistory.aliases",
-    detail: "疾病史与家族史样本中都出现“既往情况”，发布前建议确认 adapter 路由优先级。"
-  },
-  {
-    id: "vr-3",
-    level: "error",
-    title: "枚举映射缺少兜底",
-    target: "allergyHistory.enumMap",
-    detail: "未知药物过敏输入未声明 fallback 策略，生产发布前必须补充。"
-  }
-];
+export const validationResults: ValidationResult[] = [];
 
 export const statusLabels: Record<SchemaStatus, string> = {
   draft: "草稿",

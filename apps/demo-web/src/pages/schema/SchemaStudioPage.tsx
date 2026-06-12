@@ -155,10 +155,7 @@ export function describeSchemaActionRecovery(
 
 export default function SchemaStudioPage() {
   const { api, hasPermission } = useAuth();
-  const firstSchema = schemaRecords[0];
-  if (!firstSchema) {
-    throw new Error("Schema Studio 缺少演示 Schema 数据");
-  }
+  const firstSchema = schemaRecords[0] ?? { id: "", name: "", domain: "", owner: "", activeVersion: "", draftVersion: "", affectedPipelines: [] as string[], deactivationRisk: "低" as const };
 
   const fallbackSchemaId = firstSchema.id;
   const [selectedSchemaId, setSelectedSchemaId] = useState(firstSchema.id);

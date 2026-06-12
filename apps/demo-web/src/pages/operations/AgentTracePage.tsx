@@ -20,36 +20,7 @@ type TraceLoadState = {
   message: string;
 };
 
-const traceRuns: TraceRun[] = [
-  {
-    id: "TR-20260605-7781",
-    subject: "合成样本 A / case-demo-001",
-    startedAt: "2026-06-05 09:35:17",
-    totalMs: 4812,
-    status: "success",
-    spans: [
-      { id: "s1", name: "file.ingest", service: "demo-web", durationMs: 280, status: "success", detail: "接收 4 页 PDF，完成 SHA256 计算" },
-      { id: "s2", name: "ocr.extract", service: "ocr-provider", durationMs: 1420, status: "success", detail: "OCR 返回 37 个文本块，平均置信度 0.94" },
-      { id: "s3", name: "llm.extract", service: "responses-provider", durationMs: 2290, status: "success", detail: "结构化抽取 42 个字段，命中病历 schema v2" },
-      { id: "s4", name: "writeback.prepare", service: "lims-adapter", durationMs: 822, status: "success", detail: "生成 LIMS payload，等待人工确认写回" }
-    ],
-    payload: { schema: "medical-record-v2", tokenUsage: 5821, provider: "OpenAI Responses", writebackReady: true }
-  },
-  {
-    id: "TR-20260605-7780",
-    subject: "合成样本 B / case-demo-002",
-    startedAt: "2026-06-05 09:29:48",
-    totalMs: 6320,
-    status: "warning",
-    spans: [
-      { id: "s1", name: "file.ingest", service: "demo-web", durationMs: 310, status: "success", detail: "接收合成住院首页图片 2 页" },
-      { id: "s2", name: "ocr.extract", service: "ocr-provider", durationMs: 1880, status: "warning", detail: "第 2 页存在印章遮挡，局部置信度下降" },
-      { id: "s3", name: "llm.extract", service: "responses-provider", durationMs: 3480, status: "warning", detail: "出院日期为空，已生成人工复核 blocker" },
-      { id: "s4", name: "writeback.prepare", service: "emr-adapter", durationMs: 650, status: "warning", detail: "因 blocker 禁止写回" }
-    ],
-    payload: { schema: "medical-record-v2", blockers: ["缺少出院日期人工确认"], writebackReady: false }
-  }
-];
+const traceRuns: TraceRun[] = [];
 
 const statusToneMap: Record<TraceStatus, "success" | "warning" | "danger"> = {
   success: "success",

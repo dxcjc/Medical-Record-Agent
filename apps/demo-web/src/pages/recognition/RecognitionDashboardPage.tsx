@@ -503,7 +503,17 @@ export default function RecognitionDashboardPage({
         />
         {jobs.length > 0 ? (
           <div className="table-scroll">
-            <Table columns={jobColumns} data={jobs} rowKey="id" pagination={false} scroll={{ x: 1120 }} />
+            <Table
+              columns={jobColumns}
+              data={jobs}
+              rowKey="id"
+              pagination={false}
+              scroll={{ x: 1120 }}
+              onRow={(record) => ({
+                onClick: () => navigate(`/recognition/jobs/${record.id}`),
+                style: { cursor: "pointer" }
+              })}
+            />
           </div>
         ) : (
           <EmptyPanel icon={dashboardMetricIcons.taskVolume} title="暂无识别任务" description="新建任务后，最近任务会显示在这里。" />
