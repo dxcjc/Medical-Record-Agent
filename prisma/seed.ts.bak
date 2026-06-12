@@ -32,84 +32,114 @@ const permissions = {
 
 const limsClinicalInfoDefinition = {
   key: "lims-clinical-info",
-  name: "LIMS 临床信息",
-  label: "LIMS 临床信息",
+  name: "LIMS 高资信息病历识别预设",
   locale: "zh-CN",
-  version: "1.0.0",
-  description: "肿瘤临床信息病历识别 Schema",
+  description: "合成初始化字段配置，仅用于本地开发和演示，不包含真实患者数据。",
   adapter: {
     type: "lims-clinical-info",
     targetSystem: "LIMS",
     targetEndpointKey: "limsClinicalInfoWriteback"
   },
-  evidencePolicy: {
-    required: true,
-    minConfidence: 0.78,
-    requireSourceText: true,
-    requirePageReference: true
-  },
   fields: [
     {
-      key: "smokingHistory",
-      label: "吸烟史",
+      key: "patientName",
+      label: "患者姓名",
+      type: "string",
+      required: true,
+      aliases: ["姓名", "患者", "病人姓名"],
+      evidenceRequired: true,
+      adapterHint: {
+        targetPath: "patient.name"
+      }
+    },
+    {
+      key: "gender",
+      label: "性别",
       type: "enum",
-      enumMap: { never: "从不吸烟", current: "目前吸烟", former: "既往吸烟或已戒烟", unknown: "未提及或无法判断" },
-      adapterHints: { limsTargetPath: "clinicalInfo.smokingHistory", normalizer: "smoking", writebackMode: "preview" }
+      required: false,
+      aliases: ["性别"],
+      enumMap: {
+        男: "male",
+        女: "female",
+        未说明: "unknown"
+      },
+      adapterHint: {
+        targetPath: "patient.gender"
+      }
     },
     {
-      key: "hypertensionHistory",
-      label: "高血压病史",
-      type: "boolean",
-      adapterHints: { limsTargetPath: "clinicalInfo.hypertensionHistory", normalizer: "booleanHistory", writebackMode: "preview" }
+      key: "age",
+      label: "年龄",
+      type: "number",
+      required: false,
+      aliases: ["年龄", "岁"],
+      normalizer: "ageTextToNumber",
+      adapterHint: {
+        targetPath: "patient.age"
+      }
     },
     {
-      key: "diagnosisDate",
-      label: "诊断日期",
-      type: "date",
-      adapterHints: { limsTargetPath: "clinicalInfo.diagnosisDate", normalizer: "dateText", writebackMode: "preview" }
-    },
-    {
-      key: "familyTumorHistory",
-      label: "家族肿瘤史",
-      type: "list",
-      adapterHints: { limsTargetPath: "clinicalInfo.familyTumorHistory", normalizer: "listField", writebackMode: "preview" }
-    },
-    {
-      key: "clinicalDiagnosis",
+      key: "diagnosis",
       label: "临床诊断",
       type: "string",
       required: true,
-      adapterHints: { limsTargetPath: "clinicalInfo.clinicalDiagnosis", writebackMode: "preview" }
+      aliases: ["诊断", "临床诊断", "入院诊断"],
+      evidenceRequired: true,
+      adapterHint: {
+        targetPath: "clinical.diagnosis"
+      }
     },
     {
       key: "sampleType",
       label: "样本类型",
       type: "enum",
-      enumMap: { tissue: "组织", blood: "血液", pleuralEffusion: "胸水", paraffinSection: "石蜡切片", unknown: "未提及或无法判断" },
-      adapterHints: { limsTargetPath: "clinicalInfo.sampleType", normalizer: "sampleType", writebackMode: "preview" }
+      required: true,
+      aliases: ["样本", "标本类型", "样本类型"],
+      enumMap: {
+        外周血: "peripheral_blood",
+        组织: "tissue",
+        血浆: "plasma",
+        胸水: "pleural_effusion"
+      },
+      adapterHint: {
+        targetPath: "sample.type"
+      }
     },
     {
-      key: "tumorType",
-      label: "肿瘤类型",
-      type: "string",
-      adapterHints: { limsTargetPath: "clinicalInfo.tumorType", writebackMode: "preview" }
-    },
-    {
-      key: "tumorStage",
-      label: "肿瘤分期",
-      type: "string",
-      adapterHints: { limsTargetPath: "clinicalInfo.tumorStage", writebackMode: "preview" }
-    },
-    {
-      key: "reportDate",
-      label: "报告日期",
+      key: "collectionDate",
+      label: "采样日期",
       type: "date",
-      adapterHints: { limsTargetPath: "clinicalInfo.reportDate", normalizer: "dateText", writebackMode: "preview" }
+      required: false,
+      aliases: ["采样日期", "采集日期", "取样日期"],
+      normalizer: "dateTextToIsoDate",
+      adapterHint: {
+        targetPath: "sample.collectionDate"
+      }
+    },
+    {
+      key: "medicalHistory",
+      label: "疾病史",
+      type: "string",
+      required: false,
+      aliases: ["病史", "疾病史", "既往史"],
+      adapterHint: {
+        targetPath: "clinical.medicalHistory"
+      }
+    },
+    {
+      key: "familyHistory",
+      label: "家族史",
+      type: "string",
+      required: false,
+      aliases: ["家族史", "遗传史"],
+      adapterHint: {
+        targetPath: "clinical.familyHistory"
+      }
     }
   ],
   validation: {
     minConfidenceForAutoWriteback: 0.92,
-    requiredEvidenceFields: ["clinicalDiagnosis", "sampleType"],
+    requiredEvidenceFields: ["patientName", "diagnosis", "sampleType"],
     missingRequiredFieldDecision: "needs_review"
   }
 };
