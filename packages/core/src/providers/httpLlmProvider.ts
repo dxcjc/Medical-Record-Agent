@@ -13,11 +13,12 @@ function createMalformedModelOutputError(providerName: string): ProviderError {
   });
 }
 
-function createRetryableModelError(providerName: string): ProviderError {
+function createRetryableModelError(providerName: string, cause?: unknown): ProviderError {
   return new ProviderError(`模型调用失败：${providerName} 返回脱敏错误`, {
     providerName,
     retryable: true,
-    code: "MODEL_PROVIDER_RETRYABLE_FAILURE"
+    code: "MODEL_PROVIDER_RETRYABLE_FAILURE",
+    cause
   });
 }
 
@@ -52,6 +53,7 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
   return {
     providerName,
     async extractFields(request) {
+      console.error(`[httpLlmProvider] extractFields 被调用, endpoint=${config.endpoint}, model=${config.model}`);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -81,6 +83,7 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
         });
 
         if (!response.ok) {
+          console.error(`[httpLlmProvider] HTTP 错误: ${response.status} ${response.statusText}, endpoint=${config.endpoint}`);
           throw createRetryableModelError(providerName);
         }
 
@@ -92,6 +95,7 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
         }
 
         const content = getFirstChoiceContent(data);
+        console.error(`[httpLlmProvider] LLM 返回内容: ${typeof content === 'string' ? content.substring(0, 2000) : JSON.stringify(content)?.substring(0, 2000)}`);
         const candidates = parseModelExtractionOutput(content, request.schema);
         if (!candidates) {
           throw createMalformedModelOutputError(providerName);
@@ -109,8 +113,11 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
         if (error instanceof ProviderError) {
           throw error;
         }
-
-        throw createRetryableModelError(providerName);
+        console.error(`[httpLlmProvider] 原始异常 (${providerName}):`, error instanceof Error ? error.message : String(error));
+        if (error instanceof Error && error.stack) {
+          console.error(error.stack);
+        }
+        throw createRetryableModelError(providerName, error);
       } finally {
         clearTimeout(timeout);
       }

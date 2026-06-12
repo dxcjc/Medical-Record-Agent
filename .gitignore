@@ -38,3 +38,7 @@ Thumbs.db
 test-results/
 playwright-report/
 
+
+# 测试上传文件
+apps/api/storage/uploads/
+storage/

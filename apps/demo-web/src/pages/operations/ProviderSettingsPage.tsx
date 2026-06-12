@@ -486,14 +486,25 @@ function ProviderAreaCard({ config, health, checking, visibleSecret, onUpdate, o
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item label="服务地址">
+            <Form.Item
+              label="服务地址"
+              field="endpoint"
+              rules={[
+                { required: true, message: "请输入服务地址" },
+                { match: /^https?:\/\/.+/, message: "请输入有效的 URL 地址（以 http:// 或 https:// 开头）" }
+              ]}
+            >
               <Input
                 value={config.endpoint}
                 placeholder="https://api.example.com/v1"
                 onChange={(value) => onUpdate(config.area, { endpoint: value })}
               />
             </Form.Item>
-            <Form.Item label={config.area === "LLM" ? "模型名称" : "配置名称"}>
+            <Form.Item
+              label={config.area === "LLM" ? "模型名称" : "配置名称"}
+              field="modelOrBucket"
+              rules={[{ required: config.area === "LLM", message: config.area === "LLM" ? "请输入模型名称" : "请输入配置名称" }]}
+            >
               <Input
                 value={config.modelOrBucket}
                 placeholder={config.area === "LLM" ? "gpt-4.1" : "profile-name"}

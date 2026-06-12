@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Avatar, Badge, Breadcrumb, Button, Card, Drawer, Input, Message, Space, Tag, Tooltip } from "@arco-design/web-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
+import { Home, FileText, Database, Settings } from "lucide-react";
 import { isMockProviderItem } from "../api/normalizers";
 import type { ApiProviderItem } from "../api/types";
 import { StepGuide } from "../components/StepGuide";
@@ -49,42 +50,27 @@ type ProviderStatusLoadState =
 
 const navGroups: NavGroup[] = [
   {
-    label: "Core",
+    label: "主导航",
     items: [
-      { to: "/", label: "识别看板", icon: navigationIcons.dashboard, guide: "environment-status" },
-      { to: "/recognition/new", label: "新建识别", icon: navigationIcons.newRecognition, permission: "job:create", guide: "new-recognition" },
-      { to: "/recognition/jobs/demo", label: "任务详情", icon: navigationIcons.jobDetail, permission: "job:read", guide: "field-evidence" }
-    ]
-  },
-  {
-    label: "Operations",
-    items: [
-      { to: "/schema", label: "Schema 管理", icon: navigationIcons.schemaStudio, permission: "schema:read", guide: "schema-publish" },
-      { to: "/evaluation", label: "评测中心", icon: navigationIcons.evaluation, permission: "evaluation:manage", guide: "evaluation" },
-      { to: "/feedback", label: "反馈样本", icon: navigationIcons.feedbackSamples, permission: "feedback:create", guide: "feedback" },
-      { to: "/trace", label: "Agent Trace", icon: navigationIcons.agentTrace, permission: "job:read" },
-      { to: "/audit", label: "审计日志", icon: navigationIcons.auditLog, permission: "audit:read" },
-      { to: "/writeback", label: "写回控制", icon: navigationIcons.writeback, permission: "writeback:execute", guide: "writeback" }
-    ]
-  },
-  {
-    label: "Settings",
-    items: [
-      { to: "/providers", label: "Provider 设置", icon: navigationIcons.providerSettings, permission: "provider:manage" },
-      { to: "/docs", label: "数据集规范", icon: navigationIcons.datasetSpec }
+      { to: "/", label: "工作台", icon: Home, guide: "environment-status" },
+      { to: "/recognition/new", label: "识别任务", icon: FileText, permission: "job:create", guide: "new-recognition" },
+      { to: "/data", label: "数据管理", icon: Database, permission: "schema:read" },
+      { to: "/settings/providers", label: "系统设置", icon: Settings, permission: "provider:manage" }
     ]
   }
 ];
 
 const breadcrumbLabels = new Map<string, string>([
-  ["/", "识别看板"],
+  ["/", "工作台"],
   ["/recognition", "识别任务"],
   ["/recognition/new", "新建识别"],
   ["/recognition/jobs", "任务详情"],
-  ["/schema", "Schema 管理"],
+  ["/data", "数据管理"],
+  ["/data/schema", "Schema 管理"],
   ["/evaluation", "评测中心"],
   ["/feedback", "反馈样本"],
-  ["/providers", "Provider 设置"],
+  ["/settings", "系统设置"],
+  ["/settings/providers", "Provider 设置"],
   ["/writeback", "写回控制"],
   ["/trace", "Agent Trace"],
   ["/audit", "审计日志"],

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Table, Tag } from "@arco-design/web-react";
+import { Alert, Button, Card, Space, Steps, Table, Tag } from "@arco-design/web-react";
 import type { TableColumnProps } from "@arco-design/web-react";
 import type { LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -73,6 +73,13 @@ export default function RecognitionDashboardPage({
   const { api } = useAuth();
   const navigate = useNavigate();
   const [refreshToken, setRefreshToken] = useState(0);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
+    try {
+      return localStorage.getItem("hasSeenOnboarding") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [runtimeState, setRuntimeState] = useState<RuntimeLoadState>({
     status: "loading",
     data: null,
@@ -171,6 +178,17 @@ export default function RecognitionDashboardPage({
   );
 
   const runtimeTone = runtimeState.status === "error" ? "offline" : runtimeState.status === "loading" ? "degraded" : "online";
+  const showOnboarding = jobs.length === 0 && !hasSeenOnboarding;
+
+  function dismissOnboarding() {
+    try {
+      localStorage.setItem("hasSeenOnboarding", "true");
+    } catch {
+      // ignore storage errors
+    }
+    setHasSeenOnboarding(true);
+  }
+
 
   const jobColumns: TableColumnProps<RecentJob>[] = [
     {
@@ -319,6 +337,47 @@ export default function RecognitionDashboardPage({
           <MetricCard key={metric.label} {...metric} />
         ))}
       </section>
+
+      {showOnboarding ? (
+        <Card
+          className="panel onboarding-card"
+          style={{ borderColor: "#3370FF", borderWidth: 2, borderStyle: "solid" }}
+          aria-label="首次使用引导"
+        >
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <h2 style={{ color: "#3370FF", marginBottom: 8 }}>欢迎使用医疗文档识别系统</h2>
+            <p style={{ color: "#666", marginBottom: 24 }}>只需三步，即可完成医疗文档的结构化识别</p>
+          </div>
+          <Steps
+            current={-1}
+            style={{ maxWidth: 720, margin: "0 auto 24px" }}
+          >
+            <Steps.Step title="上传医疗文档" description="支持 PDF、PNG、JPG 格式" />
+            <Steps.Step title="自动识别提取" description="系统自动 OCR + 结构化字段抽取" />
+            <Steps.Step title="确认并导出" description="复核结果、确认后导出结构化数据" />
+          </Steps>
+          <div style={{ textAlign: "center", marginTop: 16 }}>
+            <Space>
+              <Button
+                type="primary"
+                size="large"
+                onClick={() => {
+                  dismissOnboarding();
+                  navigate("/recognition/new");
+                }}
+              >
+                开始第一次识别
+              </Button>
+              <Button
+                type="outline"
+                onClick={dismissOnboarding}
+              >
+                跳过引导
+              </Button>
+            </Space>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="panel data-table-card">
         <SectionTitle

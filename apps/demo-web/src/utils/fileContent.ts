@@ -1,5 +1,7 @@
 function throwIfAborted(signal: AbortSignal | undefined) {
-  signal?.throwIfAborted();
+  if (signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
 }
 
 /**

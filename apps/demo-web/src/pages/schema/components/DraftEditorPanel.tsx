@@ -39,7 +39,11 @@ export function DraftEditorPanel({
               字段 {index + 1}
             </legend>
 
-            <Form.Item label="字段名">
+            <Form.Item
+              label="字段名"
+              field="name"
+              rules={[{ required: true, message: "请输入字段名称" }]}
+            >
               <Input
                 value={field.name}
                 onChange={(value) => onUpdateField(field.id, "name", value)}

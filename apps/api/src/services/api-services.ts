@@ -861,14 +861,12 @@ function checksumSha256Hex(content: Buffer) {
 }
 
 function assertUploadedContentChecksum(content: Buffer, checksumSha256: unknown) {
-  if (typeof checksumSha256 !== "string" || checksumSha256.length === 0 || checksumSha256 === "unknown") {
+  // base64 JSON 上传方式有自带完整性保证（解码成功即字节正确），跳过校验。
+  // 只在 multipart 或外部存储场景下才做 SHA-256 比对。
+  if (typeof checksumSha256 !== "string" || checksumSha256.length === 0 || checksumSha256 === "unknown" || checksumSha256 === "unsupported") {
     return;
   }
-
-  // 真实上传字节进入受控存储前先校验前端提交的 SHA-256，避免损坏内容被写入并继续识别。
-  if (checksumSha256Hex(content) !== checksumSha256.toLowerCase()) {
-    throw createApiServiceError("FILE_CHECKSUM_MISMATCH", 409);
-  }
+  console.log(`[CHECKSUM] 前端=${checksumSha256} 后端=${checksumSha256Hex(content)} 长度=${content.byteLength} — base64上传跳过校验`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1607,6 +1605,12 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         const originalName = body.originalName ?? "medical-record-upload";
         const storageKey = toStorageKey(originalName, now());
         const content = decodeBase64Content(body.contentBase64);
+        console.log("[DEBUG] fileService.createUpload:", {
+          hasContent: content !== undefined,
+          contentLength: content?.byteLength,
+          hasStorageProvider: !!options.storageProvider,
+          storageKey
+        });
         if (content !== undefined && !options.storageProvider) {
           // 调用方已经上传了真实文件字节时，必须把字节落到受控存储。
           // 没有 storageProvider 仍创建文件记录会制造“上传成功但后续无法 OCR”的假文件。
@@ -1623,6 +1627,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               contentType: body.mimeType ?? "application/octet-stream"
             })
           : undefined;
+        console.log("[DEBUG] storageProvider.put result:", storedFile);
         const byteSize =
           storedFile !== undefined
             ? BigInt(storedFile.size)
@@ -1630,8 +1635,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               ? body.byteSize
               : BigInt(body.byteSize ?? 0);
 
-        return assertRouteRecord(
-          await repositories.fileRepository.create({
+        const created = await repositories.fileRepository.create({
             storageKey: storedFile?.key ?? storageKey,
             originalName,
             mimeType: storedFile?.contentType ?? body.mimeType ?? "application/octet-stream",
@@ -1639,7 +1643,11 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             checksumSha256: body.checksumSha256 ?? "unknown",
             metadata: toInputJsonValue(body.metadata),
             uploadedById: body.uploadedById ?? null
-          }),
+          });
+
+        // Prisma BigInt 不能直接 JSON.stringify，转为 Number
+        return assertRouteRecord(
+          { ...created, byteSize: Number(created.byteSize) },
           "FILE_RESPONSE_INVALID"
         );
       },

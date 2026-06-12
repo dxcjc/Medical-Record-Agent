@@ -162,7 +162,8 @@ function createFixedWindowRateLimiter(rule: ApiRateLimitRule, scope: string): pr
  */
 export async function createApiServer(options: CreateApiServerOptions) {
   const server = Fastify({
-    logger: options.logger ?? false
+    logger: options.logger ?? false,
+    bodyLimit: 104857600 // 100MB
   });
   const authHooks = createAuthHooks({
     authService: options.services.authService

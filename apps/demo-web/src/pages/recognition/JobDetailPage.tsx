@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Form, Input, Select, Space } from "@arco-design/web-react";
+import { Alert, Button, Card, Collapse, Form, Input, Select, Space } from "@arco-design/web-react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { CreateFeedbackInput } from "../../api/client";
 import {
@@ -430,12 +430,80 @@ export default function JobDetailPage() {
         </Card>
       ) : null}
 
+      {displayFields.length === 0 && displayEvidenceItems.length === 0 && !displayOcrText && loadState !== "loading" ? (
+        <Card
+          className="panel"
+          style={{ borderColor: "#3370FF", borderWidth: 2, borderStyle: "solid" }}
+          aria-label="空状态引导"
+        >
+          <EmptyPanel
+            icon={dashboardMetricIcons.taskVolume}
+            title="暂无识别结果"
+            description="请先上传文档进行识别，识别完成后结果将在此处展示。"
+            action={
+              <Button
+                type="primary"
+                onClick={() => navigate("/recognition/new")}
+              >
+                上传文档进行识别
+              </Button>
+            }
+          />
+        </Card>
+      ) : null}
+
       <section className="metric-grid" aria-label="识别复核摘要">
         <MetricCard label="任务状态" value={reviewSummary.statusLabel} description="当前识别流程状态" icon={statusIcons.running} tone="info" />
         <MetricCard label="待复核字段" value={`${reviewSummary.pendingFieldCount}`} description="缺失、冲突或低置信字段" icon={dashboardMetricIcons.reviewQueue} tone={reviewSummary.pendingFieldCount > 0 ? "warning" : "success"} />
         <MetricCard label="高置信字段" value={`${reviewSummary.highConfidenceFieldCount}`} description="可直接采纳的字段" icon={dashboardMetricIcons.decisionPass} tone="success" />
         <MetricCard label="质量告警" value={`${reviewSummary.warningCount}`} description="需要人工关注的问题" icon={statusIcons.warning} tone={reviewSummary.warningCount > 0 ? "warning" : "neutral"} />
       </section>
+
+      {displayFields.length > 0 ? (
+        <Card className="panel" style={{ marginBottom: 16 }}>
+          <SectionTitle title="核心识别结果" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+            {displayFields
+              .filter((f) => {
+                const name = f.field.toLowerCase();
+                return name.includes("患者") || name.includes("姓名") || name.includes("日期") || name.includes("年龄") || name.includes("性别") || name.includes("主诉") || name.includes("诊断");
+              })
+              .slice(0, 6)
+              .map((f) => {
+                const isAbnormal = f.decision === "red";
+                const isWarning = f.decision === "yellow";
+                const borderColor = isAbnormal ? "#F53F3F" : isWarning ? "#FF7D00" : "#00B42A";
+                const bgColor = isAbnormal ? "#FFF2F0" : isWarning ? "#FFF7E6" : "#E8FFEA";
+                return (
+                  <div
+                    key={f.field}
+                    style={{
+                      padding: 20,
+                      borderRadius: 12,
+                      borderLeft: `4px solid ${borderColor}`,
+                      background: bgColor,
+                    }}
+                  >
+                    <div style={{ fontSize: 13, color: "#86909C", marginBottom: 8 }}>{f.field}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: isAbnormal ? "#F53F3F" : "#1D2129", marginBottom: 8 }}>
+                      {f.value || "未识别"}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                      <span style={{ color: "#86909C" }}>置信度 {formatPercent(f.confidence)}</span>
+                      {isAbnormal ? (
+                        <span style={{ color: "#F53F3F", fontWeight: 600 }}>异常</span>
+                      ) : isWarning ? (
+                        <span style={{ color: "#FF7D00", fontWeight: 600 }}>待确认</span>
+                      ) : (
+                        <span style={{ color: "#00B42A", fontWeight: 600 }}>正常</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="panel recognition-timeline-card">
         <SectionTitle title="识别进度" />
@@ -652,38 +720,102 @@ export default function JobDetailPage() {
         </section>
       </div>
 
-      <details className="technical-details">
-        <summary>技术详情</summary>
-        <div className="detail-grid">
-          <Card className="panel">
-            <SectionTitle title="Payload" />
-            <pre className="payload-preview">{JSON.stringify(displayPayload, null, 2)}</pre>
-          </Card>
+      <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
+        <Collapse.Item header="详细技术信息" name="technical">
+          <div className="detail-grid">
+            <Card className="panel">
+              <SectionTitle title="Payload" />
+              <pre className="payload-preview">{JSON.stringify(displayPayload, null, 2)}</pre>
+            </Card>
 
-          <Card className="panel" data-guide="langgraph-workflow">
-            <SectionTitle title="LangGraph Trace" />
-            {displayTraceSteps.length > 0 ? (
-              <ol className="trace-list">
-                {displayTraceSteps.map((step) => (
-                  <li key={step.id}>
-                    <div>
-                      <strong>{step.node}</strong>
-                      <span>{step.durationMs}ms</span>
-                    </div>
-                    <StatusPill
-                      label={step.status === "done" ? "完成" : step.status === "active" ? "运行中" : "阻塞"}
-                      tone={step.status === "done" ? "completed" : step.status === "active" ? "running" : "failed"}
-                    />
-                    <p>{step.detail}</p>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <EmptyPanel icon={statusIcons.neutral} title="暂无 Trace" description="当前任务还没有返回流程节点。" />
-            )}
-          </Card>
-        </div>
-      </details>
+            <Card className="panel" data-guide="langgraph-workflow">
+              <SectionTitle title="LangGraph Trace" />
+              {displayTraceSteps.length > 0 ? (
+                <ol className="trace-list">
+                  {displayTraceSteps.map((step) => (
+                    <li key={step.id}>
+                      <div>
+                        <strong>{step.node}</strong>
+                        <span>{step.durationMs}ms</span>
+                      </div>
+                      <StatusPill
+                        label={step.status === "done" ? "完成" : step.status === "active" ? "运行中" : "阻塞"}
+                        tone={step.status === "done" ? "completed" : step.status === "active" ? "running" : "failed"}
+                      />
+                      <p>{step.detail}</p>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <EmptyPanel icon={statusIcons.neutral} title="暂无 Trace" description="当前任务还没有返回流程节点。" />
+              )}
+            </Card>
+          </div>
+        </Collapse.Item>
+        <Collapse.Item header="OCR 原始文本" name="ocr">
+          {displayOcrText ? (
+            <pre className="ocr-text">{displayOcrText}</pre>
+          ) : (
+            <EmptyPanel icon={statusIcons.neutral} title="暂无 OCR 文本" description="当前任务还没有返回 OCR 文本。" />
+          )}
+        </Collapse.Item>
+        <Collapse.Item header="全部字段候选" name="fields">
+          {reviewRows.length > 0 ? (
+            <div className="review-field-list">
+              {reviewRows.map((field) => (
+                <div
+                  key={field.field}
+                  className={`review-field-row is-${field.reviewStatus}`}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid #F2F3F5" }}
+                >
+                  <span style={{ minWidth: 100 }}>{field.field}</span>
+                  <strong>{field.confirmedValue || "未识别"}</strong>
+                  <small style={{ color: "#86909C" }}>模型值：{field.originalValue || "空"}</small>
+                  <StatusPill label={REVIEW_STATUS_LABEL[field.reviewStatus]} tone={REVIEW_STATUS_TONE[field.reviewStatus]} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyPanel icon={statusIcons.neutral} title="暂无字段候选" description="当前任务还没有返回可复核的字段结果。" />
+          )}
+        </Collapse.Item>
+      </Collapse>
+
+      <Card className="panel" style={{ marginBottom: 16 }}>
+        <Space className="toolbar" wrap>
+          <Button
+            type="primary"
+            aria-label="确认并导出"
+            icon={<AppIcon icon={actionIcons.next} size="sm" />}
+            onClick={() => {
+              const exportData = {
+                jobId: displayJobId,
+                status: apiDetail.status,
+                fields: displayFields,
+                evidence: displayEvidenceItems,
+                ocrText: displayOcrText,
+                exportedAt: new Date().toISOString(),
+              };
+              const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `recognition-result-${displayJobId}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            确认并导出
+          </Button>
+          <Button
+            type="outline"
+            aria-label="返回任务列表"
+            onClick={() => navigate("/recognition")}
+          >
+            返回列表
+          </Button>
+        </Space>
+      </Card>
     </main>
   );
 }

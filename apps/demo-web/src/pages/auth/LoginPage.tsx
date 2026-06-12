@@ -1,5 +1,6 @@
-import { FormEvent, useState } from "react";
-import { Alert, Button, Card, Checkbox, Form, Input, Space, Tag } from "@arco-design/web-react";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Button, Card, Checkbox, Form, Input, Message, Space, Tag } from "@arco-design/web-react";
+import type { FormInstance } from "@arco-design/web-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { LockKeyhole, LogIn, ShieldCheck } from "lucide-react";
 import { ApiClientError } from "../../api/client";
@@ -51,22 +52,39 @@ export default function LoginPage() {
   const location = useLocation();
   const initialCredentials = getInitialLoginCredentials();
   const demoPrefillEnabled = isDemoAuthPrefillEnabled();
-  const [email, setEmail] = useState(initialCredentials.email);
-  const [password, setPassword] = useState(initialCredentials.password);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<FormInstance>(null);
+
+  useEffect(() => {
+    if (formRef.current && initialCredentials.email) {
+      formRef.current.setFieldsValue({
+        email: initialCredentials.email,
+        password: initialCredentials.password
+      });
+    }
+  }, []);
 
   if (isAuthenticated) {
     return <Navigate replace to="/" />;
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSubmit(values: Record<string, any>) {
     setError("");
+
+    const form = formRef.current;
+    if (!form) return;
+
+    try {
+      await form.validate();
+    } catch {
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login({ email, password });
+      await login({ email: values.email, password: values.password });
       navigate(readRedirectPath(location.state), { replace: true });
     } catch (caughtError) {
       const message =
@@ -74,6 +92,7 @@ export default function LoginPage() {
           ? caughtError.message
           : "登录失败：请确认 API 服务已启动。";
       setError(message);
+      Message.error(message);
     } finally {
       setLoading(false);
     }
@@ -117,7 +136,7 @@ export default function LoginPage() {
         </Card>
 
         <Card className="login-card">
-          <form className="login-form" onSubmit={handleSubmit}>
+          <Form ref={formRef} className="login-form" onSubmit={handleSubmit}>
             <header>
               <p className="eyebrow">Secure Access</p>
               <h2>登录临床工作台</h2>
@@ -127,22 +146,26 @@ export default function LoginPage() {
               <Alert type="info" showIcon content={`演示账号：${demoEmail} / ${demoPassword}`} />
             ) : null}
 
-            <Form.Item label="邮箱">
+            <Form.Item
+              label="邮箱"
+              field="email"
+              rules={[{ required: true, message: "请输入邮箱地址" }]}
+            >
               <Input
                 autoComplete="email"
                 name="email"
                 type="email"
-                value={email}
-                onChange={setEmail}
               />
             </Form.Item>
 
-            <Form.Item label="密码">
+            <Form.Item
+              label="密码"
+              field="password"
+              rules={[{ required: true, message: "请输入密码" }]}
+            >
               <Input.Password
                 autoComplete="current-password"
                 name="password"
-                value={password}
-                onChange={setPassword}
               />
             </Form.Item>
 
@@ -154,12 +177,11 @@ export default function LoginPage() {
               </Space>
             </div>
 
-            {error ? <Alert type="error" showIcon content={error} /> : null}
 
             <Button className="login-submit" type="primary" htmlType="submit" loading={loading} icon={<LogIn size={16} aria-hidden="true" />}>
               进入工作台
             </Button>
-          </form>
+          </Form>
         </Card>
       </section>
     </main>

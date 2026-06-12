@@ -2,7 +2,7 @@ import ConfigProvider from "@arco-design/web-react/es/ConfigProvider";
 import zhCN from "@arco-design/web-react/es/locale/zh-CN";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { AppShell } from "./layouts/AppShell";
@@ -20,6 +20,8 @@ const JobDetailPage = lazy(() => import("./pages/recognition/JobDetailPage"));
 const NewRecognitionPage = lazy(() => import("./pages/recognition/NewRecognitionPage"));
 const RecognitionDashboardPage = lazy(() => import("./pages/recognition/RecognitionDashboardPage"));
 const SchemaStudioPage = lazy(() => import("./pages/schema/SchemaStudioPage"));
+const DataManagementPage = lazy(() => import("./pages/data/DataManagementPage"));
+const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -46,14 +48,37 @@ const router = createBrowserRouter([
           { index: true, element: <RecognitionDashboardPage /> },
           { path: "recognition/new", element: <NewRecognitionPage /> },
           { path: "recognition/jobs/:jobId", element: <JobDetailPage /> },
-          { path: "schema", element: <SchemaStudioPage /> },
-          { path: "evaluation", element: <EvaluationPage /> },
-          { path: "feedback", element: <FeedbackSamplesPage /> },
-          { path: "providers", element: <ProviderSettingsPage /> },
-          { path: "writeback", element: <WritebackPage /> },
-          { path: "trace", element: <AgentTracePage /> },
-          { path: "audit", element: <AuditLogPage /> },
-          { path: "docs", element: <DatasetSpecPage /> },
+          {
+            path: "data",
+            element: <DataManagementPage />,
+            children: [
+              { index: true, element: <Navigate to="schema" replace /> },
+              { path: "schema", element: <SchemaStudioPage /> },
+              { path: "evaluation", element: <EvaluationPage /> },
+              { path: "feedback", element: <FeedbackSamplesPage /> },
+              { path: "trace", element: <AgentTracePage /> },
+              { path: "audit", element: <AuditLogPage /> },
+              { path: "writeback", element: <WritebackPage /> },
+              { path: "docs", element: <DatasetSpecPage /> },
+            ]
+          },
+          {
+            path: "settings",
+            element: <SettingsPage />,
+            children: [
+              { index: true, element: <Navigate to="providers" replace /> },
+              { path: "providers", element: <ProviderSettingsPage /> },
+            ]
+          },
+          // Keep old routes for backward compatibility
+          { path: "schema", element: <Navigate to="/data/schema" replace /> },
+          { path: "evaluation", element: <Navigate to="/data/evaluation" replace /> },
+          { path: "feedback", element: <Navigate to="/data/feedback" replace /> },
+          { path: "providers", element: <Navigate to="/settings/providers" replace /> },
+          { path: "writeback", element: <Navigate to="/data/writeback" replace /> },
+          { path: "trace", element: <Navigate to="/data/trace" replace /> },
+          { path: "audit", element: <Navigate to="/data/audit" replace /> },
+          { path: "docs", element: <Navigate to="/data/docs" replace /> },
           { path: "*", element: <NotFoundPage /> }
         ]
       }

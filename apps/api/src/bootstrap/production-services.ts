@@ -1043,7 +1043,7 @@ function buildModelProvider(
       http: {
         endpoint: env.providers.llm.baseUrl ?? "",
         model: env.providers.llm.model,
-        timeoutMs: 30_000
+        timeoutMs: 90_000
       }
     };
 

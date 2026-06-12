@@ -1,7 +1,7 @@
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Card, Checkbox, Form, Progress, Select, Space } from "@arco-design/web-react";
+import { Alert, Button, Card, Checkbox, Form, Progress, Radio, Select, Space } from "@arco-design/web-react";
 import type { LucideIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ApiRecognitionJob, ApiRecognitionResult } from "../../api/types";
 import {
   normalizeProviderSelectOptions,
@@ -93,6 +93,22 @@ const initialPrivacyOptions: PrivacyOptions = {
   allowWriteBack: false,
 };
 
+type RecognitionType = "blood_routine" | "biochemistry" | "urine_routine" | "other";
+
+const recognitionTypeOptions: { value: RecognitionType; label: string }[] = [
+  { value: "blood_routine", label: "血常规" },
+  { value: "biochemistry", label: "生化" },
+  { value: "urine_routine", label: "尿常规" },
+  { value: "other", label: "其他" },
+];
+
+const recognitionTypeMapping: Record<RecognitionType, { schema: string; adapter: string }> = {
+  blood_routine: { schema: "检验报告字段模板", adapter: "LabReportAdapter" },
+  biochemistry: { schema: "检验报告字段模板", adapter: "LabReportAdapter" },
+  urine_routine: { schema: "检验报告字段模板", adapter: "LabReportAdapter" },
+  other: { schema: "门诊病历结构化模板", adapter: "OutpatientPdfAdapter" },
+};
+
 const visiblePrivacyOptionContent = {
   deidentify: {
     icon: actionIcons.privacyPolicy,
@@ -120,7 +136,7 @@ const fallbackSchemaOptions: SelectOption[] = schemaOptions.map((option) => ({
 
 const fallbackProviderOptions: SelectOption[] = [];
 
-export const LOCAL_PADDLE_OCR_PROVIDER_KEY = "local-paddleocr";
+export const LOCAL_PADDLE_OCR_PROVIDER_KEY = "http-ocr";
 
 type RecognitionCapabilityStatus = "ready" | "blocked" | "checking";
 
@@ -443,14 +459,14 @@ export async function buildRecognitionFileUploadInput(input: {
   privacy: PrivacyOptions;
   signal?: AbortSignal | undefined;
 }) {
-  input.signal?.throwIfAborted();
+  if (input.signal?.aborted) throw new DOMException("aborted", "AbortError");
   const contentBase64 = input.file instanceof Blob ? await blobToBase64(input.file, input.signal) : undefined;
-  input.signal?.throwIfAborted();
+  if (input.signal?.aborted) throw new DOMException("aborted", "AbortError");
   const checksumSha256 = input.file instanceof Blob ? await blobSha256Hex(input.file, input.signal).catch(() => "unsupported") : "unknown";
-  input.signal?.throwIfAborted();
+  if (input.signal?.aborted) throw new DOMException("aborted", "AbortError");
 
   return {
-    originalName: input.file.name,
+    originalName: `${Date.now()}_${input.file.name}`,
     mimeType: input.file.type || "application/octet-stream",
     byteSize: input.file.size,
     checksumSha256,
@@ -467,6 +483,7 @@ export async function buildRecognitionFileUploadInput(input: {
 
 export default function NewRecognitionPage() {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
@@ -475,11 +492,19 @@ export default function NewRecognitionPage() {
   const [llmProviderChoices, setLlmProviderChoices] = useState<SelectOption[]>(fallbackProviderOptions);
   const [optionLoadState, setOptionLoadState] = useState<OptionLoadState>("idle");
   const [optionLoadError, setOptionLoadError] = useState("");
-  const [schemaName, setSchemaName] = useState(fallbackSchemaOptions[0]?.value ?? "lims-clinical-info");
-  const [adapter, setAdapter] = useState<(typeof adapterOptions)[number]>(adapterOptions[0]);
+  const [schemaName, setSchemaName] = useState(recognitionTypeMapping.blood_routine.schema);
+  const [adapter, setAdapter] = useState<(typeof adapterOptions)[number]>(recognitionTypeMapping.blood_routine.adapter as (typeof adapterOptions)[number]);
   const [provider, setProvider] = useState(fallbackProviderOptions[0]?.value ?? "");
   const [privacy, setPrivacy] = useState<PrivacyOptions>(initialPrivacyOptions);
+  const [recognitionType, setRecognitionType] = useState<RecognitionType>("blood_routine");
   const [submitState, setSubmitState] = useState<SubmitState>({ status: "idle" });
+  const [hasRecognitionHistory, setHasRecognitionHistory] = useState(() => {
+    try {
+      return localStorage.getItem("hasRecognitionHistory") === "true";
+    } catch {
+      return false;
+    }
+  });
   const submitAbortControllerRef = useRef<AbortController | null>(null);
   const lastSubmitRef = useRef<LastRecognitionSubmit | null>(null);
 
@@ -489,6 +514,16 @@ export default function NewRecognitionPage() {
     },
     []
   );
+
+  // 任务完成后自动跳转到结果页面
+  useEffect(() => {
+    if (submitState.status === "success" && submitState.progress.phase === "completed") {
+      const timer = setTimeout(() => {
+        navigate(`/recognition/jobs/${encodeURIComponent(submitState.jobId)}`);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [submitState, navigate]);
 
   const fileSummary = useMemo(() => {
     if (!selectedFile) {
@@ -607,6 +642,15 @@ export default function NewRecognitionPage() {
     }));
   }
 
+  function handleRecognitionTypeChange(type: RecognitionType) {
+    setRecognitionType(type);
+    const mapping = recognitionTypeMapping[type];
+    if (mapping) {
+      setSchemaName(mapping.schema);
+      setAdapter(mapping.adapter as (typeof adapterOptions)[number]);
+    }
+  }
+
   async function createRecognitionFromFile(input: LastRecognitionSubmit, signal?: AbortSignal) {
     const fileUploadInput = {
         file: input.file,
@@ -657,7 +701,7 @@ export default function NewRecognitionPage() {
     const maxPolls = 30;
 
     for (let attempt = 0; attempt < maxPolls; attempt += 1) {
-      signal?.throwIfAborted();
+      if (signal?.aborted) throw new DOMException("aborted", "AbortError");
       const progress = describeRecognitionAsyncProgress(currentJob);
       setSubmitState({ status: "success", jobId: progress.jobId, progress });
 
@@ -677,7 +721,7 @@ export default function NewRecognitionPage() {
         );
       });
 
-      signal?.throwIfAborted();
+      if (signal?.aborted) throw new DOMException("aborted", "AbortError");
       currentJob = await api.getJob(progress.jobId, createApiRequestOptions(signal));
     }
 
@@ -731,6 +775,12 @@ export default function NewRecognitionPage() {
       });
 
       await loadRecognitionResultForTerminalJob(terminalJob, controller.signal);
+      try {
+        localStorage.setItem("hasRecognitionHistory", "true");
+      } catch {
+        // ignore storage errors
+      }
+      setHasRecognitionHistory(true);
     } catch (error) {
       if (isAbortError(error)) {
         setSubmitState({
@@ -829,6 +879,22 @@ export default function NewRecognitionPage() {
       />
 
       <form className="recognition-form" onSubmit={handleSubmit} data-guide="new-recognition">
+        <Card className="panel recognition-type-card">
+          <SectionTitle title="识别类型" />
+          <p style={{ color: "#86909C", fontSize: 13, marginBottom: 12 }}>选择识别类型后，系统将自动匹配对应的 Schema 模板和文档类型</p>
+          <Radio.Group
+            value={recognitionType}
+            onChange={handleRecognitionTypeChange}
+            style={{ display: "flex", gap: 16 }}
+          >
+            {recognitionTypeOptions.map((option) => (
+              <Radio key={option.value} value={option.value}>
+                {option.label}
+              </Radio>
+            ))}
+          </Radio.Group>
+        </Card>
+
         <Card className="panel recognition-capability-card">
           <SectionTitle title="识别能力" />
           <div className="recognition-capability-list">
@@ -871,6 +937,13 @@ export default function NewRecognitionPage() {
           {fileError ? (
             <Alert type="error" showIcon content={fileError} />
           ) : null}
+          {!hasRecognitionHistory && !selectedFile ? (
+            <div style={{ textAlign: "center", padding: "12px 0 0", color: "#666" }}>
+              <p style={{ margin: 0, fontSize: 14 }}>
+                上传您的第一份医疗文档，系统将自动识别并提取结构化数据
+              </p>
+            </div>
+          ) : null}
         </Card>
 
         <Card className="panel recognition-config-card">
@@ -895,6 +968,7 @@ export default function NewRecognitionPage() {
                 aria-label="选择 Schema 模板"
                 value={schemaName}
                 onChange={setSchemaName}
+                disabled={recognitionType !== "other"}
               >
                 {schemaChoices.map((option) => (
                   <Select.Option key={option.value} value={option.value}>
@@ -909,6 +983,7 @@ export default function NewRecognitionPage() {
                 aria-label="选择 Adapter"
                 value={adapter}
                 onChange={(value) => setAdapter(value as typeof adapter)}
+                disabled={recognitionType !== "other"}
               >
                 {adapterOptions.map((option) => (
                   <Select.Option key={option} value={option}>
@@ -1006,66 +1081,75 @@ export default function NewRecognitionPage() {
         </Card>
       </form>
 
-      {submitState.status === "success" ? (
-        <Card className="panel async-recognition-panel" aria-live="polite">
-          <SectionTitle title="识别进度" />
-          <div className="async-recognition-status">
-            <StatusPill label={submitState.progress.label} tone={submitState.progress.phase === "failed" ? "failed" : submitState.progress.phase} />
-            <span className="mono">{submitState.progress.status}</span>
-          </div>
-          <Progress percent={submitState.progress.percent} />
-          <p>{submitState.progress.message}</p>
-          {submitState.progress.queueSummary ? <p>{submitState.progress.queueSummary}</p> : null}
-          {submitState.progress.workerSummary ? <p>{submitState.progress.workerSummary}</p> : null}
-          {submitState.progress.retrySummary ? <p>{submitState.progress.retrySummary}</p> : null}
-          {submitState.progress.recoveryAction ? (
-            <Alert
-              type={getRecognitionAsyncRecoveryHint(submitState.progress).tone === "warning" ? "warning" : "info"}
-              showIcon
-              content={submitState.progress.recoveryAction}
-            />
-          ) : null}
-          <dl className="async-recognition-links">
-            <div>
-              <dt>Status URL</dt>
-              <dd>{submitState.progress.statusUrl ?? `/jobs/${submitState.jobId}`}</dd>
+      {submitState.status === "success" ? (() => {
+        const phase = submitState.progress.phase;
+        const isFailed = phase === "failed";
+        const isCompleted = phase === "completed";
+        const phasePercent = phase === "queued"
+          ? Math.min(submitState.progress.percent, 30)
+          : phase === "running"
+            ? 30 + Math.min(submitState.progress.percent - 25, 50)
+          : 100;
+        const phaseLabel = phase === "queued"
+          ? "OCR 提取"
+          : phase === "running"
+            ? "LLM 结构化提取"
+          : "结果生成";
+        const phaseDetail = phase === "queued"
+          ? "正在使用 PaddleOCR 提取文字内容"
+          : phase === "running"
+            ? "正在使用大模型进行结构化字段抽取"
+          : "识别流程已完成，正在准备结果";
+
+        return (
+          <Card className="panel async-recognition-panel" aria-live="polite">
+            <SectionTitle title="识别进度" />
+            <div className="async-recognition-status">
+              <StatusPill label={submitState.progress.label} tone={isFailed ? "failed" : phase} />
+              <span className="mono">{submitState.progress.status}</span>
             </div>
-            <div>
-              <dt>Result URL</dt>
-              <dd>{submitState.progress.resultUrl ?? `/results/${submitState.jobId}`}</dd>
+            <div style={{ margin: "16px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, color: isCompleted ? "#00B42A" : "#3370FF" }}>{phaseLabel}</span>
+                <span style={{ color: "#86909C", fontSize: 13 }}>{phasePercent}%</span>
+              </div>
+              <Progress
+                percent={phasePercent}
+                color={isFailed ? "#F53F3F" : isCompleted ? "#00B42A" : "#3370FF"}
+                trailColor="#E5E6EB"
+                style={{ marginBottom: 12 }}
+              />
+              <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#86909C" }}>
+                <span style={{ color: phasePercent > 0 ? "#3370FF" : undefined }}>OCR 提取 (0-30%)</span>
+                <span style={{ color: phasePercent > 30 ? "#3370FF" : undefined }}>LLM 结构化提取 (30-80%)</span>
+                <span style={{ color: phasePercent > 80 ? (isCompleted ? "#00B42A" : "#3370FF") : undefined }}>结果生成 (80-100%)</span>
+              </div>
             </div>
-          </dl>
-          {submitState.progress.phase === "failed" ? (
-            <Alert type="error" showIcon content={submitState.progress.errorMessage ?? submitState.progress.message} />
-          ) : null}
-          {submitState.result ? (
-            <Alert type="success" showIcon content="识别结果已读取，任务详情页会展示字段、证据和 LangGraph trace。" />
-          ) : null}
-          <Space className="toolbar" wrap>
-            <Link className="secondary-button" to={`/recognition/jobs/${encodeURIComponent(submitState.jobId)}`}>
+            <p style={{ color: "#4E5969", margin: "8px 0" }}>{phaseDetail}</p>
+            <p>{submitState.progress.message}</p>
+            {submitState.progress.queueSummary ? <p>{submitState.progress.queueSummary}</p> : null}
+            {submitState.progress.workerSummary ? <p>{submitState.progress.workerSummary}</p> : null}
+            {isFailed ? (
+              <Alert type="error" showIcon content={submitState.progress.errorMessage ?? submitState.progress.message} />
+            ) : null}
+            {isCompleted ? (
+              <Alert type="success" showIcon content="识别完成！正在跳转到结果页面…" />
+            ) : null}
+            <Space className="toolbar" wrap>
+              {isCompleted ? (
+                <Link className="secondary-button" to={`/recognition/jobs/${encodeURIComponent(submitState.jobId)}`}>
               查看任务详情
             </Link>
-            {submitState.progress.canOpenResult ? (
-              <Button
-                type="outline"
-                aria-label="重新读取识别结果"
-                onClick={() => {
-                  void api.getJob(submitState.jobId)
-                    .then((job) => loadRecognitionResultForTerminalJob(job))
-                    .catch((error: unknown) => {
-                      setSubmitState({
-                        status: "error",
-                        message: error instanceof Error ? error.message : "读取识别结果失败，请稍后重试。"
-                      });
-                    });
-                }}
-              >
-                读取结果
-              </Button>
-            ) : null}
-          </Space>
-        </Card>
-      ) : null}
+              ) : null}
+              {isFailed ? (
+                <Button type="outline" onClick={handleRerunSubmit}>
+                  重新识别
+                </Button>
+              ) : null}
+            </Space>
+          </Card>
+        );
+      })() : null}
 
       {submitState.status === "error" ? (
         <EmptyPanel icon={statusIcons.danger} title="创建失败" description={submitState.message} />

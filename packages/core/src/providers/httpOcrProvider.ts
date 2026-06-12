@@ -139,20 +139,37 @@ function mapResponse(
   mapping: NormalizedOcrResponseMapping,
   providerName: string
 ): { pages: OcrPage[]; blocks: OcrTextBlock[]; qualityWarnings: OcrQualityWarning[] } {
-  const pageItems = getByPath(data, mapping.pagesPath);
+  // 支持两种响应格式：
+  // 1. 分页格式：{ pages: [{ page, text, confidence, blocks: [...] }] }
+  // 2. PaddleOCR 扁平格式：{ results: [{ text, confidence, bbox }], full_text }
+  let pageItems: unknown = getByPath(data, mapping.pagesPath);
+  const dataRecord = asRecord(data);
+
   if (!Array.isArray(pageItems)) {
-    throw new ProviderError(`HTTP OCR 响应无效：${providerName} 返回的页面结构不符合映射配置`, {
-      providerName,
-      retryable: false,
-      code: "HTTP_OCR_BAD_RESPONSE"
-    });
+    // 尝试 PaddleOCR 扁平格式：把 results 当作单页的 blocks
+    const paddleResults = dataRecord.results ?? dataRecord.blocks;
+    if (Array.isArray(paddleResults)) {
+      const fullText = asString(dataRecord.full_text, "");
+      pageItems = [{
+        page: 1,
+        text: fullText,
+        confidence: 0,
+        blocks: paddleResults
+      }];
+    } else {
+      throw new ProviderError(`HTTP OCR 响应无效：${providerName} 返回的页面结构不符合映射配置`, {
+        providerName,
+        retryable: false,
+        code: "HTTP_OCR_BAD_RESPONSE"
+      });
+    }
   }
 
   const pages: OcrPage[] = [];
   const blocks: OcrTextBlock[] = [];
   const qualityWarnings: OcrQualityWarning[] = [];
 
-  pageItems.forEach((pageItem, pageIndex) => {
+  (pageItems as unknown[]).forEach((pageItem, pageIndex) => {
     const pageRecord = asRecord(pageItem);
     const mappedPage = getByPath(pageRecord, mapping.pageNumberPath);
     const page = asNumber(mappedPage, pageIndex + 1);
@@ -247,12 +264,17 @@ function buildRequestBody(input: OcrDocumentInput, providerName: string): Record
     throw createMissingDocumentContentFailure(providerName);
   }
 
+  const base64Content = input.content ? Buffer.from(input.content).toString("base64") : undefined;
+
   return {
+    // PaddleOCR 格式
+    image_base64: base64Content,
+    // 通用格式（兼容其他 OCR 网关）
     documentId: input.documentId,
     fileName: input.fileName,
     mimeType: input.mimeType,
     storageKey: input.storageKey,
-    contentBase64: input.content ? Buffer.from(input.content).toString("base64") : undefined
+    contentBase64: base64Content
   };
 }
 

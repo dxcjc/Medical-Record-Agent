@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Card, Form, Input, Space, Table } from "@arco-design/web-react";
+import { Alert, Button, Card, Form, Input, Message, Space, Table } from "@arco-design/web-react";
 import type { TableColumnProps } from "@arco-design/web-react";
 import { useSearchParams } from "react-router-dom";
 import type { ApiClient } from "../../api/client";
@@ -343,6 +343,7 @@ export function WritebackPage() {
       setResultTone("success");
       setResultMessage(`${apiJob.id} 已从真实 API 加载，真实数据优先展示。`);
     } catch (error) {
+      Message.error(readErrorMessage(error));
       setApiLoadState("error");
       setApiLoadError(readErrorMessage(error));
       setResultTone("warning");
