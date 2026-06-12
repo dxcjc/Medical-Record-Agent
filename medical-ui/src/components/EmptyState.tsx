@@ -1,22 +1,20 @@
-import React from 'react';
 import { Empty, Button } from '@arco-design/web-react';
 
-interface EmptyStateProps {
-  icon?: React.ReactNode;
+type EmptyStateProps = {
   title?: string;
   description?: string;
   action?: {
     label: string;
     onClick: () => void;
   };
-}
+};
 
-const EmptyState: React.FC<EmptyStateProps> = ({ title, description, action }) => {
+export default function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
     <div style={{ textAlign: 'center', padding: '60px 0' }}>
       <Empty description={title || '暂无数据'} />
       {description && (
-        <div style={{ color: 'var(--color-text-3)', fontSize: 13, marginTop: 4, marginBottom: action ? 16 : 0 }}>
+        <div style={{ color: 'var(--color-muted)', fontSize: 13, marginTop: 4, marginBottom: action ? 16 : 0 }}>
           {description}
         </div>
       )}
@@ -27,6 +25,4 @@ const EmptyState: React.FC<EmptyStateProps> = ({ title, description, action }) =
       )}
     </div>
   );
-};
-
-export default EmptyState;
+}

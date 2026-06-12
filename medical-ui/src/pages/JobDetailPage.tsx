@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
   Button,
   Tag,
   Spin,
-  Collapse,
   Form,
   Input,
   Select,
@@ -16,22 +15,22 @@ import {
   Space,
   Typography,
 } from '@arco-design/web-react';
-import {
-  IconLeft,
-  IconRefresh,
-} from '@arco-design/web-react/icon';
 import { useJob } from '../hooks/useJobs';
 import { useResult } from '../hooks/useResults';
 import { feedbackApi } from '../api/client';
 import StatusTag from '../components/StatusTag';
-import FieldCard from '../components/FieldCard';
+import {
+  IconArrowLeft,
+  IconRefresh,
+  IconFileText,
+  IconEye,
+} from '../icons/appIcons';
 import type { TraceStep, EvidenceItem } from '../api/types';
 
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 const FormItem = Form.Item;
 const { Option } = Select;
-const CollapseItem = Collapse.Item;
 const { Step } = Steps;
 
 function traceStepStatus(step: TraceStep): 'wait' | 'process' | 'finish' | 'error' {
@@ -52,7 +51,13 @@ function formatDuration(ms?: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-const JobDetailPage: React.FC = () => {
+function confidenceColor(c: number): string {
+  if (c >= 0.8) return 'green';
+  if (c >= 0.5) return 'orange';
+  return 'red';
+}
+
+export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: job, isLoading, error, refetch } = useJob(id!);
@@ -91,10 +96,8 @@ const JobDetailPage: React.FC = () => {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
-          <Button icon={<IconRefresh />} onClick={() => refetch()}>
-            重试
-          </Button>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>加载失败</Text>
+          <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
         </div>
       </Card>
     );
@@ -126,25 +129,40 @@ const JobDetailPage: React.FC = () => {
   const trace = job.trace || [];
   const isRunning = ['queued', 'running'].includes(job.status);
 
+  // Extract OCR text from various possible locations
+  const ocrText = result?.payload?.ocrText as string
+    || result?.payload?.text as string
+    || result?.payload?.ocr_text as string
+    || (result?.payload?.rawText as string)
+    || null;
+
+  // Compute overall confidence
+  const confidenceStr = result?.confidence;
+  const confidenceNum = confidenceStr ? parseFloat(confidenceStr) : null;
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Button type="text" icon={<IconLeft />} onClick={() => navigate('/jobs')}>
+        <Button
+          type="text"
+          icon={<IconArrowLeft size={16} />}
+          onClick={() => navigate('/jobs')}
+        >
           返回
         </Button>
-        <Typography.Text code style={{ fontSize: 14 }}>{job.id}</Typography.Text>
+        <Text code style={{ fontSize: 14 }}>{job.id}</Text>
         <StatusTag status={job.status} />
       </div>
 
       <Row gutter={16}>
-        {/* Left Column */}
+        {/* Left Column: Progress + Results */}
         <Col span={14}>
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             {/* Trace Progress */}
             <Card title="识别进度">
               {trace.length === 0 ? (
-                <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-text-3)' }}>
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-muted)' }}>
                   {isRunning ? '任务正在排队...' : '暂无进度信息'}
                 </div>
               ) : (
@@ -158,7 +176,7 @@ const JobDetailPage: React.FC = () => {
                       key={idx}
                       title={step.step}
                       description={
-                        <div style={{ fontSize: 12, color: 'var(--color-text-3)' }}>
+                        <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>
                           {step.startedAt && <span>开始: {formatTime(step.startedAt)}</span>}
                           {step.duration && (
                             <span style={{ marginLeft: 12 }}>
@@ -166,7 +184,7 @@ const JobDetailPage: React.FC = () => {
                             </span>
                           )}
                           {step.error && (
-                            <div style={{ color: 'var(--color-danger-6)', marginTop: 4 }}>
+                            <div style={{ color: 'var(--color-danger)', marginTop: 4 }}>
                               {String(step.error)}
                             </div>
                           )}
@@ -184,48 +202,68 @@ const JobDetailPage: React.FC = () => {
               <Card>
                 <div style={{ textAlign: 'center', padding: 40 }}>
                   <Spin size={40} />
-                  <p style={{ marginTop: 16, color: 'var(--color-text-3)' }}>识别中...</p>
+                  <p style={{ marginTop: 16, color: 'var(--color-muted)' }}>识别中...</p>
                 </div>
               </Card>
             )}
 
-            {/* OCR Text */}
-            {result && (
-              <Card title="OCR 文本">
-                <Collapse>
-                  <CollapseItem header="点击展开原始 OCR 文本" name="ocr">
-                    <pre
-                      style={{
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-all',
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        background: 'var(--color-fill-1)',
-                        padding: 12,
-                        borderRadius: 4,
-                        maxHeight: 400,
-                        overflow: 'auto',
-                      }}
-                    >
-                      {JSON.stringify(result.payload, null, 2)}
-                    </pre>
-                  </CollapseItem>
-                </Collapse>
-              </Card>
-            )}
-
-            {/* Field Results */}
+            {/* Recognition Results (Fields) */}
             {result && Object.keys(fields).length > 0 && (
-              <Card title="字段结果">
-                {Object.entries(fields).map(([key, value]) => (
-                  <FieldCard key={key} fieldKey={key} value={value} label={key} />
-                ))}
+              <Card title={<span><IconEye size={16} style={{ marginRight: 8, verticalAlign: -3 }} />识别结果</span>}>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {Object.entries(fields).map(([key, value]) => {
+                    const fieldEvidence = evidence.find((e: EvidenceItem) => e.fieldKey === key);
+                    const fieldConfidence = fieldEvidence?.confidence;
+                    const displayValue = value === null || value === undefined
+                      ? '-'
+                      : typeof value === 'object'
+                        ? JSON.stringify(value, null, 2)
+                        : String(value);
+
+                    return (
+                      <div className="field-result-item" key={key}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <span className="field-result-key">{key}</span>
+                            {fieldConfidence != null && (
+                              <Tag
+                                color={confidenceColor(fieldConfidence)}
+                                size="small"
+                                style={{ borderRadius: 'var(--radius-tag)' }}
+                              >
+                                置信度 {(fieldConfidence * 100).toFixed(0)}%
+                              </Tag>
+                            )}
+                          </div>
+                          <div className="field-result-value">{displayValue}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Space>
+
+                {/* Overall confidence & review status */}
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--color-info-soft)', borderRadius: 'var(--radius-control)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    {confidenceNum != null && (
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 12 }}>整体置信度</Text>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: confidenceColor(confidenceNum) === 'green' ? 'var(--color-success)' : confidenceColor(confidenceNum) === 'orange' ? 'var(--color-warning)' : 'var(--color-danger)' }}>
+                          {(confidenceNum * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    )}
+                    {result.reviewRequired && (
+                      <Tag color="orange" style={{ fontWeight: 600 }}>需要复核</Tag>
+                    )}
+                  </div>
+                </div>
               </Card>
             )}
           </Space>
         </Col>
 
-        {/* Right Column */}
+        {/* Right Column: Job Info + OCR Text + Feedback */}
         <Col span={10}>
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             {/* Job Info */}
@@ -247,12 +285,44 @@ const JobDetailPage: React.FC = () => {
               />
             </Card>
 
+            {/* OCR Text - PROMINENT DISPLAY */}
+            <Card
+              title={
+                <span>
+                  <IconFileText size={16} style={{ marginRight: 8, verticalAlign: -3 }} />
+                  OCR 原始文本
+                </span>
+              }
+            >
+              {resultLoading ? (
+                <div style={{ textAlign: 'center', padding: 20 }}>
+                  <Spin />
+                </div>
+              ) : ocrText ? (
+                <div className="ocr-text-container">
+                  {ocrText}
+                </div>
+              ) : result?.payload ? (
+                <div className="ocr-text-container">
+                  {JSON.stringify(result.payload, null, 2)}
+                </div>
+              ) : result ? (
+                <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-muted)' }}>
+                  暂无 OCR 文本
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-muted)' }}>
+                  {isRunning ? '识别中，暂无文本...' : '暂无结果'}
+                </div>
+              )}
+            </Card>
+
             {/* Evidence */}
             {evidence.length > 0 && (
-              <Card title="证据">
+              <Card title="证据片段">
                 <Space direction="vertical" size={8} style={{ width: '100%' }}>
                   {evidence.map((item: EvidenceItem, idx: number) => (
-                    <Card key={idx} size="small" style={{ background: 'var(--color-fill-1)' }}>
+                    <Card key={idx} size="small" style={{ background: 'var(--color-info-soft)' }}>
                       {item.fieldKey && (
                         <Tag size="small" style={{ marginBottom: 4 }}>
                           {item.fieldKey}
@@ -272,7 +342,7 @@ const JobDetailPage: React.FC = () => {
 
             {/* Feedback */}
             {result && (
-              <Card title="复核">
+              <Card title="复核反馈">
                 <Form layout="vertical">
                   <FormItem label="字段" required>
                     <Select
@@ -320,6 +390,4 @@ const JobDetailPage: React.FC = () => {
       </Row>
     </Space>
   );
-};
-
-export default JobDetailPage;
+}

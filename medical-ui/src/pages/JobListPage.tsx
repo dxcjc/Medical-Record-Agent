@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Select, Button, Space, Typography } from '@arco-design/web-react';
-import { IconRefresh, IconSearch } from '@arco-design/web-react/icon';
+import { Card, Table, Select, Button, Typography } from '@arco-design/web-react';
+import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
 import { useJobs } from '../hooks/useJobs';
 import StatusTag from '../components/StatusTag';
+import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
 import type { RecognitionJob } from '../api/types';
 
 const { Option } = Select;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -22,7 +23,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'writeback_failed', label: '回写失败' },
 ];
 
-const JobListPage: React.FC = () => {
+export default function JobListPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('all');
   const { data, isLoading, error, refetch } = useJobs(100);
@@ -39,7 +40,7 @@ const JobListPage: React.FC = () => {
       dataIndex: 'id',
       width: 200,
       render: (id: string) => (
-        <Typography.Text code>{id.slice(0, 16)}...</Typography.Text>
+        <Text code>{id.slice(0, 16)}...</Text>
       ),
     },
     {
@@ -89,7 +90,7 @@ const JobListPage: React.FC = () => {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>加载失败</Text>
           <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
         </div>
       </Card>
@@ -97,15 +98,23 @@ const JobListPage: React.FC = () => {
   }
 
   return (
-    <Card
-      title="任务列表"
-      extra={
-        <Space>
+    <div>
+      <PageHeader
+        eyebrow="识别管理"
+        title="任务列表"
+        subtitle={`共 ${filteredJobs.length} 条任务`}
+        action="新建识别"
+        onAction={() => navigate('/recognition/new')}
+        onRefresh={() => refetch()}
+      />
+
+      <Card
+        extra={
           <Select
             value={statusFilter}
             onChange={setStatusFilter}
             style={{ width: 160 }}
-            prefix={<IconSearch />}
+            prefix={<IconSearch size={14} />}
           >
             {STATUS_OPTIONS.map((opt) => (
               <Option key={opt.value} value={opt.value}>
@@ -113,42 +122,35 @@ const JobListPage: React.FC = () => {
               </Option>
             ))}
           </Select>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            共 {filteredJobs.length} 条
-          </Text>
-          <Button type="text" icon={<IconRefresh />} onClick={() => refetch()}>
-            刷新
-          </Button>
-        </Space>
-      }
-    >
-      {isLoading ? (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <span style={{ color: 'var(--color-text-3)' }}>加载中...</span>
-        </div>
-      ) : filteredJobs.length === 0 ? (
-        <EmptyState
-          title="暂无任务"
-          action={{
-            label: '新建识别',
-            onClick: () => navigate('/recognition/new'),
-          }}
-        />
-      ) : (
-        <Table
-          columns={columns}
-          data={filteredJobs}
-          rowKey="id"
-          pagination={{ pageSize: 20 }}
-          size="small"
-          onRow={(record) => ({
-            onClick: () => navigate(`/jobs/${record.id}`),
-            style: { cursor: 'pointer' },
-          })}
-        />
-      )}
-    </Card>
+        }
+      >
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <Text type="secondary">加载中...</Text>
+          </div>
+        ) : filteredJobs.length === 0 ? (
+          <EmptyState
+            title="暂无任务"
+            description="上传医疗文档开始识别"
+            action={{
+              label: '新建识别',
+              onClick: () => navigate('/recognition/new'),
+            }}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            data={filteredJobs}
+            rowKey="id"
+            pagination={{ pageSize: 20, showTotal: true }}
+            size="small"
+            onRow={(record) => ({
+              onClick: () => navigate(`/jobs/${record.id}`),
+              style: { cursor: 'pointer' },
+            })}
+          />
+        )}
+      </Card>
+    </div>
   );
-};
-
-export default JobListPage;
+}

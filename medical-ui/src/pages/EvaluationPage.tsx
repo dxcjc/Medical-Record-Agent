@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Tabs,
   Table,
@@ -8,11 +8,12 @@ import {
   Tag,
   Card,
 } from '@arco-design/web-react';
-import { IconRefresh } from '@arco-design/web-react/icon';
 import { useQuery } from '@tanstack/react-query';
 import { evaluationApi } from '../api/client';
 import EmptyState from '../components/EmptyState';
-import type { EvaluationDataset, EvaluationRun, EvaluationMetric } from '../api/types';
+import PageHeader from '../components/PageHeader';
+import StatusTag from '../components/StatusTag';
+import type { EvaluationDataset, EvaluationRun } from '../api/types';
 
 const TabPane = Tabs.TabPane;
 
@@ -56,7 +57,7 @@ function MetricsModal({
           <Spin />
         </div>
       ) : metrics.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-3)' }}>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-muted)' }}>
           暂无指标数据
         </div>
       ) : (
@@ -66,7 +67,7 @@ function MetricsModal({
   );
 }
 
-const EvaluationPage: React.FC = () => {
+export default function EvaluationPage() {
   const {
     data: datasetsData,
     isLoading: datasetsLoading,
@@ -98,15 +99,7 @@ const EvaluationPage: React.FC = () => {
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (status: string) => {
-        const map: Record<string, { color: string; label: string }> = {
-          draft: { color: 'gray', label: '草稿' },
-          ready: { color: 'green', label: '就绪' },
-          archived: { color: 'orange', label: '已归档' },
-        };
-        const cfg = map[status] || { color: 'gray', label: status };
-        return <Tag color={cfg.color}>{cfg.label}</Tag>;
-      },
+      render: (status: string) => <StatusTag status={status} />,
     },
     {
       title: '样本数',
@@ -132,16 +125,7 @@ const EvaluationPage: React.FC = () => {
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (status: string) => {
-        const map: Record<string, { color: string; label: string }> = {
-          queued: { color: 'gray', label: '排队中' },
-          running: { color: 'blue', label: '运行中' },
-          completed: { color: 'green', label: '已完成' },
-          failed: { color: 'red', label: '失败' },
-        };
-        const cfg = map[status] || { color: 'gray', label: status };
-        return <Tag color={cfg.color}>{cfg.label}</Tag>;
-      },
+      render: (status: string) => <StatusTag status={status} />,
     },
     { title: 'Provider', dataIndex: 'providerKey', width: 150 },
     {
@@ -168,71 +152,75 @@ const EvaluationPage: React.FC = () => {
 
   const renderError = (err: unknown, retryFn: () => void) => (
     <div style={{ textAlign: 'center', padding: 40 }}>
-      <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
-      <Button icon={<IconRefresh />} onClick={retryFn}>
-        重试
-      </Button>
+      <p style={{ color: 'var(--color-danger)', marginBottom: 16 }}>加载失败</p>
+      <Button onClick={retryFn}>重试</Button>
     </div>
   );
 
   return (
-    <Card>
-      <Tabs defaultActiveTab="datasets">
-        <TabPane key="datasets" title="数据集">
-          <div style={{ padding: '16px 0' }}>
-            {datasetsError ? (
-              renderError(datasetsError, refetchDatasets)
-            ) : datasetsLoading ? (
-              <div style={{ textAlign: 'center', padding: 60 }}>
-                <Spin />
-              </div>
-            ) : datasets.length === 0 ? (
-              <EmptyState
-                title="暂无评测数据集"
-                description="请联系管理员导入评测数据"
-                action={{ label: '刷新', onClick: refetchDatasets }}
-              />
-            ) : (
-              <Table
-                columns={datasetColumns}
-                data={datasets}
-                rowKey="id"
-                pagination={{ pageSize: 20 }}
-              />
-            )}
-          </div>
-        </TabPane>
+    <div>
+      <PageHeader
+        eyebrow="质量保障"
+        title="评测中心"
+        subtitle="管理评测数据集和运行记录"
+      />
 
-        <TabPane key="runs" title="运行记录">
-          <div style={{ padding: '16px 0' }}>
-            {runsError ? (
-              renderError(runsError, refetchRuns)
-            ) : runsLoading ? (
-              <div style={{ textAlign: 'center', padding: 60 }}>
-                <Spin />
-              </div>
-            ) : runs.length === 0 ? (
-              <EmptyState
-                title="暂无运行记录"
-                description="尚未执行过评测任务"
-                action={{ label: '刷新', onClick: refetchRuns }}
-              />
-            ) : (
-              <Table columns={runColumns} data={runs} rowKey="id" pagination={{ pageSize: 20 }} />
-            )}
-          </div>
-        </TabPane>
-      </Tabs>
+      <Card>
+        <Tabs defaultActiveTab="datasets">
+          <TabPane key="datasets" title="数据集">
+            <div style={{ padding: '16px 0' }}>
+              {datasetsError ? (
+                renderError(datasetsError, refetchDatasets)
+              ) : datasetsLoading ? (
+                <div style={{ textAlign: 'center', padding: 60 }}>
+                  <Spin />
+                </div>
+              ) : datasets.length === 0 ? (
+                <EmptyState
+                  title="暂无评测数据集"
+                  description="请联系管理员导入评测数据"
+                  action={{ label: '刷新', onClick: refetchDatasets }}
+                />
+              ) : (
+                <Table
+                  columns={datasetColumns}
+                  data={datasets}
+                  rowKey="id"
+                  pagination={{ pageSize: 20 }}
+                />
+              )}
+            </div>
+          </TabPane>
 
-      {metricsRunId && (
-        <MetricsModal
-          runId={metricsRunId}
-          visible={!!metricsRunId}
-          onClose={() => setMetricsRunId(null)}
-        />
-      )}
-    </Card>
+          <TabPane key="runs" title="运行记录">
+            <div style={{ padding: '16px 0' }}>
+              {runsError ? (
+                renderError(runsError, refetchRuns)
+              ) : runsLoading ? (
+                <div style={{ textAlign: 'center', padding: 60 }}>
+                  <Spin />
+                </div>
+              ) : runs.length === 0 ? (
+                <EmptyState
+                  title="暂无运行记录"
+                  description="尚未执行过评测任务"
+                  action={{ label: '刷新', onClick: refetchRuns }}
+                />
+              ) : (
+                <Table columns={runColumns} data={runs} rowKey="id" pagination={{ pageSize: 20 }} />
+              )}
+            </div>
+          </TabPane>
+        </Tabs>
+
+        {metricsRunId && (
+          <MetricsModal
+            runId={metricsRunId}
+            visible={!!metricsRunId}
+            onClose={() => setMetricsRunId(null)}
+          />
+        )}
+      </Card>
+    </div>
   );
-};
-
-export default EvaluationPage;
+}

@@ -1,9 +1,9 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ConfigProvider } from '@arco-design/web-react';
 import zhCN from '@arco-design/web-react/es/locale/zh-CN';
-import Layout from './components/Layout';
+import { ConfigProvider } from '@arco-design/web-react';
+import AppThemeProvider from './theme/AppThemeProvider';
+import AppLayout from './layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import JobListPage from './pages/JobListPage';
@@ -14,7 +14,6 @@ import ProviderPage from './pages/ProviderPage';
 import EvaluationPage from './pages/EvaluationPage';
 import AuditPage from './pages/AuditPage';
 import { useAuthStore } from './stores/authStore';
-import './styles/global.css';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
@@ -29,7 +28,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={zhCN}>
+      <AppThemeProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -37,7 +36,7 @@ export default function App() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <Layout />
+                  <AppLayout />
                 </ProtectedRoute>
               }
             >
@@ -52,7 +51,7 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </ConfigProvider>
+      </AppThemeProvider>
     </QueryClientProvider>
   );
 }

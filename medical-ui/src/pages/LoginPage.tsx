@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Message, Card, Typography, Avatar } from '@arco-design/web-react';
-import { IconUser, IconLock } from '@arco-design/web-react/icon';
 import { useAuthStore } from '../stores/authStore';
+import { IconUserRound, IconShield } from '../icons/appIcons';
 
 const FormItem = Form.Item;
 const { Title, Text } = Typography;
 
-const LoginPage: React.FC = () => {
+export default function LoginPage() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -35,17 +35,17 @@ const LoginPage: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-fill-2)',
+        background: 'var(--color-bg)',
       }}
     >
-      <Card style={{ width: 400 }}>
+      <Card style={{ width: 400, boxShadow: 'var(--shadow-card)', borderRadius: 'var(--radius-card)' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Avatar
-            size={56}
-            style={{ backgroundColor: 'var(--color-primary-6)', fontSize: 24, fontWeight: 700, marginBottom: 16 }}
+          <div
+            className="brand-logo"
+            style={{ width: 56, height: 56, fontSize: 24, margin: '0 auto 16px', borderRadius: 14 }}
           >
             M
-          </Avatar>
+          </div>
           <Title heading={4} style={{ marginBottom: 4 }}>Medical Record Agent</Title>
           <Text type="secondary">医疗记录智能识别系统</Text>
         </div>
@@ -53,7 +53,7 @@ const LoginPage: React.FC = () => {
         <Form layout="vertical" onSubmit={handleSubmit}>
           <FormItem label="邮箱">
             <Input
-              prefix={<IconUser />}
+              prefix={<IconUserRound size={16} />}
               placeholder="请输入邮箱"
               value={email}
               onChange={setEmail}
@@ -62,7 +62,7 @@ const LoginPage: React.FC = () => {
           </FormItem>
           <FormItem label="密码">
             <Input.Password
-              prefix={<IconLock />}
+              prefix={<IconShield size={16} />}
               placeholder="请输入密码"
               value={password}
               onChange={setPassword}
@@ -84,6 +84,4 @@ const LoginPage: React.FC = () => {
       </Card>
     </div>
   );
-};
-
-export default LoginPage;
+}

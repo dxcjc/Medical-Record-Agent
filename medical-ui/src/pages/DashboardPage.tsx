@@ -1,23 +1,26 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Grid, Card, Statistic, Table, Button, Space, Spin, Typography } from '@arco-design/web-react';
+import { Grid, Card, Table, Button, Spin, Typography } from '@arco-design/web-react';
 import {
-  IconFile,
-  IconRefresh,
-  IconStorage,
-  IconExclamation,
-  IconPlus,
-} from '@arco-design/web-react/icon';
+  IconActivity,
+  IconAlertTriangle,
+  IconBarChart,
+  IconCheckCircle,
+  IconClipboardList,
+  IconDatabase,
+  IconFileUp,
+} from '../icons/appIcons';
 import { useJobs } from '../hooks/useJobs';
 import { useProviders } from '../hooks/useProviders';
 import StatusTag from '../components/StatusTag';
+import MetricCard from '../components/MetricCard';
+import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
 import type { RecognitionJob } from '../api/types';
 
 const { Row, Col } = Grid;
-const { Title } = Typography;
+const { Text } = Typography;
 
-const DashboardPage: React.FC = () => {
+export default function DashboardPage() {
   const navigate = useNavigate();
   const { data: jobsData, isLoading: jobsLoading, error: jobsError, refetch } = useJobs(20);
   const { data: providersData, isLoading: providersLoading } = useProviders();
@@ -30,13 +33,14 @@ const DashboardPage: React.FC = () => {
   const todayJobs = jobs.filter((j) => j.createdAt && new Date(j.createdAt) >= todayStart).length;
   const needsReview = jobs.filter((j) => j.status === 'needs_review' || j.status === 'partial_completed').length;
   const onlineProviders = providers.filter((p) => p.status === 'active').length;
+  const completedJobs = jobs.filter((j) => j.status === 'completed').length;
 
   if (jobsError) {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
-          <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>加载失败</Text>
+          <Button icon={<IconActivity />} onClick={() => refetch()}>重试</Button>
         </div>
       </Card>
     );
@@ -48,7 +52,7 @@ const DashboardPage: React.FC = () => {
       dataIndex: 'id',
       width: 200,
       render: (id: string) => (
-        <Typography.Text code copyable={false}>{id.slice(0, 16)}...</Typography.Text>
+        <Text code>{id.slice(0, 16)}...</Text>
       ),
     },
     {
@@ -59,7 +63,7 @@ const DashboardPage: React.FC = () => {
     {
       title: '状态',
       dataIndex: 'status',
-      width: 100,
+      width: 110,
       render: (status: string) => <StatusTag status={status} />,
     },
     {
@@ -80,68 +84,62 @@ const DashboardPage: React.FC = () => {
   ];
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      {/* Header Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title heading={5} style={{ margin: 0 }}>工作台</Title>
-        <Button type="primary" icon={<IconPlus />} onClick={() => navigate('/recognition/new')}>
-          新建识别
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow="工作台"
+        title="医疗记录智能识别"
+        subtitle="上传医疗文档，AI 自动识别并提取结构化数据"
+        action="新建识别"
+        onAction={() => navigate('/recognition/new')}
+        onRefresh={() => refetch()}
+      />
 
       {/* KPI Cards */}
-      <Row gutter={16}>
+      <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card hoverable>
-            <Statistic
-              title="今日任务"
-              value={todayJobs}
-              loading={jobsLoading}
-              prefix={<IconFile style={{ color: 'var(--color-primary-6)' }} />}
-            />
-          </Card>
+          <MetricCard
+            title="今日任务"
+            value={todayJobs}
+            icon={IconClipboardList}
+            tone="blue"
+            loading={jobsLoading}
+          />
         </Col>
         <Col span={6}>
-          <Card hoverable>
-            <Statistic
-              title="待复核"
-              value={needsReview}
-              loading={jobsLoading}
-              prefix={<IconExclamation style={{ color: 'var(--color-warning-6)' }} />}
-            />
-          </Card>
+          <MetricCard
+            title="待复核"
+            value={needsReview}
+            icon={IconAlertTriangle}
+            tone="amber"
+            loading={jobsLoading}
+          />
         </Col>
         <Col span={6}>
-          <Card hoverable>
-            <Statistic
-              title="Provider 在线"
-              value={onlineProviders}
-              loading={providersLoading}
-              prefix={<IconStorage style={{ color: 'var(--color-success-6)' }} />}
-            />
-          </Card>
+          <MetricCard
+            title="已完成"
+            value={completedJobs}
+            icon={IconCheckCircle}
+            tone="green"
+            loading={jobsLoading}
+          />
         </Col>
         <Col span={6}>
-          <Card hoverable>
-            <Statistic
-              title="总任务数"
-              value={jobs.length}
-              loading={jobsLoading}
-              prefix={<IconFile style={{ color: 'var(--color-link-6)' }} />}
-            />
-          </Card>
+          <MetricCard
+            title="Provider 在线"
+            value={onlineProviders}
+            icon={IconDatabase}
+            tone="blue"
+            loading={providersLoading}
+          />
         </Col>
       </Row>
 
       {/* Recent Jobs */}
-      <Card
-        title="最近任务"
-        extra={
-          <Button type="text" size="small" onClick={() => navigate('/jobs')}>
-            查看全部
-          </Button>
-        }
-      >
+      <Card title="最近任务" extra={
+        <Button type="text" size="small" onClick={() => navigate('/jobs')}>
+          查看全部
+        </Button>
+      }>
         {jobsLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <Spin />
@@ -169,8 +167,6 @@ const DashboardPage: React.FC = () => {
           />
         )}
       </Card>
-    </Space>
+    </div>
   );
-};
-
-export default DashboardPage;
+}

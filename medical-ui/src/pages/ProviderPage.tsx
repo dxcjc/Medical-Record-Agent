@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Card,
   Tag,
@@ -10,19 +9,19 @@ import {
   Space,
   Descriptions,
 } from '@arco-design/web-react';
-import { IconRefresh } from '@arco-design/web-react/icon';
 import {
   useProviders,
   useSetDefaultProvider,
   useCheckProviderHealth,
 } from '../hooks/useProviders';
 import EmptyState from '../components/EmptyState';
+import PageHeader from '../components/PageHeader';
 import type { ProviderConfig } from '../api/types';
 
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 
-const ProviderPage: React.FC = () => {
+export default function ProviderPage() {
   const { data, isLoading, error, refetch } = useProviders();
   const setDefaultMutation = useSetDefaultProvider();
   const healthCheckMutation = useCheckProviderHealth();
@@ -55,8 +54,8 @@ const ProviderPage: React.FC = () => {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
-          <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>加载失败</Text>
+          <Button onClick={() => refetch()}>重试</Button>
         </div>
       </Card>
     );
@@ -74,27 +73,37 @@ const ProviderPage: React.FC = () => {
 
   if (providers.length === 0) {
     return (
-      <Card>
-        <EmptyState
-          title="暂无 Provider"
-          description="请联系管理员配置 Provider"
-          action={{ label: '刷新', onClick: () => refetch() }}
+      <div>
+        <PageHeader
+          eyebrow="配置管理"
+          title="Provider 管理"
+          subtitle="管理 OCR 和 LLM Provider"
+          onRefresh={() => refetch()}
         />
-      </Card>
+        <Card>
+          <EmptyState
+            title="暂无 Provider"
+            description="请联系管理员配置 Provider"
+            action={{ label: '刷新', onClick: () => refetch() }}
+          />
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text type="secondary">共 {providers.length} 个 Provider</Text>
-        <Button icon={<IconRefresh />} onClick={() => refetch()}>刷新</Button>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow="配置管理"
+        title="Provider 管理"
+        subtitle={`共 ${providers.length} 个 Provider`}
+        onRefresh={() => refetch()}
+      />
 
       <Row gutter={[16, 16]}>
         {providers.map((p: ProviderConfig) => (
           <Col key={p.id} span={8}>
-            <Card hoverable style={{ height: '100%' }}>
+            <Card style={{ height: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <Space>
                   <Title heading={6} style={{ margin: 0 }}>{p.displayName}</Title>
@@ -144,8 +153,6 @@ const ProviderPage: React.FC = () => {
           </Col>
         ))}
       </Row>
-    </Space>
+    </div>
   );
-};
-
-export default ProviderPage;
+}

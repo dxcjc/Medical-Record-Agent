@@ -1,4 +1,4 @@
-/* Minimal global overrides — Arco handles everything else */
+/* Global resets */
 * {
   margin: 0;
   padding: 0;
@@ -8,6 +8,8 @@
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 ::-webkit-scrollbar {
@@ -16,7 +18,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c9cdd4;
+  background: var(--color-disabled);
   border-radius: 3px;
 }
 

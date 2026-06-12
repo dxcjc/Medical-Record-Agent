@@ -1,25 +1,29 @@
-import React from 'react';
 import { Tag } from '@arco-design/web-react';
 
-const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
-  queued: { color: 'gray', label: '排队中' },
-  running: { color: 'blue', label: '识别中' },
-  completed: { color: 'green', label: '已完成' },
-  partial_completed: { color: 'orange', label: '部分完成' },
-  needs_review: { color: 'orange', label: '待复核' },
-  writeback_pending: { color: 'blue', label: '回写中' },
-  writeback_completed: { color: 'green', label: '已回写' },
-  writeback_failed: { color: 'red', label: '回写失败' },
-  failed: { color: 'red', label: '失败' },
+const STATUS_CONFIG: Record<string, { color: string; label: string; tone: string }> = {
+  queued: { color: 'gray', label: '排队中', tone: 'neutral' },
+  running: { color: 'blue', label: '识别中', tone: 'info' },
+  completed: { color: 'green', label: '已完成', tone: 'success' },
+  partial_completed: { color: 'orange', label: '部分完成', tone: 'warning' },
+  needs_review: { color: 'orange', label: '待复核', tone: 'warning' },
+  writeback_pending: { color: 'blue', label: '回写中', tone: 'info' },
+  writeback_completed: { color: 'green', label: '已回写', tone: 'success' },
+  writeback_failed: { color: 'red', label: '回写失败', tone: 'danger' },
+  failed: { color: 'red', label: '失败', tone: 'danger' },
+  active: { color: 'green', label: '激活', tone: 'success' },
+  inactive: { color: 'gray', label: '未激活', tone: 'neutral' },
+  deprecated: { color: 'orange', label: '已废弃', tone: 'warning' },
+  draft: { color: 'gray', label: '草稿', tone: 'neutral' },
+  ready: { color: 'green', label: '就绪', tone: 'success' },
+  archived: { color: 'orange', label: '已归档', tone: 'warning' },
+  success: { color: 'green', label: '成功', tone: 'success' },
 };
 
-interface StatusTagProps {
-  status: string;
+export default function StatusTag({ status }: { status: string }) {
+  const config = STATUS_CONFIG[status] || { color: 'gray', label: status, tone: 'neutral' };
+  return (
+    <Tag className={`status-pill status-pill-${config.tone}`} color={config.color}>
+      {config.label}
+    </Tag>
+  );
 }
-
-const StatusTag: React.FC<StatusTagProps> = ({ status }) => {
-  const config = STATUS_CONFIG[status] || { color: 'gray', label: status };
-  return <Tag color={config.color}>{config.label}</Tag>;
-};
-
-export default StatusTag;
