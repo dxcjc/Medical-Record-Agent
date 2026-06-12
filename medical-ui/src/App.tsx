@@ -14,6 +14,7 @@ import ProviderPage from './pages/ProviderPage';
 import EvaluationPage from './pages/EvaluationPage';
 import AuditPage from './pages/AuditPage';
 import { useAuthStore } from './stores/authStore';
+import './styles/global.css';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },

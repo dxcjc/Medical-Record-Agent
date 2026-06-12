@@ -6,8 +6,11 @@ import {
   Spin,
   Grid,
   Message,
+  Typography,
+  Space,
+  Descriptions,
 } from '@arco-design/web-react';
-import { IconRefresh, IconCheck } from '@arco-design/web-react/icon';
+import { IconRefresh } from '@arco-design/web-react/icon';
 import {
   useProviders,
   useSetDefaultProvider,
@@ -17,6 +20,7 @@ import EmptyState from '../components/EmptyState';
 import type { ProviderConfig } from '../api/types';
 
 const { Row, Col } = Grid;
+const { Title, Text } = Typography;
 
 const ProviderPage: React.FC = () => {
   const { data, isLoading, error, refetch } = useProviders();
@@ -49,105 +53,79 @@ const ProviderPage: React.FC = () => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: 60 }}>
-        <p style={{ color: 'var(--color-danger)', marginBottom: 16 }}>加载失败</p>
-        <Button icon={<IconRefresh />} onClick={() => refetch()}>
-          重试
-        </Button>
-      </div>
+      <Card>
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
+          <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
+        </div>
+      </Card>
     );
   }
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: 60 }}>
-        <Spin size={40} />
-      </div>
+      <Card>
+        <div style={{ textAlign: 'center', padding: 60 }}>
+          <Spin size={40} />
+        </div>
+      </Card>
     );
   }
 
   if (providers.length === 0) {
     return (
-      <EmptyState
-        title="暂无 Provider"
-        description="请联系管理员配置 Provider"
-        action={{ label: '刷新', onClick: () => refetch() }}
-      />
+      <Card>
+        <EmptyState
+          title="暂无 Provider"
+          description="请联系管理员配置 Provider"
+          action={{ label: '刷新', onClick: () => refetch() }}
+        />
+      </Card>
     );
   }
 
   return (
-    <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 20,
-        }}
-      >
-        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-          共 {providers.length} 个 Provider
-        </span>
-        <Button icon={<IconRefresh />} onClick={() => refetch()} size="small">
-          刷新
-        </Button>
+    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text type="secondary">共 {providers.length} 个 Provider</Text>
+        <Button icon={<IconRefresh />} onClick={() => refetch()}>刷新</Button>
       </div>
 
       <Row gutter={[16, 16]}>
         {providers.map((p: ProviderConfig) => (
           <Col key={p.id} span={8}>
-            <Card
-              bordered={false}
-              style={{ height: '100%' }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 12,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 15 }}>
-                    {p.displayName}
-                  </span>
-                  {p.isDefault && (
-                    <Tag color="blue" size="small">默认</Tag>
-                  )}
-                </div>
-                <Tag
-                  color={p.status === 'active' ? 'green' : 'gray'}
-                  size="small"
-                >
+            <Card hoverable style={{ height: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <Space>
+                  <Title heading={6} style={{ margin: 0 }}>{p.displayName}</Title>
+                  {p.isDefault && <Tag color="blue">默认</Tag>}
+                </Space>
+                <Tag color={p.status === 'active' ? 'green' : 'gray'}>
                   {p.status === 'active' ? '启用' : '禁用'}
                 </Tag>
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <Tag
-                  color={p.kind === 'ocr' ? 'blue' : p.kind === 'llm' ? 'purple' : 'gray'}
-                  size="small"
-                >
-                  {p.kind.toUpperCase()}
-                </Tag>
-              </div>
-
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--color-text-secondary)',
-                  marginBottom: 16,
-                }}
+              <Tag
+                color={p.kind === 'ocr' ? 'blue' : p.kind === 'llm' ? 'purple' : 'gray'}
+                style={{ marginBottom: 16 }}
               >
-                Key: {p.key}
-              </div>
+                {p.kind.toUpperCase()}
+              </Tag>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <Descriptions
+                column={1}
+                data={[
+                  { label: 'Key', value: p.key },
+                  { label: '创建时间', value: new Date(p.createdAt).toLocaleString('zh-CN') },
+                ]}
+                style={{ marginBottom: 16 }}
+              />
+
+              <Space>
                 {!p.isDefault && (
                   <Button
                     size="small"
+                    type="primary"
                     onClick={() => handleSetDefault(p.key)}
                     loading={setDefaultMutation.isPending}
                   >
@@ -156,18 +134,17 @@ const ProviderPage: React.FC = () => {
                 )}
                 <Button
                   size="small"
-                  type="outline"
                   onClick={() => handleHealthCheck(p.key)}
                   loading={healthCheckMutation.isPending}
                 >
                   健康检查
                 </Button>
-              </div>
+              </Space>
             </Card>
           </Col>
         ))}
       </Row>
-    </div>
+    </Space>
   );
 };
 

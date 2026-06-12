@@ -1,9 +1,11 @@
 import React from 'react';
-import { Table, Button, Tag } from '@arco-design/web-react';
+import { Card, Table, Button, Tag, Typography } from '@arco-design/web-react';
 import { IconRefresh } from '@arco-design/web-react/icon';
 import { useAuditLog } from '../hooks/useAudit';
 import EmptyState from '../components/EmptyState';
 import type { AuditEntry } from '../api/types';
+
+const { Text } = Typography;
 
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
@@ -20,7 +22,7 @@ function formatRelativeTime(dateStr: string): string {
   if (minutes < 60) return `${minutes} 分钟前`;
   if (hours < 24) return `${hours} 小时前`;
   if (days < 30) return `${days} 天前`;
-  return dateStr ? new Date(dateStr).toLocaleString('zh-CN') : '-';
+  return new Date(dateStr).toLocaleString('zh-CN');
 }
 
 const AuditPage: React.FC = () => {
@@ -34,9 +36,9 @@ const AuditPage: React.FC = () => {
       dataIndex: 'createdAt',
       width: 160,
       render: (t: string) => (
-        <span title={new Date(t).toLocaleString('zh-CN')}>
+        <Text title={new Date(t).toLocaleString('zh-CN')}>
           {formatRelativeTime(t)}
-        </span>
+        </Text>
       ),
     },
     {
@@ -61,10 +63,7 @@ const AuditPage: React.FC = () => {
       dataIndex: 'result',
       width: 80,
       render: (result: string) => (
-        <Tag
-          color={result === 'success' ? 'green' : 'red'}
-          size="small"
-        >
+        <Tag color={result === 'success' ? 'green' : 'red'}>
           {result === 'success' ? '成功' : '失败'}
         </Tag>
       ),
@@ -79,44 +78,27 @@ const AuditPage: React.FC = () => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: 60 }}>
-        <p style={{ color: 'var(--color-danger)', marginBottom: 16 }}>加载失败</p>
-        <Button icon={<IconRefresh />} onClick={() => refetch()}>
-          重试
-        </Button>
-      </div>
+      <Card>
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
+          <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
+        </div>
+      </Card>
     );
   }
 
   return (
-    <div
-      style={{
-        background: 'var(--color-bg-white)',
-        borderRadius: 'var(--radius-card)',
-        boxShadow: 'var(--shadow-card)',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          padding: '12px 20px',
-          borderBottom: '1px solid var(--color-border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-          共 {entries.length} 条记录
-        </span>
-        <Button icon={<IconRefresh />} onClick={() => refetch()} size="small">
+    <Card
+      title="审计日志"
+      extra={
+        <Button icon={<IconRefresh />} onClick={() => refetch()}>
           刷新
         </Button>
-      </div>
-
+      }
+    >
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 60 }}>
-          <span style={{ color: 'var(--color-text-secondary)' }}>加载中...</span>
+          <span style={{ color: 'var(--color-text-3)' }}>加载中...</span>
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
@@ -125,15 +107,9 @@ const AuditPage: React.FC = () => {
           action={{ label: '刷新', onClick: () => refetch() }}
         />
       ) : (
-        <Table
-          columns={columns}
-          data={entries}
-          rowKey="id"
-          pagination={{ pageSize: 20, size: 'mini' }}
-          size="small"
-        />
+        <Table columns={columns} data={entries} rowKey="id" pagination={{ pageSize: 20 }} size="small" />
       )}
-    </div>
+    </Card>
   );
 };
 

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { Button, Dropdown, Menu } from '@arco-design/web-react';
+import { Layout as ArcoLayout, Menu, Breadcrumb, Avatar, Button, Dropdown, Typography } from '@arco-design/web-react';
 import {
   IconDashboard,
   IconList,
@@ -10,9 +10,13 @@ import {
   IconExperiment,
   IconSafe,
   IconUser,
+  IconPoweroff,
 } from '@arco-design/web-react/icon';
 import { useAuthStore } from '../stores/authStore';
 import { useLogout } from '../hooks/useAuth';
+
+const { Header, Sider, Content } = ArcoLayout;
+const { Text } = Typography;
 
 const NAV_ITEMS = [
   { key: '/', label: '工作台', icon: <IconDashboard /> },
@@ -34,13 +38,13 @@ const PAGE_TITLES: Record<string, string> = {
   '/audit': '审计日志',
 };
 
-const Layout: React.FC = () => {
+const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogout();
 
-  const activeKey = useMemo(() => {
+  const selectedKey = useMemo(() => {
     const path = location.pathname;
     if (path === '/') return '/';
     const match = NAV_ITEMS.find((item) => item.key !== '/' && path.startsWith(item.key));
@@ -59,153 +63,98 @@ const Layout: React.FC = () => {
     navigate('/login');
   };
 
+  const dropList = (
+    <Menu>
+      <Menu.Item key="logout" onClick={handleLogout}>
+        <IconPoweroff style={{ marginRight: 8 }} />
+        退出登录
+      </Menu.Item>
+    </Menu>
+  );
+
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Sidebar */}
-      <div style={{
-        width: 'var(--sidebar-width)',
-        background: 'var(--color-bg-white)',
-        boxShadow: 'var(--shadow-sidebar)',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        zIndex: 10,
-      }}>
+    <ArcoLayout style={{ height: '100vh' }}>
+      <Sider
+        width={240}
+        style={{
+          background: '#fff',
+          borderRight: '1px solid var(--color-border)',
+        }}
+      >
         {/* Logo */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid var(--color-border)',
-        }}>
-          <div style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: 18,
+        <div
+          style={{
+            height: 56,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 20px',
+            borderBottom: '1px solid var(--color-border)',
             fontWeight: 700,
-            color: 'var(--color-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}>
-            <span style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'var(--color-primary)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 16,
-            }}>
-              M
-            </span>
-            医疗记录识别
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div style={{ flex: 1, padding: '12px 8px', overflow: 'auto' }}>
-          {NAV_ITEMS.map((item) => {
-            const isActive = activeKey === item.key;
-            return (
-              <div
-                key={item.key}
-                onClick={() => navigate(item.key)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '10px 16px',
-                  borderRadius: 20,
-                  cursor: 'pointer',
-                  marginBottom: 2,
-                  fontSize: 14,
-                  fontWeight: isActive ? 500 : 400,
-                  color: isActive ? 'var(--color-primary)' : 'var(--color-text)',
-                  background: isActive ? 'var(--color-primary-light)' : 'transparent',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <span style={{ fontSize: 18, display: 'flex' }}>{item.icon}</span>
-                {item.label}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* User Info */}
-        <div style={{
-          padding: '16px 20px',
-          borderTop: '1px solid var(--color-border)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}>
-          <div style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: 'var(--color-primary-light)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-primary)',
-            flexShrink: 0,
-          }}>
-            <IconUser />
-          </div>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.displayName || 'Admin'}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.email || 'admin'}
-            </div>
-          </div>
-          <Button
-            size="mini"
-            type="text"
-            onClick={handleLogout}
-            style={{ flexShrink: 0 }}
-          >
-            退出
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Top Bar */}
-        <div style={{
-          height: 'var(--topbar-height)',
-          background: 'var(--color-bg-white)',
-          borderBottom: '1px solid var(--color-border)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 24px',
-          flexShrink: 0,
-        }}>
-          <h1 style={{
             fontSize: 16,
-            fontWeight: 600,
-            fontFamily: 'var(--font-heading)',
-            color: 'var(--color-text)',
-          }}>
-            {pageTitle}
-          </h1>
+            color: 'var(--color-primary)',
+            gap: 10,
+          }}
+        >
+          <Avatar size={32} style={{ backgroundColor: 'var(--color-primary)', fontSize: 14 }}>
+            M
+          </Avatar>
+          医疗记录识别
         </div>
 
-        {/* Page Content */}
-        <div style={{
-          flex: 1,
-          overflow: 'auto',
-          padding: 24,
-          background: 'var(--color-bg)',
-        }}>
+        {/* Menu */}
+        <Menu
+          selectedKeys={[selectedKey]}
+          onClickMenuItem={(key) => navigate(key)}
+          style={{ width: '100%', borderRight: 'none' }}
+        >
+          {NAV_ITEMS.map((item) => (
+            <Menu.Item key={item.key}>
+              {item.icon}
+              {item.label}
+            </Menu.Item>
+          ))}
+        </Menu>
+      </Sider>
+
+      <ArcoLayout>
+        <Header
+          style={{
+            height: 56,
+            background: '#fff',
+            borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 24px',
+          }}
+        >
+          <Breadcrumb>
+            <Breadcrumb.Item>首页</Breadcrumb.Item>
+            <Breadcrumb.Item>{pageTitle}</Breadcrumb.Item>
+          </Breadcrumb>
+
+          <Dropdown droplist={dropList} position="br">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <Avatar size={28} style={{ backgroundColor: 'var(--color-primary-light-3)', color: 'var(--color-primary)' }}>
+                <IconUser />
+              </Avatar>
+              <Text style={{ fontSize: 13 }}>{user?.displayName || 'Admin'}</Text>
+            </div>
+          </Dropdown>
+        </Header>
+
+        <Content
+          style={{
+            padding: 24,
+            background: '#F7F8FA',
+            overflow: 'auto',
+          }}
+        >
           <Outlet />
-        </div>
-      </div>
-    </div>
+        </Content>
+      </ArcoLayout>
+    </ArcoLayout>
   );
 };
 
-export default Layout;
+export default AppLayout;

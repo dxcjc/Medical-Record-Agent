@@ -6,6 +6,7 @@ import {
   Spin,
   Modal,
   Tag,
+  Card,
 } from '@arco-design/web-react';
 import { IconRefresh } from '@arco-design/web-react/icon';
 import { useQuery } from '@tanstack/react-query';
@@ -44,34 +45,22 @@ function MetricsModal({
       title: '时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
+      render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
     },
   ];
 
   return (
-    <Modal
-      title="评测指标"
-      visible={visible}
-      onCancel={onClose}
-      footer={null}
-      style={{ width: 600 }}
-    >
+    <Modal title="评测指标" visible={visible} onCancel={onClose} footer={null} style={{ width: 600 }}>
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin />
         </div>
       ) : metrics.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary)' }}>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-3)' }}>
           暂无指标数据
         </div>
       ) : (
-        <Table
-          columns={columns}
-          data={metrics}
-          rowKey="id"
-          pagination={false}
-          size="small"
-        />
+        <Table columns={columns} data={metrics} rowKey="id" pagination={false} size="small" />
       )}
     </Modal>
   );
@@ -116,7 +105,7 @@ const EvaluationPage: React.FC = () => {
           archived: { color: 'orange', label: '已归档' },
         };
         const cfg = map[status] || { color: 'gray', label: status };
-        return <Tag color={cfg.color} size="small">{cfg.label}</Tag>;
+        return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
     },
     {
@@ -128,7 +117,7 @@ const EvaluationPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
+      render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
     },
   ];
 
@@ -151,7 +140,7 @@ const EvaluationPage: React.FC = () => {
           failed: { color: 'red', label: '失败' },
         };
         const cfg = map[status] || { color: 'gray', label: status };
-        return <Tag color={cfg.color} size="small">{cfg.label}</Tag>;
+        return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
     },
     { title: 'Provider', dataIndex: 'providerKey', width: 150 },
@@ -159,7 +148,7 @@ const EvaluationPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
+      render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
     },
     {
       title: '操作',
@@ -178,8 +167,8 @@ const EvaluationPage: React.FC = () => {
   ];
 
   const renderError = (err: unknown, retryFn: () => void) => (
-    <div style={{ textAlign: 'center', padding: 60 }}>
-      <p style={{ color: 'var(--color-danger)', marginBottom: 16 }}>加载失败</p>
+    <div style={{ textAlign: 'center', padding: 40 }}>
+      <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
       <Button icon={<IconRefresh />} onClick={retryFn}>
         重试
       </Button>
@@ -187,15 +176,8 @@ const EvaluationPage: React.FC = () => {
   );
 
   return (
-    <div
-      style={{
-        background: 'var(--color-bg-white)',
-        borderRadius: 'var(--radius-card)',
-        boxShadow: 'var(--shadow-card)',
-        overflow: 'hidden',
-      }}
-    >
-      <Tabs defaultActiveTab="datasets" style={{ padding: '0 20px' }}>
+    <Card>
+      <Tabs defaultActiveTab="datasets">
         <TabPane key="datasets" title="数据集">
           <div style={{ padding: '16px 0' }}>
             {datasetsError ? (
@@ -215,8 +197,7 @@ const EvaluationPage: React.FC = () => {
                 columns={datasetColumns}
                 data={datasets}
                 rowKey="id"
-                pagination={{ pageSize: 20, size: 'mini' }}
-                size="small"
+                pagination={{ pageSize: 20 }}
               />
             )}
           </div>
@@ -237,13 +218,7 @@ const EvaluationPage: React.FC = () => {
                 action={{ label: '刷新', onClick: refetchRuns }}
               />
             ) : (
-              <Table
-                columns={runColumns}
-                data={runs}
-                rowKey="id"
-                pagination={{ pageSize: 20, size: 'mini' }}
-                size="small"
-              />
+              <Table columns={runColumns} data={runs} rowKey="id" pagination={{ pageSize: 20 }} />
             )}
           </div>
         </TabPane>
@@ -256,7 +231,7 @@ const EvaluationPage: React.FC = () => {
           onClose={() => setMetricsRunId(null)}
         />
       )}
-    </div>
+    </Card>
   );
 };
 

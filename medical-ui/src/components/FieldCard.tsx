@@ -1,5 +1,7 @@
 import React from 'react';
-import { Tag, Tooltip } from '@arco-design/web-react';
+import { Card, Tag, Tooltip, Typography } from '@arco-design/web-react';
+
+const { Text } = Typography;
 
 interface FieldCardProps {
   fieldKey: string;
@@ -23,52 +25,44 @@ function confidenceColor(c: number): string {
 
 const FieldCard: React.FC<FieldCardProps> = ({ fieldKey, value, confidence, evidence, label }) => {
   return (
-    <div style={{
-      background: 'var(--color-bg-white)',
-      borderRadius: 'var(--radius-card)',
-      border: '1px solid var(--color-border)',
-      padding: '12px 16px',
-      marginBottom: 8,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--color-text)' }}>
-            {label || fieldKey}
-          </span>
+    <Card
+      size="small"
+      style={{ marginBottom: 8 }}
+      title={
+        <span>
+          {label || fieldKey}
           {confidence !== undefined && (
-            <Tag color={confidenceColor(confidence)} size="small">
+            <Tag color={confidenceColor(confidence)} style={{ marginLeft: 8 }}>
               {(confidence * 100).toFixed(0)}%
             </Tag>
           )}
-        </div>
-      </div>
-      <div style={{
-        fontSize: 14,
-        color: 'var(--color-text)',
-        background: 'var(--color-bg)',
-        borderRadius: 4,
-        padding: '6px 10px',
-        fontFamily: 'monospace',
-        wordBreak: 'break-all',
-      }}>
+        </span>
+      }
+    >
+      <div
+        style={{
+          fontFamily: 'monospace',
+          fontSize: 13,
+          background: 'var(--color-fill-1)',
+          borderRadius: 4,
+          padding: '6px 10px',
+          wordBreak: 'break-all',
+        }}
+      >
         {formatValue(value)}
       </div>
       {evidence && (
         <Tooltip content={evidence}>
-          <div style={{
-            marginTop: 6,
-            fontSize: 12,
-            color: 'var(--color-text-secondary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            cursor: 'pointer',
-          }}>
-            📄 {evidence}
-          </div>
+          <Text
+            type="secondary"
+            ellipsis
+            style={{ display: 'block', marginTop: 6, fontSize: 12, cursor: 'pointer' }}
+          >
+            {evidence}
+          </Text>
         </Tooltip>
       )}
-    </div>
+    </Card>
   );
 };
 

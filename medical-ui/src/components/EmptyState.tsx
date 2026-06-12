@@ -1,42 +1,27 @@
 import React from 'react';
-import { Button } from '@arco-design/web-react';
+import { Empty, Button } from '@arco-design/web-react';
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
-  title: string;
+  title?: string;
   description?: string;
   action?: {
     label: string;
     onClick: () => void;
-    icon?: React.ReactNode;
   };
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action }) => {
+const EmptyState: React.FC<EmptyStateProps> = ({ title, description, action }) => {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '60px 20px',
-      textAlign: 'center',
-    }}>
-      {icon && (
-        <div style={{ marginBottom: 16, color: 'var(--color-text-secondary)', opacity: 0.5 }}>
-          {icon}
+    <div style={{ textAlign: 'center', padding: '60px 0' }}>
+      <Empty description={title || '暂无数据'} />
+      {description && (
+        <div style={{ color: 'var(--color-text-3)', fontSize: 13, marginTop: 4, marginBottom: action ? 16 : 0 }}>
+          {description}
         </div>
       )}
-      <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-text)', marginBottom: 8 }}>
-        {title}
-      </h3>
-      {description && (
-        <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 24, maxWidth: 360 }}>
-          {description}
-        </p>
-      )}
       {action && (
-        <Button type="primary" size="large" icon={action.icon} onClick={action.onClick}>
+        <Button type="primary" onClick={action.onClick} style={{ marginTop: 16 }}>
           {action.label}
         </Button>
       )}

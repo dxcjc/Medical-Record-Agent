@@ -1,6 +1,5 @@
 import React from 'react';
 import { Tag } from '@arco-design/web-react';
-import type { RecognitionJobStatus } from '../api/types';
 
 const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   queued: { color: 'gray', label: '排队中' },
@@ -18,9 +17,9 @@ interface StatusTagProps {
   status: string;
 }
 
-export const StatusTag: React.FC<StatusTagProps> = ({ status }) => {
+const StatusTag: React.FC<StatusTagProps> = ({ status }) => {
   const config = STATUS_CONFIG[status] || { color: 'gray', label: status };
-  return <Tag color={config.color} size="small">{config.label}</Tag>;
+  return <Tag color={config.color}>{config.label}</Tag>;
 };
 
 export default StatusTag;

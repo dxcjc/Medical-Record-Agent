@@ -1,6 +1,4 @@
-@import './tokens.css';
-@import '@arco-design/web-react/dist/css/arco.css';
-
+/* Minimal global overrides — Arco handles everything else */
 * {
   margin: 0;
   padding: 0;
@@ -8,39 +6,10 @@
 }
 
 body {
-  font-family: var(--font-body);
-  color: var(--color-text);
-  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-}
-
-a {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-/* Override Arco table to be cleaner */
-.arco-table-th {
-  background: var(--color-bg) !important;
-  font-weight: 500 !important;
-  color: var(--color-text-secondary) !important;
-  font-size: 13px !important;
-}
-
-.arco-table-td {
-  font-size: 14px !important;
-}
-
-.arco-table-tr:hover .arco-table-td {
-  background: var(--color-primary-light) !important;
-}
-
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -54,14 +23,3 @@ a {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* Status tag colors */
-.status-queued { background: #F2F3F5; color: #86909C; }
-.status-running { background: var(--color-primary-light); color: var(--color-primary); }
-.status-completed { background: var(--color-success-light); color: var(--color-success); }
-.status-partial_completed { background: var(--color-warning-light); color: var(--color-warning); }
-.status-needs_review { background: var(--color-warning-light); color: var(--color-warning); }
-.status-failed { background: var(--color-danger-light); color: var(--color-danger); }
-.status-writeback_pending { background: #E8F0FF; color: #3370FF; }
-.status-writeback_completed { background: var(--color-success-light); color: var(--color-success); }
-.status-writeback_failed { background: var(--color-danger-light); color: var(--color-danger); }

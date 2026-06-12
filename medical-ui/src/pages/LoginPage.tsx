@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Message } from '@arco-design/web-react';
+import { Form, Input, Button, Message, Card, Typography, Avatar } from '@arco-design/web-react';
 import { IconUser, IconLock } from '@arco-design/web-react/icon';
 import { useAuthStore } from '../stores/authStore';
 
 const FormItem = Form.Item;
+const { Title, Text } = Typography;
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
   const [email, setEmail] = useState('admin.dev@example.local');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('ChangeMe123!');
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -22,49 +23,31 @@ const LoginPage: React.FC = () => {
       await login(email, password);
       Message.success('登录成功');
       navigate('/');
-    } catch (e: any) {
+    } catch {
       Message.error('登录失败，请检查邮箱和密码');
     }
   };
 
   return (
-    <div style={{
-      height: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    }}>
-      <div style={{
-        width: 400,
-        background: 'var(--color-bg-white)',
-        borderRadius: 12,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-        padding: '40px 36px',
-      }}>
+    <div
+      style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--color-fill-2)',
+      }}
+    >
+      <Card style={{ width: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: 16,
-            background: 'var(--color-primary)',
-            color: '#fff',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24,
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            marginBottom: 16,
-          }}>
+          <Avatar
+            size={56}
+            style={{ backgroundColor: 'var(--color-primary-6)', fontSize: 24, fontWeight: 700, marginBottom: 16 }}
+          >
             M
-          </div>
-          <h2 style={{ fontSize: 20, fontWeight: 600, fontFamily: 'var(--font-heading)', marginBottom: 4 }}>
-            Medical Record Agent
-          </h2>
-          <p style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
-            医疗记录智能识别系统
-          </p>
+          </Avatar>
+          <Title heading={4} style={{ marginBottom: 4 }}>Medical Record Agent</Title>
+          <Text type="secondary">医疗记录智能识别系统</Text>
         </div>
 
         <Form layout="vertical" onSubmit={handleSubmit}>
@@ -98,7 +81,7 @@ const LoginPage: React.FC = () => {
             </Button>
           </FormItem>
         </Form>
-      </div>
+      </Card>
     </div>
   );
 };

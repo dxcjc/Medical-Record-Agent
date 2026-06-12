@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Select, Spin, Button, Tag } from '@arco-design/web-react';
-import { IconRefresh, IconFile } from '@arco-design/web-react/icon';
+import { Card, Table, Select, Button, Space, Typography } from '@arco-design/web-react';
+import { IconRefresh, IconSearch } from '@arco-design/web-react/icon';
 import { useJobs } from '../hooks/useJobs';
 import StatusTag from '../components/StatusTag';
 import EmptyState from '../components/EmptyState';
-import type { RecognitionJob, RecognitionJobStatus } from '../api/types';
+import type { RecognitionJob } from '../api/types';
 
-const Option = Select.Option;
+const { Option } = Select;
+const { Title, Text } = Typography;
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -38,7 +39,7 @@ const JobListPage: React.FC = () => {
       dataIndex: 'id',
       width: 200,
       render: (id: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{id.slice(0, 16)}...</span>
+        <Typography.Text code>{id.slice(0, 16)}...</Typography.Text>
       ),
     },
     {
@@ -64,13 +65,20 @@ const JobListPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
+      render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
     },
     {
       title: '操作',
       width: 80,
       render: (_: unknown, record: RecognitionJob) => (
-        <Button type="text" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${record.id}`); }}>
+        <Button
+          type="text"
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/jobs/${record.id}`);
+          }}
+        >
           查看
         </Button>
       ),
@@ -79,81 +87,67 @@ const JobListPage: React.FC = () => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: 60 }}>
-        <p style={{ color: 'var(--color-danger)', marginBottom: 16 }}>加载失败</p>
-        <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
-      </div>
+      <Card>
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <p style={{ color: 'var(--color-danger-6)', marginBottom: 16 }}>加载失败</p>
+          <Button icon={<IconRefresh />} onClick={() => refetch()}>重试</Button>
+        </div>
+      </Card>
     );
   }
 
   return (
-    <div>
-      {/* Filter bar */}
-      <div style={{
-        background: 'var(--color-bg-white)',
-        borderRadius: 'var(--radius-card)',
-        boxShadow: 'var(--shadow-card)',
-        padding: '12px 16px',
-        marginBottom: 16,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}>
-        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>状态筛选：</span>
-        <Select
-          value={statusFilter}
-          onChange={setStatusFilter}
-          style={{ width: 160 }}
+    <Card
+      title="任务列表"
+      extra={
+        <Space>
+          <Select
+            value={statusFilter}
+            onChange={setStatusFilter}
+            style={{ width: 160 }}
+            prefix={<IconSearch />}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <Option key={opt.value} value={opt.value}>
+                {opt.label}
+              </Option>
+            ))}
+          </Select>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            共 {filteredJobs.length} 条
+          </Text>
+          <Button type="text" icon={<IconRefresh />} onClick={() => refetch()}>
+            刷新
+          </Button>
+        </Space>
+      }
+    >
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: 60 }}>
+          <span style={{ color: 'var(--color-text-3)' }}>加载中...</span>
+        </div>
+      ) : filteredJobs.length === 0 ? (
+        <EmptyState
+          title="暂无任务"
+          action={{
+            label: '新建识别',
+            onClick: () => navigate('/recognition/new'),
+          }}
+        />
+      ) : (
+        <Table
+          columns={columns}
+          data={filteredJobs}
+          rowKey="id"
+          pagination={{ pageSize: 20 }}
           size="small"
-        >
-          {STATUS_OPTIONS.map((opt) => (
-            <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-          ))}
-        </Select>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-          共 {filteredJobs.length} 条
-        </span>
-        <Button type="text" size="small" icon={<IconRefresh />} onClick={() => refetch()}>
-          刷新
-        </Button>
-      </div>
-
-      {/* Table */}
-      <div style={{
-        background: 'var(--color-bg-white)',
-        borderRadius: 'var(--radius-card)',
-        boxShadow: 'var(--shadow-card)',
-        overflow: 'hidden',
-      }}>
-        {isLoading ? (
-          <div style={{ padding: 60, textAlign: 'center' }}>
-            <Spin />
-          </div>
-        ) : filteredJobs.length === 0 ? (
-          <EmptyState
-            icon={<IconFile style={{ fontSize: 48 }} />}
-            title="暂无任务"
-            action={{
-              label: '新建识别',
-              onClick: () => navigate('/recognition/new'),
-            }}
-          />
-        ) : (
-          <Table
-            columns={columns}
-            data={filteredJobs}
-            rowKey="id"
-            pagination={{ pageSize: 20, size: 'mini' }}
-            size="small"
-            onRow={(record) => ({
-              onClick: () => navigate(`/jobs/${record.id}`),
-              style: { cursor: 'pointer' },
-            })}
-          />
-        )}
-      </div>
-    </div>
+          onRow={(record) => ({
+            onClick: () => navigate(`/jobs/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
+        />
+      )}
+    </Card>
   );
 };
 
