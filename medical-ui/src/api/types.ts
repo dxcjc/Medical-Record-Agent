@@ -25,8 +25,10 @@ export type RecognitionJobStatus =
   | 'failed';
 
 export interface TraceStep {
-  step: string;
+  step?: string;
+  node?: string;
   status: string;
+  message?: string;
   startedAt?: string;
   completedAt?: string;
   duration?: number;

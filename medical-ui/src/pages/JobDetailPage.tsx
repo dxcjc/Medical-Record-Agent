@@ -40,6 +40,22 @@ function traceStepStatus(step: TraceStep): 'wait' | 'process' | 'finish' | 'erro
   return 'wait';
 }
 
+/** Get display title for a trace step */
+function traceStepTitle(step: TraceStep): string {
+  const nodeNames: Record<string, string> = {
+    preprocess: '文档预处理',
+    ocr: 'OCR 识别',
+    rag: 'RAG 检索',
+    extraction: '字段抽取',
+    validation: '字段验证',
+    autoDecision: '自动决策',
+    writeback: '写回',
+    evaluation: '评估',
+  };
+  const key: string = String(step.node || step.step || '');
+  return nodeNames[key] || step.node || step.step || '-';
+}
+
 function formatTime(t?: string): string {
   if (!t) return '-';
   return new Date(t).toLocaleString('zh-CN');
@@ -55,6 +71,69 @@ function confidenceColor(c: number): string {
   if (c >= 0.8) return 'green';
   if (c >= 0.5) return 'orange';
   return 'red';
+}
+
+/** Extract OCR text from result payload */
+function extractOcrText(result: Record<string, unknown> | null | undefined): string | null {
+  if (!result) return null;
+  const payload = result.payload as Record<string, unknown> | undefined;
+  if (!payload) return null;
+
+  // Try payload.ocr.pages[].text
+  const ocr = payload.ocr as Record<string, unknown> | undefined;
+  if (ocr) {
+    const pages = ocr.pages as Array<{ page: number; text: string }> | undefined;
+    if (pages && pages.length > 0) {
+      return pages.map(p => p.text).filter(Boolean).join('\n\n');
+    }
+  }
+
+  // Try direct fields
+  const direct = payload.ocrText || payload.text || payload.ocr_text || payload.rawText;
+  if (typeof direct === 'string' && direct.length > 0) return direct;
+
+  return null;
+}
+
+/** Extract OCR blocks with confidence from result payload */
+function extractOcrBlocks(result: Record<string, unknown> | null | undefined): Array<{ text: string; confidence: number; page: number }> {
+  if (!result) return [];
+  const payload = result.payload as Record<string, unknown> | undefined;
+  if (!payload) return [];
+  const ocr = payload.ocr as Record<string, unknown> | undefined;
+  if (!ocr) return [];
+  const blocks = ocr.blocks as Array<{ text: string; confidence: number; page: number }> | undefined;
+  return blocks || [];
+}
+
+/** Normalize result fields to a consistent format */
+function normalizeFields(result: Record<string, unknown> | null | undefined) {
+  if (!result) return [];
+  const fields = result.fields;
+
+  // fields is an array of { fieldKey, value, rawValue, confidence, evidence }
+  if (Array.isArray(fields)) {
+    return fields.map((f: Record<string, unknown>) => ({
+      key: String(f.fieldKey || f.key || '-'),
+      value: f.value != null ? String(f.value) : '-',
+      rawValue: f.rawValue != null ? String(f.rawValue) : '',
+      confidence: typeof f.confidence === 'number' ? f.confidence : 0,
+      evidence: (Array.isArray(f.evidence) ? f.evidence : []) as EvidenceItem[],
+    }));
+  }
+
+  // fields is a Record<string, unknown>
+  if (fields && typeof fields === 'object') {
+    return Object.entries(fields).map(([key, val]) => ({
+      key,
+      value: val != null ? String(val) : '-',
+      rawValue: '',
+      confidence: 0,
+      evidence: [],
+    }));
+  }
+
+  return [];
 }
 
 export default function JobDetailPage() {
@@ -124,17 +203,14 @@ export default function JobDetailPage() {
     );
   }
 
-  const fields = result?.fields || {};
+  const normalizedFields = normalizeFields(result as Record<string, unknown> | null | undefined);
   const evidence = result?.evidence || [];
   const trace = job.trace || [];
   const isRunning = ['queued', 'running'].includes(job.status);
 
-  // Extract OCR text from various possible locations
-  const ocrText = result?.payload?.ocrText as string
-    || result?.payload?.text as string
-    || result?.payload?.ocr_text as string
-    || (result?.payload?.rawText as string)
-    || null;
+  // Extract OCR text
+  const ocrText = extractOcrText(result as Record<string, unknown> | null | undefined);
+  const ocrBlocks = extractOcrBlocks(result as Record<string, unknown> | null | undefined);
 
   // Compute overall confidence
   const confidenceStr = result?.confidence;
@@ -174,10 +250,10 @@ export default function JobDetailPage() {
                   {trace.map((step, idx) => (
                     <Step
                       key={idx}
-                      title={step.step}
+                      title={traceStepTitle(step)}
                       description={
                         <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>
-                          {step.startedAt && <span>开始: {formatTime(step.startedAt)}</span>}
+                          {step.message && <span>{String(step.message)}</span>}
                           {step.duration && (
                             <span style={{ marginLeft: 12 }}>
                               耗时: {formatDuration(step.duration)}
@@ -208,38 +284,35 @@ export default function JobDetailPage() {
             )}
 
             {/* Recognition Results (Fields) */}
-            {result && Object.keys(fields).length > 0 && (
+            {normalizedFields.length > 0 && (
               <Card title={<span><IconEye size={16} style={{ marginRight: 8, verticalAlign: -3 }} />识别结果</span>}>
                 <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                  {Object.entries(fields).map(([key, value]) => {
-                    const fieldEvidence = evidence.find((e: EvidenceItem) => e.fieldKey === key);
-                    const fieldConfidence = fieldEvidence?.confidence;
-                    const displayValue = value === null || value === undefined
-                      ? '-'
-                      : typeof value === 'object'
-                        ? JSON.stringify(value, null, 2)
-                        : String(value);
-
-                    return (
-                      <div className="field-result-item" key={key}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <span className="field-result-key">{key}</span>
-                            {fieldConfidence != null && (
-                              <Tag
-                                color={confidenceColor(fieldConfidence)}
-                                size="small"
-                                style={{ borderRadius: 'var(--radius-tag)' }}
-                              >
-                                置信度 {(fieldConfidence * 100).toFixed(0)}%
-                              </Tag>
-                            )}
-                          </div>
-                          <div className="field-result-value">{displayValue}</div>
+                  {normalizedFields.map((field) => (
+                    <div className="field-result-item" key={field.key}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span className="field-result-key">{field.key}</span>
+                          {field.confidence > 0 && (
+                            <Tag
+                              color={confidenceColor(field.confidence)}
+                              size="small"
+                              style={{ borderRadius: 'var(--radius-tag)' }}
+                            >
+                              置信度 {(field.confidence * 100).toFixed(0)}%
+                            </Tag>
+                          )}
+                        </div>
+                        <div className="field-result-value">
+                          {field.value}
+                          {field.rawValue && field.rawValue !== field.value && (
+                            <span style={{ color: 'var(--color-muted)', fontSize: 12, marginLeft: 8 }}>
+                              (原始: {field.rawValue})
+                            </span>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </Space>
 
                 {/* Overall confidence & review status */}
@@ -253,7 +326,7 @@ export default function JobDetailPage() {
                         </div>
                       </div>
                     )}
-                    {result.reviewRequired && (
+                    {result?.reviewRequired && (
                       <Tag color="orange" style={{ fontWeight: 600 }}>需要复核</Tag>
                     )}
                   </div>
@@ -300,11 +373,44 @@ export default function JobDetailPage() {
                 </div>
               ) : ocrText ? (
                 <div className="ocr-text-container">
-                  {ocrText}
+                  <pre style={{
+                    margin: 0,
+                    padding: 16,
+                    background: 'var(--color-info-soft)',
+                    borderRadius: 'var(--radius-control)',
+                    fontSize: 13,
+                    lineHeight: 1.7,
+                    maxHeight: 500,
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    fontFamily: "'SF Mono', 'Menlo', 'Consolas', 'Noto Sans SC', monospace",
+                  }}>
+                    {ocrText}
+                  </pre>
                 </div>
-              ) : result?.payload ? (
-                <div className="ocr-text-container">
-                  {JSON.stringify(result.payload, null, 2)}
+              ) : ocrBlocks.length > 0 ? (
+                <div style={{ maxHeight: 500, overflow: 'auto' }}>
+                  {ocrBlocks.map((block, idx) => (
+                    <div key={idx} style={{
+                      padding: '8px 12px',
+                      borderBottom: '1px solid var(--color-border)',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 12,
+                    }}>
+                      <div style={{ flex: 1, fontSize: 13, lineHeight: 1.6 }}>
+                        {block.text}
+                      </div>
+                      <Tag
+                        size="small"
+                        color={confidenceColor(block.confidence)}
+                        style={{ flexShrink: 0 }}
+                      >
+                        {(block.confidence * 100).toFixed(0)}%
+                      </Tag>
+                    </div>
+                  ))}
                 </div>
               ) : result ? (
                 <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-muted)' }}>
@@ -351,9 +457,9 @@ export default function JobDetailPage() {
                       onChange={(v) => setFeedbackField(v)}
                       style={{ width: '100%' }}
                     >
-                      {Object.keys(fields).map((key) => (
-                        <Option key={key} value={key}>
-                          {key}
+                      {normalizedFields.map((f) => (
+                        <Option key={f.key} value={f.key}>
+                          {f.key}
                         </Option>
                       ))}
                     </Select>
