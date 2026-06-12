@@ -67,12 +67,13 @@ function formatRuntimeError(error: unknown) {
 }
 
 export default function RecognitionDashboardPage({
-  jobs = recentJobs,
+  jobs: initialJobs = recentJobs,
   providers = providerStatuses,
 }: RecognitionDashboardPageProps) {
   const { api } = useAuth();
   const navigate = useNavigate();
   const [refreshToken, setRefreshToken] = useState(0);
+  const [jobs, setJobs] = useState(initialJobs);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
     try {
       return localStorage.getItem("hasSeenOnboarding") === "true";
@@ -98,15 +99,32 @@ export default function RecognitionDashboardPage({
 
       try {
         // Dashboard 运行状态来自真实 API；静态业务指标继续作为演示兜底独立展示。
-        const [health, providerList, schemaList, evaluationDatasetList] = await Promise.all([
+        const [health, providerList, schemaList, evaluationDatasetList, jobListResponse] = await Promise.all([
           api.health(),
           api.listProviders(),
           api.listSchemas(),
           api.listEvaluationDatasets(),
+          api.listJobs(20).catch(() => ({ items: [] })),
         ]);
 
         if (shouldIgnore) {
           return;
+        }
+
+        // 更新任务列表
+        if (jobListResponse.items && jobListResponse.items.length > 0) {
+          setJobs(jobListResponse.items.map((job: any) => ({
+            id: job.id,
+            title: job.schemaKey || "识别任务",
+            schemaName: job.schemaKey || "lims-clinical-info",
+            adapter: job.options?.adapter || "LabReportAdapter",
+            provider: job.providerConfig?.ocrProviderKey || "http-ocr",
+            status: (job.status === "completed" ? "completed" : job.status === "needs_review" ? "review" : job.status) as any,
+            confidence: 0,
+            createdAt: new Date(job.createdAt || Date.now()).toLocaleString("zh-CN"),
+            owner: "system",
+            autoWriteBack: false,
+          })));
         }
 
         setRuntimeState({

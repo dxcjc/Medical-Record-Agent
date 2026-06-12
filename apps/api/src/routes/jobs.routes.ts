@@ -24,6 +24,7 @@ export type CreateRecognitionJobServiceInput = Omit<CreateRecognitionJobRouteInp
 export interface JobRouteService {
   create(input: CreateRecognitionJobServiceInput): Promise<ApiRouteResponseObject>;
   get(id: string): Promise<ApiRouteResponseObject | null>;
+  list(limit?: number): Promise<ApiRouteResponseObject[]>;
 }
 
 export interface JobRoutesDependencies {
@@ -82,6 +83,22 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
       }
 
       return assertRouteResponseObject(job, "JOB_RESPONSE_INVALID");
+    }
+  );
+
+  server.get(
+    "/jobs",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.jobRead)
+      ]
+    },
+    async (request, reply) => {
+      const query = request.query as { limit?: string };
+      const limit = query.limit ? parseInt(query.limit, 10) : 50;
+      const jobs = await dependencies.jobService.list(limit);
+      return { items: jobs };
     }
   );
 }

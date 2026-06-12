@@ -361,6 +361,11 @@ export function createApiClient(options: ApiClientOptions = {}) {
         ...withOptionalSignal(options.signal)
       });
     },
+    listJobs(limit = 50, options: ApiRequestOptions = {}) {
+      return request<{ items: import("./types").ApiRecognitionJob[] }>(`/jobs?limit=${limit}`, {
+        ...withOptionalSignal(options.signal)
+      });
+    },
     getResult(jobId: string, options: ApiRequestOptions = {}) {
       return request<import("./types").ApiRecognitionResult>(`/results/${encodeURIComponent(jobId)}`, {
         ...withOptionalSignal(options.signal)

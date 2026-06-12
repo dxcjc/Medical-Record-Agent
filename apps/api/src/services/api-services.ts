@@ -1790,6 +1790,15 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           },
           "JOB_RESPONSE_INVALID"
         );
+      },
+      async list(limit = 50) {
+        const jobs = await repositories.jobsRepository.list(limit);
+        return jobs.map((job) => ({
+          ...job,
+          executionMode: "asynchronous" as const,
+          statusUrl: `/jobs/${job.id}`,
+          resultUrl: `/results/${job.id}`
+        }));
       }
     },
     resultService: {

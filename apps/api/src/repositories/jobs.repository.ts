@@ -77,6 +77,16 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
       });
     },
 
+    async list(limit = 50) {
+      return dependencies.recognitionJob.findMany({
+        select: jobSelection,
+        orderBy: {
+          createdAt: "desc"
+        },
+        take: limit
+      });
+    },
+
     async listEligibleForWriteback(limit = 20) {
       return dependencies.recognitionJob.findMany({
         where: {
