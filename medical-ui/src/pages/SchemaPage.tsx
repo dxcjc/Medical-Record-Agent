@@ -255,7 +255,7 @@ const SchemaPage: React.FC = () => {
                     <div style={{ color: 'var(--color-text-secondary)' }}>发布时间</div>
                     <div style={{ fontWeight: 500 }}>
                       {selected.publishedAt
-                        ? new Date(selected.publishedAt).toLocaleString('zh-CN')
+                        ? new Date(selected.publishedAt!).toLocaleString('zh-CN')
                         : '-'}
                     </div>
                   </Col>

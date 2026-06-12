@@ -44,7 +44,7 @@ function MetricsModal({
       title: '时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string) => new Date(t).toLocaleString('zh-CN'),
+      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
     },
   ];
 
@@ -128,7 +128,7 @@ const EvaluationPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string) => new Date(t).toLocaleString('zh-CN'),
+      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
     },
   ];
 
@@ -159,7 +159,7 @@ const EvaluationPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string) => new Date(t).toLocaleString('zh-CN'),
+      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
     },
     {
       title: '操作',

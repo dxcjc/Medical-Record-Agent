@@ -42,7 +42,7 @@ function traceStepStatus(step: TraceStep): 'wait' | 'process' | 'finish' | 'erro
 
 function formatTime(t?: string): string {
   if (!t) return '-';
-  return new Date(t).toLocaleString('zh-CN');
+  return t ? new Date(t).toLocaleString('zh-CN') : '-';
 }
 
 function formatDuration(ms?: number): string {

@@ -7,6 +7,7 @@ import type { AuditEntry } from '../api/types';
 
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
+  if (!dateStr) return '-';
   const then = new Date(dateStr).getTime();
   const diff = now - then;
 
@@ -19,7 +20,7 @@ function formatRelativeTime(dateStr: string): string {
   if (minutes < 60) return `${minutes} 分钟前`;
   if (hours < 24) return `${hours} 小时前`;
   if (days < 30) return `${days} 天前`;
-  return new Date(dateStr).toLocaleString('zh-CN');
+  return dateStr ? new Date(dateStr).toLocaleString('zh-CN') : '-';
 }
 
 const AuditPage: React.FC = () => {

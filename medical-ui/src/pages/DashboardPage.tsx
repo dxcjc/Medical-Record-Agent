@@ -20,7 +20,7 @@ const DashboardPage: React.FC = () => {
   // Compute metrics from real data
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const todayJobs = jobs.filter((j) => new Date(j.createdAt) >= todayStart).length;
+  const todayJobs = jobs.filter((j) => j.createdAt && new Date(j.createdAt) >= todayStart).length;
   const needsReview = jobs.filter((j) => j.status === 'needs_review' || j.status === 'partial_completed').length;
   const onlineProviders = providers.filter((p) => p.status === 'active').length;
 
@@ -57,7 +57,7 @@ const DashboardPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
-      render: (t: string) => new Date(t).toLocaleString('zh-CN'),
+      render: (t: string | null) => t ? new Date(t).toLocaleString('zh-CN') : '-',
     },
     {
       title: '操作',
