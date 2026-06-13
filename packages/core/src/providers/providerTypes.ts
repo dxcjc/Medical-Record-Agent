@@ -73,6 +73,7 @@ export interface ModelExtractionRequest {
   prompt: string;
   ocrText: string;
   ragContext?: string[];
+  imageBase64?: string;  // 原图 base64，用于 LLM 视觉增强
 }
 
 export interface ModelExtractionResult {

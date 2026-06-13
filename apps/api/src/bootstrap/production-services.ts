@@ -1573,19 +1573,21 @@ async function resolveSavedProviderRuntime(input: {
     });
   }
 
-  return buildSavedModelProvider({
+  const result = await buildSavedModelProvider({
     key: provider.key,
     config,
     secretRefs,
     runtimeOptions: input.runtimeOptions
   });
+  return result;
 }
 
 async function findDefaultSavedProviderKey(input: {
   expectedKind: "ocr" | "llm";
   providerRepository: ProductionProviderRepository;
 }) {
-  for (const provider of await input.providerRepository.list()) {
+  const allProviders = await input.providerRepository.list();
+  for (const provider of allProviders) {
     const normalizedProvider = normalizeProviderConfigRecord({
       ...provider,
       enabled: provider.status !== "disabled"
@@ -1594,7 +1596,8 @@ async function findDefaultSavedProviderKey(input: {
       normalizedProvider.kind === input.expectedKind &&
       normalizedProvider.enabled &&
       normalizedProvider.isDefault &&
-      !normalizedProvider.isMock
+      !normalizedProvider.isMock &&
+      normalizedProvider.status === "active"
     ) {
       return normalizedProvider.key;
     }
@@ -1626,11 +1629,11 @@ async function resolveProductionProviderRuntime(input: {
     }));
   const effectiveModelProviderKey =
     modelProviderKey ??
-    configuredModelProviderKey ??
     (await findDefaultSavedProviderKey({
       expectedKind: "llm",
       providerRepository: input.providerRepository
-    }));
+    })) ??
+    configuredModelProviderKey;
   const providers: ProductionProviderRuntimeSelection = {};
 
   // 调用方选择 env 默认 key 时无需重新实例化；只有选择在线保存的非默认 key 时才读取数据库配置。

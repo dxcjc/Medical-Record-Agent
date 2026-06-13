@@ -1605,12 +1605,6 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         const originalName = body.originalName ?? "medical-record-upload";
         const storageKey = toStorageKey(originalName, now());
         const content = decodeBase64Content(body.contentBase64);
-        console.log("[DEBUG] fileService.createUpload:", {
-          hasContent: content !== undefined,
-          contentLength: content?.byteLength,
-          hasStorageProvider: !!options.storageProvider,
-          storageKey
-        });
         if (content !== undefined && !options.storageProvider) {
           // 调用方已经上传了真实文件字节时，必须把字节落到受控存储。
           // 没有 storageProvider 仍创建文件记录会制造“上传成功但后续无法 OCR”的假文件。
@@ -1627,7 +1621,6 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               contentType: body.mimeType ?? "application/octet-stream"
             })
           : undefined;
-        console.log("[DEBUG] storageProvider.put result:", storedFile);
         const byteSize =
           storedFile !== undefined
             ? BigInt(storedFile.size)

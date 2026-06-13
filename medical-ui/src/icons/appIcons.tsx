@@ -28,6 +28,12 @@ import {
   Sun,
   Upload,
   UserRound,
+  User,
+  Send,
+  Code,
+  Grid3X3,
+  HardDrive,
+  Info,
   XCircle,
   Beaker,
   Eye,
@@ -71,3 +77,9 @@ export const IconUpload = createAppIcon(Upload);
 export const IconUserRound = createAppIcon(UserRound);
 export const IconXCircle = createAppIcon(XCircle);
 export const IconBeaker = createAppIcon(Beaker);
+export const IconUser = createAppIcon(User);
+export const IconSend = createAppIcon(Send);
+export const IconCode = createAppIcon(Code);
+export const IconApps = createAppIcon(Grid3X3);
+export const IconStorage = createAppIcon(HardDrive);
+export const IconInfoCircle = createAppIcon(Info);

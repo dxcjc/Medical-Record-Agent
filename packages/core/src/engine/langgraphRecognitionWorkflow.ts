@@ -184,10 +184,15 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     }
 
     try {
+      const imageBase64 = state.document.content
+        ? Buffer.from(state.document.content).toString("base64")
+        : undefined;
+
       const extraction = await extractionAgent.run({
         schema: config.schema,
         ocrText: state.ocrText,
-        targetFieldKeys: config.schema.fields.map((field) => field.key)
+        targetFieldKeys: config.schema.fields.map((field) => field.key),
+        ...(imageBase64 !== undefined ? { imageBase64 } : {})
       });
 
       return {

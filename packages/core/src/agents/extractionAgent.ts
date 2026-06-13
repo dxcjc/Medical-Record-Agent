@@ -7,6 +7,7 @@ export interface ExtractionAgentInput {
   schema: CoreSchemaDraft;
   ocrText: string;
   targetFieldKeys?: string[];
+  imageBase64?: string;  // 原图 base64，用于 LLM 视觉增强
 }
 
 export interface ExtractionAgentTrace {
@@ -52,7 +53,8 @@ export function createExtractionAgent(config: CreateExtractionAgentInput): Extra
         provider: config.provider,
         schema: input.schema,
         ocrText: input.ocrText,
-        ragContext: retrieval.context
+        ragContext: retrieval.context,
+        ...(input.imageBase64 !== undefined ? { imageBase64: input.imageBase64 } : {})
       });
 
       const result: ExtractionAgentResult = {

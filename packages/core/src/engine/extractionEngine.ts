@@ -11,6 +11,7 @@ export interface BuildExtractionPromptInput {
   ocrText: string;
   ragContext?: string[];
   evidenceRequirements?: string[];
+  imageBase64?: string;
 }
 
 export interface ExtractStructuredFieldsInput {
@@ -19,6 +20,7 @@ export interface ExtractStructuredFieldsInput {
   ocrText: string;
   ragContext?: string[];
   evidenceRequirements?: string[];
+  imageBase64?: string;
 }
 
 export interface ExtractStructuredFieldsResult extends ModelExtractionResult {
@@ -113,7 +115,15 @@ export function buildExtractionPrompt(input: BuildExtractionPromptInput): string
     JSON.stringify(extractionOutputSchema, null, 2),
     "",
     "OCR 文本：",
-    input.ocrText
+    input.ocrText,
+    ...(input.imageBase64 ? [
+      "",
+      "【视觉增强说明】",
+      "本次抽取同时提供了原始文档图片。请结合图片进行以下判断：",
+      "1. 勾选框识别：对于 list/enum 类型字段，仔细查看图片中对应的勾选框（□），判断哪些被勾选（☑ 或 ✓ 或手写标记）。被勾选的选项加入 list 值，未勾选的不要包含。",
+      "2. 手写体修正：OCR 对手写内容识别较差（如身份证号、日期、医生签名、诊断名称等），请对照图片中的手写内容修正 OCR 文本中的错误。",
+      "3. 冲突处理：如果图片与 OCR 文本不一致，以图片为准，在 rawValue 中注明 OCR 原文。"
+    ] : [])
   ].join("\n");
 }
 
@@ -132,6 +142,9 @@ export async function extractStructuredFields(
     };
     if (input.ragContext !== undefined) {
       request.ragContext = input.ragContext;
+    }
+    if (input.imageBase64 !== undefined) {
+      request.imageBase64 = input.imageBase64;
     }
     console.error(`[extractionEngine] 即将调用 provider.extractFields...`);
     const result = await input.provider.extractFields(request);
@@ -249,7 +262,7 @@ export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDr
       !Array.isArray(evidence) ||
       (item.value !== null && evidence.length === 0)
     ) {
-      console.error(`[parseModelExtractionOutput] REJECTED "${item.fieldKey}": fk=${typeof item.fieldKey} schema=${schemaField?.type} candidate=${isCandidateValue(item.value)} match=${schemaField ? matchesSchemaFieldValue(item.value, schemaField) : "NO_FIELD"} rv=${typeof item.rawValue} conf=${item.confidence} ev=${Array.isArray(evidence) ? evidence.length : "N/A"}`);
+      console.error(`[parseModelExtractionOutput] REJECTED "${item.fieldKey}": fk=${typeof item.fieldKey} schema=${schemaField?.type} candidate=${isCandidateValue(item.value)} match=${schemaField ? matchesSchemaFieldValue(item.value as ModelFieldCandidate["value"], schemaField) : "NO_FIELD"} rv=${typeof item.rawValue} conf=${item.confidence} ev=${Array.isArray(evidence) ? evidence.length : "N/A"}`);
       return null;
     }
 

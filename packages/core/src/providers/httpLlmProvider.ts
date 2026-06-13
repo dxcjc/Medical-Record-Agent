@@ -48,12 +48,13 @@ function getFirstChoiceContent(data: unknown): unknown {
 export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvider {
   const providerName = config.providerName ?? "http-llm";
   const fetchFn = config.fetchFn ?? fetch;
-  const timeoutMs = config.timeoutMs ?? 30_000;
-
   return {
     providerName,
     async extractFields(request) {
       console.error(`[httpLlmProvider] extractFields 被调用, endpoint=${config.endpoint}, model=${config.model}`);
+      // Vision 请求（带图片）需要更长超时
+      const hasImage = request.imageBase64 && request.imageBase64.length > 0;
+      const timeoutMs = hasImage ? 120_000 : (config.timeoutMs ?? 30_000);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -70,11 +71,24 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
             messages: [
               {
                 role: "system",
-                content: "你是病历字段结构化抽取模型，只能返回 JSON 对象。"
+                content: request.imageBase64
+                  ? "你是病历字段结构化抽取模型，只能返回 JSON 对象。你会仔细查看文档图片，准确识别勾选框状态和手写内容。"
+                  : "你是病历字段结构化抽取模型，只能返回 JSON 对象。"
               },
               {
                 role: "user",
-                content: request.prompt
+                content: request.imageBase64
+                  ? [
+                      { type: "text", text: request.prompt },
+                      {
+                        type: "image_url",
+                        image_url: {
+                          url: `data:image/jpeg;base64,${request.imageBase64}`,
+                          detail: "high"
+                        }
+                      }
+                    ]
+                  : request.prompt
               }
             ],
             response_format: { type: "json_object" }

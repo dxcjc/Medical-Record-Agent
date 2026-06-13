@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>医疗文档识别系统 — 设计方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', 'Noto Sans SC', 'PingFang SC', system-ui, sans-serif;
+  background: #F0F2F5;
+  color: #1D2129;
+  line-height: 1.6;
+}
+
+/* === Design Switcher === */
+.switcher {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: #1D2129; color: #fff; padding: 12px 24px;
+  display: flex; align-items: center; gap: 16px;
+  font-size: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.switcher button {
+  padding: 6px 16px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);
+  background: transparent; color: #fff; cursor: pointer; font-size: 13px;
+  transition: all 0.2s;
+}
+.switcher button:hover { background: rgba(255,255,255,0.1); }
+.switcher button.active { background: #3370FF; border-color: #3370FF; }
+.switcher .label { color: #86909C; margin-right: 8px; }
+
+.design { display: none; margin-top: 56px; }
+.design.active { display: block; }
+
+/* === Shared Tokens === */
+:root {
+  --primary: #3370FF;
+  --primary-light: #E8F3FF;
+  --success: #00B42A;
+  --warning: #FF7D00;
+  --danger: #F53F3F;
+  --text-1: #1D2129;
+  --text-2: #4E5969;
+  --text-3: #86909C;
+  --bg: #F7F8FA;
+  --card: #FFFFFF;
+  --border: #E5E6EB;
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-2: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-3: 0 8px 24px rgba(0,0,0,0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --sidebar-w: 240px;
+}
+
+/* === Layout === */
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; position: fixed; top: 56px; bottom: 0; left: 0;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 20px 20px 16px; border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h2 { font-size: 16px; font-weight: 700; color: var(--text-1); }
+.sidebar-logo span { font-size: 11px; color: var(--text-3); letter-spacing: 0.5px; }
+
+.nav-section { padding: 12px 12px 0; }
+.nav-label { font-size: 11px; color: var(--text-3); padding: 0 8px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.8px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: var(--radius-sm); cursor: pointer; font-size: 14px;
+  color: var(--text-2); transition: all 0.15s; margin-bottom: 2px;
+  text-decoration: none;
+}
+.nav-item:hover { background: #F2F3F5; color: var(--text-1); }
+.nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 500; }
+.nav-item .icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+.sidebar-footer {
+  margin-top: auto; padding: 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+}
+.sidebar-footer .avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--primary); font-weight: 600; font-size: 13px;
+}
+
+.main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; }
+
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 20px; font-weight: 600; color: var(--text-1); }
+.page-header p { font-size: 13px; color: var(--text-3); margin-top: 4px; }
+
+/* === KPI Cards === */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--card); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow-1); transition: box-shadow 0.2s;
+}
+.kpi-card:hover { box-shadow: var(--shadow-2); }
+.kpi-card .kpi-icon {
+  width: 40px; height: 40px; border-radius: 10px; display: flex;
+  align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px;
+}
+.kpi-card .kpi-label { font-size: 13px; color: var(--text-3); margin-bottom: 4px; }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 700; color: var(--text-1); line-height: 1.2; }
+.kpi-card .kpi-trend { font-size: 12px; margin-top: 4px; }
+.kpi-card .kpi-trend.up { color: var(--success); }
+.kpi-card .kpi-trend.down { color: var(--danger); }
+
+/* === Table === */
+.card {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-1);
+  overflow: hidden; margin-bottom: 24px;
+}
+.card-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-header h3 { font-size: 15px; font-weight: 600; }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; padding: 10px 16px; font-size: 12px; font-weight: 600;
+  color: var(--text-3); background: #FAFAFA; border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #F2F3F5; }
+tr:hover td { background: #FAFBFC; }
+
+/* === Status Tags === */
+.tag {
+  display: inline-flex; align-items: center; padding: 2px 10px;
+  border-radius: 4px; font-size: 12px; font-weight: 500;
+}
+.tag-success { background: #E8FFEA; color: #007A29; }
+.tag-warning { background: #FFF3E0; color: #B25000; }
+.tag-danger { background: #FFE8E8; color: #CB2634; }
+.tag-info { background: var(--primary-light); color: var(--primary); }
+.tag-default { background: #F2F3F5; color: var(--text-3); }
+
+/* === Buttons === */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; transition: all 0.15s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: #2860E0; }
+.btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+.btn-outline:hover { background: var(--primary-light); }
+.btn-text { background: transparent; color: var(--primary); padding: 8px 8px; }
+.btn-text:hover { background: var(--primary-light); }
+
+/* === Provider Cards === */
+.provider-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.provider-card {
+  background: var(--card); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow-1); transition: box-shadow 0.2s;
+}
+.provider-card:hover { box-shadow: var(--shadow-2); }
+.provider-card .provider-name { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.provider-card .provider-meta { font-size: 12px; color: var(--text-3); margin-bottom: 12px; }
+.provider-card .provider-actions { display: flex; gap: 8px; }
+
+/* === Two Column Layout === */
+.two-col { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+.list-item {
+  padding: 12px 16px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: background 0.15s; margin-bottom: 4px;
+}
+.list-item:hover { background: #F2F3F5; }
+.list-item.active { background: var(--primary-light); }
+.list-item .item-title { font-size: 14px; font-weight: 500; }
+.list-item .item-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* === Detail Fields === */
+.field-row {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 0;
+  border-bottom: 1px solid #F2F3F5;
+}
+.field-key { font-size: 13px; font-weight: 500; color: var(--text-2); min-width: 140px; }
+.field-value { font-size: 13px; color: var(--text-1); flex: 1; }
+.field-conf {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px;
+  font-weight: 500; min-width: 48px; text-align: center;
+}
+
+/* === Empty State === */
+.empty {
+  text-align: center; padding: 60px 20px; color: var(--text-3);
+}
+.empty .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+.empty h3 { font-size: 16px; color: var(--text-2); margin-bottom: 8px; }
+.empty p { font-size: 13px; margin-bottom: 20px; }
+
+/* === Design Annotations === */
+.annotation {
+  position: absolute; top: 8px; right: 8px; background: #1D2129; color: #fff;
+  font-size: 10px; padding: 2px 8px; border-radius: 4px; opacity: 0.7;
+}
+</style>
+</head>
+<body>
+
+<!-- Switcher -->
+<div class="switcher">
+  <span class="label">设计方案：</span>
+  <button class="active" onclick="showDesign('a')">A · 极简克制</button>
+  <button onclick="showDesign('b')">B · 温暖专业</button>
+  <button onclick="showDesign('c')">C · 深色科技</button>
+  <span style="margin-left:auto;color:#86909C;font-size:12px">切换查看不同风格方向</span>
+</div>
+
+<!-- ==================== 方案 A: 极简克制 ==================== -->
+<div id="design-a" class="design active">
+<div class="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>📋 医疗文档识别</h2>
+      <span>CLINICAL AI STUDIO</span>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">工作</div>
+      <a class="nav-item active"><span class="icon">📊</span> 工作台</a>
+      <a class="nav-item"><span class="icon">📄</span> 任务列表</a>
+      <a class="nav-item"><span class="icon">➕</span> 新建识别</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">管理</div>
+      <a class="nav-item"><span class="icon">🧩</span> Schema</a>
+      <a class="nav-item"><span class="icon">🔌</span> Provider</a>
+      <a class="nav-item"><span class="icon">📈</span> 评测</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">系统</div>
+      <a class="nav-item"><span class="icon">📝</span> 审计日志</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="avatar">A</div>
+      <div>
+        <div style="font-weight:500">Admin</div>
+        <div style="font-size:11px;color:var(--text-3)">admin@example.local</div>
+      </div>
+    </div>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>工作台</h1>
+      <p>系统运行概览</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#E8F3FF;color:#3370FF">📄</div>
+        <div class="kpi-label">总任务</div>
+        <div class="kpi-value">20</div>
+        <div class="kpi-trend up">6 个待复核</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#E8FFEA;color:#007A29">✅</div>
+        <div class="kpi-label">已完成</div>
+        <div class="kpi-value">1</div>
+        <div class="kpi-trend">最近 24 小时</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#FFF3E0;color:#B25000">🔌</div>
+        <div class="kpi-label">Provider</div>
+        <div class="kpi-value">6</div>
+        <div class="kpi-trend">2 个在线</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#F2F3F5;color:var(--text-3)">🧩</div>
+        <div class="kpi-label">Schema</div>
+        <div class="kpi-value">2</div>
+        <div class="kpi-trend">当前活跃</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>最近任务</h3>
+        <button class="btn btn-text">查看全部 →</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>任务 ID</th><th>Schema</th><th>状态</th><th>创建时间</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:monospace;font-size:12px">cmqaqlblw0005wmd</td>
+            <td>lims-clinical-info</td>
+            <td><span class="tag tag-warning">待复核</span></td>
+            <td>-</td>
+            <td><button class="btn btn-text">查看</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-size:12px">cmqaq9xci0005wm0</td>
+            <td>lims-clinical-info</td>
+            <td><span class="tag tag-danger">失败</span></td>
+            <td>-</td>
+            <td><button class="btn btn-text">查看</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-size:12px">cmqappxe6000fwm0</td>
+            <td>lims-clinical-info</td>
+            <td><span class="tag tag-warning">待复核</span></td>
+            <td>-</td>
+            <td><button class="btn btn-text">查看</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-size:12px">cmqadhflk0005wmr</td>
+            <td>lims-clinical-info</td>
+            <td><span class="tag tag-success">已完成</span></td>
+            <td>-</td>
+            <td><button class="btn btn-text">查看</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 方案 B: 温暖专业 ==================== -->
+<div id="design-b" class="design">
+<style>
+#design-b { --primary: #2563EB; --primary-light: #EFF6FF; }
+#design-b .sidebar { background: #FAFBFC; }
+#design-b .kpi-card { border: 1px solid var(--border); box-shadow: none; }
+#design-b .kpi-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+#design-b .card { border: 1px solid var(--border); box-shadow: none; }
+#design-b th { background: #F5F6F8; font-size: 13px; text-transform: none; }
+#design-b .nav-item.active { background: var(--primary); color: #fff; border-radius: 8px; }
+</style>
+<div class="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>🏥 医疗识别系统</h2>
+      <span>MEDICAL RECORD AGENT</span>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">导航</div>
+      <a class="nav-item active"><span class="icon">📊</span> 工作台</a>
+      <a class="nav-item"><span class="icon">📋</span> 任务列表</a>
+      <a class="nav-item"><span class="icon">🚀</span> 新建识别</a>
+      <a class="nav-item"><span class="icon">🧩</span> Schema 管理</a>
+      <a class="nav-item"><span class="icon">🔌</span> Provider</a>
+      <a class="nav-item"><span class="icon">📈</span> 评测中心</a>
+      <a class="nav-item"><span class="icon">📝</span> 审计日志</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="avatar" style="background:#DBEAFE;color:#2563EB">A</div>
+      <div>
+        <div style="font-weight:500">Admin</div>
+        <div style="font-size:11px;color:var(--text-3)">admin@example.local</div>
+      </div>
+    </div>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>工作台</h1>
+      <p>欢迎回来，Admin</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#EFF6FF;color:#2563EB">📄</div>
+        <div class="kpi-label">全部任务</div>
+        <div class="kpi-value">20</div>
+        <div class="kpi-trend up">↑ 较上周 +5</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⏳</div>
+        <div class="kpi-label">待复核</div>
+        <div class="kpi-value">6</div>
+        <div class="kpi-trend down">↓ 需要处理</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#D1FAE5;color:#059669">✅</div>
+        <div class="kpi-label">已完成</div>
+        <div class="kpi-value">1</div>
+        <div class="kpi-trend">成功率 100%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#F3E8FF;color:#7C3AED">🔌</div>
+        <div class="kpi-label">Provider</div>
+        <div class="kpi-value">6</div>
+        <div class="kpi-trend">2 在线 · 4 离线</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>最近任务</h3>
+        <button class="btn btn-primary" style="font-size:12px;padding:6px 14px">+ 新建识别</button>
+      </div>
+      <table>
+        <thead><tr><th>任务 ID</th><th>Schema</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td style="font-family:monospace;font-size:12px">cmqaqlblw0005wmd</td><td>lims-clinical-info</td><td><span class="tag tag-warning">待复核</span></td><td><button class="btn btn-text">查看详情</button></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px">cmqadhflk0005wmr</td><td>lims-clinical-info</td><td><span class="tag tag-success">已完成</span></td><td><button class="btn btn-text">查看详情</button></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px">cmqaq9xci0005wm0</td><td>lims-clinical-info</td><td><span class="tag tag-danger">失败</span></td><td><button class="btn btn-text">查看详情</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 方案 C: 深色科技 ==================== -->
+<div id="design-c" class="design">
+<style>
+#design-c { --bg: #0F1117; --card: #1A1D26; --border: #2A2D36; --text-1: #E8E9ED; --text-2: #A0A4AB; --text-3: #6B7078; --primary-light: rgba(51,112,255,0.12); }
+#design-c .app { background: var(--bg); }
+#design-c .sidebar { background: #15171E; border-right-color: var(--border); }
+#design-c .sidebar-logo h2 { color: #E8E9ED; }
+#design-c .nav-item { color: var(--text-2); }
+#design-c .nav-item:hover { background: rgba(255,255,255,0.04); color: #E8E9ED; }
+#design-c .nav-item.active { background: var(--primary-light); color: #5B9AFF; }
+#design-c .sidebar-footer { border-top-color: var(--border); }
+#design-c .main { background: var(--bg); }
+#design-c .page-header h1 { color: #E8E9ED; }
+#design-c .kpi-card { background: var(--card); border: 1px solid var(--border); box-shadow: none; }
+#design-c .kpi-card:hover { border-color: #3370FF; }
+#design-c .kpi-label { color: var(--text-3); }
+#design-c .kpi-value { color: #E8E9ED; }
+#design-c .card { background: var(--card); border: 1px solid var(--border); box-shadow: none; }
+#design-c .card-header { border-bottom-color: var(--border); }
+#design-c .card-header h3 { color: #E8E9ED; }
+#design-c th { background: #15171E; color: var(--text-3); border-bottom-color: var(--border); }
+#design-c td { color: var(--text-2); border-bottom-color: #1F2229; }
+#design-c tr:hover td { background: rgba(255,255,255,0.02); }
+#design-c .tag-success { background: rgba(0,180,42,0.12); color: #4ADE80; }
+#design-c .tag-warning { background: rgba(255,125,0,0.12); color: #FBBF24; }
+#design-c .tag-danger { background: rgba(245,63,63,0.12); color: #F87171; }
+</style>
+<div class="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ 医疗识别</h2>
+      <span>CLINICAL AI STUDIO</span>
+    </div>
+    <div class="nav-section">
+      <a class="nav-item active"><span class="icon">📊</span> 工作台</a>
+      <a class="nav-item"><span class="icon">📄</span> 任务列表</a>
+      <a class="nav-item"><span class="icon">➕</span> 新建识别</a>
+      <a class="nav-item"><span class="icon">🧩</span> Schema</a>
+      <a class="nav-item"><span class="icon">🔌</span> Provider</a>
+      <a class="nav-item"><span class="icon">📈</span> 评测</a>
+      <a class="nav-item"><span class="icon">📝</span> 审计</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="avatar" style="background:rgba(51,112,255,0.15);color:#5B9AFF">A</div>
+      <div><div style="font-weight:500;color:#E8E9ED">Admin</div><div style="font-size:11px;color:var(--text-3)">admin@example.local</div></div>
+    </div>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>工作台</h1>
+      <p>系统运行概览</p>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-icon" style="background:rgba(51,112,255,0.12);color:#5B9AFF">📄</div><div class="kpi-label">全部任务</div><div class="kpi-value">20</div><div class="kpi-trend" style="color:#5B9AFF">6 待复核</div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:rgba(0,180,42,0.12);color:#4ADE80">✅</div><div class="kpi-label">已完成</div><div class="kpi-value">1</div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:rgba(255,125,0,0.12);color:#FBBF24">🔌</div><div class="kpi-label">Provider</div><div class="kpi-value">6</div><div class="kpi-trend" style="color:#4ADE80">2 在线</div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:rgba(124,58,237,0.12);color:#A78BFA">🧩</div><div class="kpi-label">Schema</div><div class="kpi-value">2</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>最近任务</h3><button class="btn btn-text">查看全部 →</button></div>
+      <table>
+        <thead><tr><th>任务 ID</th><th>Schema</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td style="font-family:monospace;font-size:12px;color:#5B9AFF">cmqaqlblw0005wmd</td><td>lims-clinical-info</td><td><span class="tag tag-warning">待复核</span></td><td><button class="btn btn-text">查看</button></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;color:#5B9AFF">cmqadhflk0005wmr</td><td>lims-clinical-info</td><td><span class="tag tag-success">已完成</span></td><td><button class="btn btn-text">查看</button></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;color:#5B9AFF">cmqaq9xci0005wm0</td><td>lims-clinical-info</td><td><span class="tag tag-danger">失败</span></td><td><button class="btn btn-text">查看</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+</div>
+
+<script>
+function showDesign(id) {
+  document.querySelectorAll('.design').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+  document.getElementById('design-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
