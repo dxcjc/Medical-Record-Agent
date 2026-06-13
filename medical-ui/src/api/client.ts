@@ -274,8 +274,38 @@ export const healthApi = {
     request<{ status: string; service: string }>('/health'),
 };
 
+// Knowledge
+export const knowledgeApi = {
+  list: (filter?: { fieldKey?: string; kind?: string }) => {
+    const params = new URLSearchParams();
+    if (filter?.fieldKey) params.set('fieldKey', filter.fieldKey);
+    if (filter?.kind) params.set('kind', filter.kind);
+    const qs = params.toString();
+    return request<{ entries: import('./types').KnowledgeEntry[]; total: number }>(
+      `/knowledge${qs ? `?${qs}` : ''}`
+    );
+  },
+  create: (body: Partial<import('./types').KnowledgeEntry>) =>
+    request<import('./types').KnowledgeEntry>('/knowledge', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: Partial<import('./types').KnowledgeEntry>) =>
+    request<import('./types').KnowledgeEntry>(`/knowledge/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/knowledge/${id}`, { method: 'DELETE' }),
+};
+
 // Dashboard Stats
 export const statsApi = {
   getDashboard: () =>
     request<import('./types').DashboardStats>('/stats/dashboard'),
+  getFieldStats: (schemaKey: string, limit?: number) => {
+    const params = new URLSearchParams({ schemaKey });
+    if (limit) params.set('limit', String(limit));
+    return request<{ stats: import('./types').FieldStatItem[]; total: number }>(`/stats/fields?${params}`);
+  },
 };

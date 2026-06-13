@@ -241,3 +241,26 @@ export interface FieldValue {
   evidence?: string;
   [key: string]: unknown;
 }
+
+export interface FieldStatItem {
+  fieldKey: string;
+  recognitionCount: number;
+  avgConfidence: number | null;
+  reviewCount: number;
+  correctionCount: number;
+  commonErrors: Array<{ original: string; corrected: string; count: number }>;
+}
+
+export interface KnowledgeEntry {
+  id: string;
+  kind: 'medical_term' | 'cancer_alias' | 'lims_dictionary' | 'field_description';
+  title: string;
+  content: string;
+  keywords: string[];
+  fieldKeys: string[];
+  enabled: boolean;
+  sortOrder: number;
+  createdById?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

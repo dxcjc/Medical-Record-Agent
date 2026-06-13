@@ -67,6 +67,7 @@ import {
   type RedisJobQueueClient
 } from "../services/api-services";
 import { createSchemaService } from "../services/schema.service";
+import { createStatsService } from "../services/stats.service";
 import { createKnowledgeRepository } from "../repositories/knowledge.repository";
 import { createDatabaseKnowledgeRetriever } from "../services/database-knowledge-retriever";
 import type { ApiServerServices } from "../server";
@@ -2795,11 +2796,14 @@ export function createProductionApiServices(options: CreateProductionApiServices
     now
   });
 
+  const statsService = createStatsService(prisma);
+
   return {
     ...services,
     knowledgeService: {
       knowledgeRepository
     },
+    statsService,
     writebackService: {
       async execute(input) {
         return assertRouteResponseObject(await productionWritebackExecutor(input), "WRITEBACK_RESPONSE_INVALID");

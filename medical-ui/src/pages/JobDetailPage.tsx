@@ -16,6 +16,7 @@ import {
 } from '@arco-design/web-react';
 import { useJob } from '../hooks/useJobs';
 import { useResult } from '../hooks/useResults';
+import { useSchemas } from '../hooks/useSchemas';
 import { feedbackApi } from '../api/client';
 import StatusTag from '../components/StatusTag';
 import FieldGroup from '../components/FieldGroup';
@@ -23,6 +24,7 @@ import CheckboxMatrix from '../components/CheckboxMatrix';
 import ImageViewer from '../components/ImageViewer';
 import ConfidenceDashboard from '../components/ConfidenceDashboard';
 import PipelineProgress from '../components/PipelineProgress';
+import { buildFieldLabels, groupSchemaFields } from '../utils/schemaGroups';
 import {
   IconArrowLeft,
   IconRefresh,
@@ -36,7 +38,7 @@ import {
   IconStorage,
   IconInfoCircle,
 } from '../icons/appIcons';
-import type { TraceStep, EvidenceItem } from '../api/types';
+import type { TraceStep, EvidenceItem, SchemaField } from '../api/types';
 
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
@@ -44,44 +46,37 @@ const FormItem = Form.Item;
 const { Option } = Select;
 
 /* ------------------------------------------------------------------ */
-/*  Field group mapping keys                                           */
+/*  Dynamic field config from Schema definition                        */
 /* ------------------------------------------------------------------ */
 
-const FIELD_GROUPS = {
-  patientInfo: ['patientName', 'patientGender', 'patientAge', 'outpatientNo', 'phone', 'idNumber', 'ethnicity'],
-  referralInfo: ['referringDoctor', 'referralDate', 'pathologyNo', 'sampleNo', 'clinicRoom'],
-  clinicalDiagnosis: ['tumorType', 'tumorCategory'],
-  sampleInfo: ['sampleType', 'bloodSample', 'samplePrepTime', 'tumorCellPercent'],
-  testItemsLung: ['testItemsLung'],
-  testItemsGI: ['testItemsGI'],
-  testItemsOther: ['testItemsOther'],
-  testProduct: ['testProvider', 'documentNo', 'documentVersion', 'transfusionHistory'],
+/** 从 Schema fields 动态构建字段分组 → icon 映射 */
+const GROUP_ICON_MAP: Record<string, React.ReactNode> = {
+  patientInfo: <IconUser style={{ color: '#3370FF', fontSize: 16 }} />,
+  referralInfo: <IconSend style={{ color: '#3370FF', fontSize: 16 }} />,
+  clinicalDiagnosis: <IconCode style={{ color: '#3370FF', fontSize: 16 }} />,
+  sampleInfo: <IconBeaker style={{ color: '#3370FF', fontSize: 16 }} />,
+  testItems: <IconApps style={{ color: '#3370FF', fontSize: 16 }} />,
+  testProduct: <IconStorage style={{ color: '#3370FF', fontSize: 16 }} />,
+  other: <IconInfoCircle style={{ color: '#3370FF', fontSize: 16 }} />,
 };
 
-const FIELD_LABELS: Record<string, string> = {
-  patientName: '姓名',
-  patientGender: '性别',
-  patientAge: '年龄',
-  outpatientNo: '门诊号',
-  phone: '电话',
-  idNumber: '身份证号',
-  ethnicity: '民族',
-  referringDoctor: '送检医生',
-  referralDate: '送检日期',
-  pathologyNo: '病理号',
-  sampleNo: '样本编号',
-  clinicRoom: '诊室',
-  tumorType: '肿瘤类型',
-  tumorCategory: '肿瘤分类',
-  sampleType: '标本类型',
-  bloodSample: '血液样本',
-  samplePrepTime: '制备时间',
-  tumorCellPercent: '肿瘤细胞含量',
-  testProvider: '检测公司',
-  documentNo: '文件编号',
-  documentVersion: '文件版本',
-  transfusionHistory: '输血史',
-};
+/** 从 Schema field 的 comments 中提取选项列表 */
+function extractOptionsFromComments(field: SchemaField): string[] {
+  const comments = Array.isArray(field.comments) ? field.comments.join(' ') : String(field.comments || '');
+  // 匹配 "选项：A、B、C" 模式
+  const match = comments.match(/选项[：:]\s*(.+?)(?:[""]|$)/);
+  if (match) {
+    return match[1].split(/[、,，]/).map(s => s.trim()).filter(Boolean);
+  }
+  // 匹配逗号分隔的项目列表（如 "肿瘤9基因、肿瘤13基因..."）
+  const items = comments.match(/[A-Za-z0-9一-鿿()（）+\-]+(?:[、,，][A-Za-z0-9一-鿿()（）+\-]+)+/g);
+  if (items && items.length > 0) {
+    // 取最长的匹配，通常是选项列表
+    const longest = items.sort((a, b) => b.length - a.length)[0];
+    return longest.split(/[、,，]/).map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helper functions                                                   */
@@ -227,25 +222,8 @@ function parseTestItems(raw: string | undefined): { all: string[]; checked: stri
 }
 
 /* ------------------------------------------------------------------ */
-/*  Default test item lists for tumor gene testing                     */
+/*  No hardcoded test items - dynamically extracted from Schema         */
 /* ------------------------------------------------------------------ */
-
-const LUNG_TEST_ITEMS = [
-  '肿瘤9基因', '肿瘤13基因', '肺癌11基因', 'EGFR',
-  '肿瘤40基因', '188基因', '1021基因', '肿瘤mrd(血液)', '实体瘤40基因',
-];
-
-const GI_TEST_ITEMS = [
-  '肠癌3基因(+MSI)', 'MSI', 'UGT1A1', 'C-Kit',
-  'PDGFRA', '肠癌4基因(+MSI)', '胃癌18基因', '肿瘤18基因',
-  '肿瘤40基因', '林奇综合征',
-];
-
-const OTHER_TEST_ITEMS = [
-  'Onco1021-MRD', 'OncoD肿瘤用药基因检测', '同源重组修复缺陷基因检测',
-  'OncoMD肿瘤疗效基因监测', '脑胶质瘤基因检测', '肿瘤临床超级外显子组基因检测',
-  '肿瘤融合基因检测', 'PD-L1 IHC检测', '淋巴瘤基因检测',
-];
 
 /* ------------------------------------------------------------------ */
 /*  Calculate display status based on confidence                       */
@@ -285,13 +263,13 @@ interface NormalizedField {
   evidence: EvidenceItem[];
 }
 
-function getFieldData(fields: NormalizedField[], keys: string[]) {
+function getFieldData(fields: NormalizedField[], keys: string[], fieldLabels: Record<string, string>) {
   const fieldMap = new Map(fields.map((f) => [f.key, f]));
   return keys.map((key) => {
     const f = fieldMap.get(key);
     return {
       key,
-      label: FIELD_LABELS[key] || key,
+      label: fieldLabels[key] || key,
       value: f?.value ?? null,
       confidence: f?.confidence,
       source: f?.evidence?.[0]?.page ? `第${f.evidence[0].page}页` : undefined,
@@ -308,6 +286,43 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const { data: job, isLoading, error, refetch } = useJob(id!);
   const { data: result, isLoading: resultLoading } = useResult(id!);
+  const { data: schemasData } = useSchemas();
+
+  // 从 Schema definition 动态构建字段配置
+  const schemas = schemasData?.items || [];
+  const currentSchema = useMemo(() =>
+    schemas.find((s) => s.schemaKey === job?.schemaKey && s.status === 'active') || schemas[0],
+    [schemas, job?.schemaKey]
+  );
+  const schemaFields: SchemaField[] = currentSchema?.definition?.fields || [];
+  const fieldLabels = useMemo(() => buildFieldLabels(schemaFields), [schemaFields]);
+  const fieldGroups = useMemo(() => groupSchemaFields(schemaFields), [schemaFields]);
+
+  // 从 Schema 动态构建 FIELD_GROUPS 映射 (groupKey → fieldKey[])
+  const dynamicFieldGroups = useMemo(() => {
+    const groups: Record<string, string[]> = {};
+    for (const group of fieldGroups) {
+      groups[group.key] = group.fields.map(f => f.key);
+    }
+    return groups;
+  }, [fieldGroups]);
+
+  // 从 Schema 动态提取 testItems 的选项
+  const testItemOptions = useMemo(() => {
+    const options: Record<string, string[]> = {};
+    for (const field of schemaFields) {
+      if (field.key.startsWith('testItems') || field.key.startsWith('testItem')) {
+        options[field.key] = extractOptionsFromComments(field);
+      }
+    }
+    return options;
+  }, [schemaFields]);
+
+  // 获取 test item 字段 keys
+  const testItemKeys = useMemo(() =>
+    schemaFields.filter(f => f.key.startsWith('testItems') || f.key.startsWith('testItem')).map(f => f.key),
+    [schemaFields]
+  );
 
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackField, setFeedbackField] = useState('');
@@ -316,10 +331,8 @@ export default function JobDetailPage() {
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [highlightedField, setHighlightedField] = useState<string | undefined>(undefined);
 
-  // Local checkbox state for test items
-  const [lungSelected, setLungSelected] = useState<string[]>([]);
-  const [giSelected, setGiSelected] = useState<string[]>([]);
-  const [otherSelected, setOtherSelected] = useState<string[]>([]);
+  // Dynamic checkbox state for test items (keyed by field key)
+  const [testItemSelections, setTestItemSelections] = useState<Record<string, string[]>>({});
 
   const handleFeedback = async () => {
     if (!feedbackField) {
@@ -408,24 +421,20 @@ export default function JobDetailPage() {
   // Build field data for each group
   const fieldMap = new Map(normalizedFields.map((f) => [f.key, f]));
 
-  // Parse test items from fields to determine initial selected state
-  const lungField = fieldMap.get('testItemsLung');
-  const giField = fieldMap.get('testItemsGI');
-  const otherField = fieldMap.get('testItemsOther');
-
-  const lungParsed = parseTestItems(lungField?.value);
-  const giParsed = parseTestItems(giField?.value);
-  const otherParsed = parseTestItems(otherField?.value);
-
-  // Use parsed selections as initial if local state is empty
-  const effectiveLungSelected = lungSelected.length > 0 ? lungSelected : lungParsed.checked;
-  const effectiveGiSelected = giSelected.length > 0 ? giSelected : giParsed.checked;
-  const effectiveOtherSelected = otherSelected.length > 0 ? otherSelected : otherParsed.checked;
-
-  // 合并硬编码选项和 LLM 识别到的项目（去重）
-  const effectiveLungOptions = Array.from(new Set([...LUNG_TEST_ITEMS, ...effectiveLungSelected]));
-  const effectiveGiOptions = Array.from(new Set([...GI_TEST_ITEMS, ...effectiveGiSelected]));
-  const effectiveOtherOptions = Array.from(new Set([...OTHER_TEST_ITEMS, ...effectiveOtherSelected]));
+  // Parse test items from fields dynamically
+  const testItemData = useMemo(() => {
+    const data: Record<string, { field?: NormalizedField; parsed: { all: string[]; checked: string[] }; effectiveSelected: string[]; effectiveOptions: string[] }> = {};
+    for (const key of testItemKeys) {
+      const f = fieldMap.get(key);
+      const parsed = parseTestItems(f?.value);
+      const localSel = testItemSelections[key] || [];
+      const effectiveSelected = localSel.length > 0 ? localSel : parsed.checked;
+      const schemaOptions = testItemOptions[key] || [];
+      const effectiveOptions = Array.from(new Set([...schemaOptions, ...effectiveSelected]));
+      data[key] = { field: f, parsed, effectiveSelected, effectiveOptions };
+    }
+    return data;
+  }, [testItemKeys, fieldMap, testItemSelections, testItemOptions]);
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -526,7 +535,7 @@ export default function JobDetailPage() {
         <ConfidenceDashboard
           fields={normalizedFields.map((f) => ({
             key: f.key,
-            label: FIELD_LABELS[f.key] || f.key,
+            label: fieldLabels[f.key] || f.key,
             value: f.value === '-' ? null : f.value,
             confidence: f.confidence,
           }))}
@@ -534,87 +543,76 @@ export default function JobDetailPage() {
         />
       )}
 
-      {/* 2-column grid: Patient + Referral */}
-      <Row gutter={16}>
-        <Col xs={24} lg={12}>
-          <FieldGroup
-            title="患者信息"
-            icon={<IconUser style={{ color: '#3370FF', fontSize: 16 }} />}
-            fields={getFieldData(normalizedFields, FIELD_GROUPS.patientInfo)}
-            columns={2}
-            onFieldClick={handleFieldClickToImageViewer}
-          />
-        </Col>
-        <Col xs={24} lg={12}>
-          <FieldGroup
-            title="送检信息"
-            icon={<IconSend style={{ color: '#3370FF', fontSize: 16 }} />}
-            fields={getFieldData(normalizedFields, FIELD_GROUPS.referralInfo)}
-            columns={2}
-            onFieldClick={handleFieldClickToImageViewer}
-          />
-        </Col>
-      </Row>
+      {/* Small field groups (<=2 fields) rendered full-width */}
+      {fieldGroups.filter(g => g.key !== 'testItems' && g.fields.length <= 2).map((group) => (
+        <Row gutter={16} key={group.key}>
+          <Col xs={24} lg={24}>
+            <FieldGroup
+              title={group.label}
+              icon={GROUP_ICON_MAP[group.key] || <IconInfoCircle style={{ color: '#3370FF', fontSize: 16 }} />}
+              fields={getFieldData(normalizedFields, dynamicFieldGroups[group.key] || [], fieldLabels)}
+              columns={2}
+              onFieldClick={handleFieldClickToImageViewer}
+            />
+          </Col>
+        </Row>
+      ))}
 
-      {/* 2-column grid: Clinical Diagnosis + Sample Info */}
-      <Row gutter={16}>
-        <Col xs={24} lg={12}>
-          <FieldGroup
-            title="临床诊断"
-            icon={<IconCode style={{ color: '#3370FF', fontSize: 16 }} />}
-            fields={getFieldData(normalizedFields, FIELD_GROUPS.clinicalDiagnosis)}
-            columns={2}
-            onFieldClick={handleFieldClickToImageViewer}
-          />
-        </Col>
-        <Col xs={24} lg={12}>
-          <FieldGroup
-            title="样本信息"
-            icon={<IconBeaker style={{ color: '#3370FF', fontSize: 16 }} />}
-            fields={getFieldData(normalizedFields, FIELD_GROUPS.sampleInfo)}
-            columns={2}
-            onFieldClick={handleFieldClickToImageViewer}
-          />
-        </Col>
-      </Row>
-
-      {/* Checkbox Matrix: Test Items (full width) */}
-      <Card
-        style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-        title={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <IconApps style={{ color: '#3370FF', fontSize: 16 }} />
-            检测项目
-          </span>
+      {/* Larger field groups (>2 fields) in two-column layout */}
+      {(() => {
+        const displayGroups = fieldGroups.filter(g => g.key !== 'testItems' && g.fields.length > 2);
+        const rows: typeof displayGroups[] = [];
+        for (let i = 0; i < displayGroups.length; i += 2) {
+          rows.push(displayGroups.slice(i, i + 2));
         }
-      >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
-          <CheckboxMatrix
-            title="肺癌检测项目"
-            options={effectiveLungOptions}
-            selected={effectiveLungSelected}
-            confidence={lungField?.confidence}
-            source={lungField?.evidence?.[0]?.page ? `第${lungField.evidence[0].page}页` : undefined}
-            onChange={setLungSelected}
-          />
-          <CheckboxMatrix
-            title="消化道肿瘤检测项目"
-            options={effectiveGiOptions}
-            selected={effectiveGiSelected}
-            confidence={giField?.confidence}
-            source={giField?.evidence?.[0]?.page ? `第${giField.evidence[0].page}页` : undefined}
-            onChange={setGiSelected}
-          />
-          <CheckboxMatrix
-            title="其他检测项目"
-            options={effectiveOtherOptions}
-            selected={effectiveOtherSelected}
-            confidence={otherField?.confidence}
-            source={otherField?.evidence?.[0]?.page ? `第${otherField.evidence[0].page}页` : undefined}
-            onChange={setOtherSelected}
-          />
-        </Space>
-      </Card>
+        return rows.map((row, rowIdx) => (
+          <Row gutter={16} key={rowIdx}>
+            {row.map((group) => (
+              <Col xs={24} lg={12} key={group.key}>
+                <FieldGroup
+                  title={group.label}
+                  icon={GROUP_ICON_MAP[group.key] || <IconInfoCircle style={{ color: '#3370FF', fontSize: 16 }} />}
+                  fields={getFieldData(normalizedFields, dynamicFieldGroups[group.key] || [], fieldLabels)}
+                  columns={2}
+                  onFieldClick={handleFieldClickToImageViewer}
+                />
+              </Col>
+            ))}
+          </Row>
+        ));
+      })()}
+
+      {/* Checkbox Matrix: Test Items (full width, dynamic from Schema) */}
+      {testItemKeys.length > 0 && (
+        <Card
+          style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <IconApps style={{ color: '#3370FF', fontSize: 16 }} />
+              检测项目
+            </span>
+          }
+        >
+          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+            {testItemKeys.map((key) => {
+              const data = testItemData[key];
+              if (!data) return null;
+              const label = fieldLabels[key] || key;
+              return (
+                <CheckboxMatrix
+                  key={key}
+                  title={label}
+                  options={data.effectiveOptions}
+                  selected={data.effectiveSelected}
+                  confidence={data.field?.confidence}
+                  source={data.field?.evidence?.[0]?.page ? `第${data.field.evidence[0].page}页` : undefined}
+                  onChange={(selected) => setTestItemSelections(prev => ({ ...prev, [key]: selected }))}
+                />
+              );
+            })}
+          </Space>
+        </Card>
+      )}
 
       {/* 2-column grid: Test Product + Other Info */}
       <Row gutter={16}>
@@ -637,19 +635,15 @@ export default function JobDetailPage() {
                 </div>
               )}
               {/* 已选检测项目 */}
-              {(effectiveLungSelected.length > 0 || effectiveGiSelected.length > 0 || effectiveOtherSelected.length > 0) ? (
+              {testItemKeys.some(key => (testItemData[key]?.effectiveSelected.length ?? 0) > 0) ? (
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>已选检测项目</Text>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                    {effectiveLungSelected.map((item) => (
-                      <Tag key={`lung-${item}`} color="blue" size="small">{item}</Tag>
-                    ))}
-                    {effectiveGiSelected.map((item) => (
-                      <Tag key={`gi-${item}`} color="green" size="small">{item}</Tag>
-                    ))}
-                    {effectiveOtherSelected.map((item) => (
-                      <Tag key={`other-${item}`} color="orange" size="small">{item}</Tag>
-                    ))}
+                    {testItemKeys.map((key, idx) =>
+                      (testItemData[key]?.effectiveSelected || []).map((item) => (
+                        <Tag key={`${key}-${item}`} color={['blue', 'green', 'orange'][idx % 3]} size="small">{item}</Tag>
+                      ))
+                    )}
                   </div>
                 </div>
               ) : (
@@ -804,7 +798,7 @@ export default function JobDetailPage() {
               >
                 {normalizedFields.map((f) => (
                   <Option key={f.key} value={f.key}>
-                    {FIELD_LABELS[f.key] || f.key}
+                    {fieldLabels[f.key] || f.key}
                   </Option>
                 ))}
               </Select>
@@ -873,7 +867,7 @@ export default function JobDetailPage() {
           }
           return {
             key: f.key,
-            label: FIELD_LABELS[f.key] || f.key,
+            label: fieldLabels[f.key] || f.key,
             value: f.value,
             confidence: f.confidence,
             confirmed: false,

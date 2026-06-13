@@ -62,7 +62,7 @@ export default function CheckboxMatrix({
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 8,
+          gap: 12,
         }}
       >
         {options.map((opt) => {
@@ -88,6 +88,7 @@ export default function CheckboxMatrix({
                 color: isChecked ? '#fff' : 'var(--color-text-3)',
                 border: isChecked ? '1px solid #3370FF' : '1px solid var(--color-border)',
                 transition: 'all 0.2s',
+                transform: isChecked ? 'scale(1.02)' : 'scale(1)',
                 userSelect: 'none',
                 outline: 'none',
               }}
@@ -102,7 +103,7 @@ export default function CheckboxMatrix({
                 }
               }}
             >
-              {isChecked && <IconCheck style={{ fontSize: 12 }} />}
+              {isChecked ? <IconCheck style={{ fontSize: 12 }} /> : <span style={{ fontSize: 12, lineHeight: 1 }}>☐</span>}
               {opt}
             </div>
           );

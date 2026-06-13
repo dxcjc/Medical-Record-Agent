@@ -19,6 +19,7 @@ import { registerSchemaRoutes, type SchemaRouteService } from "./routes/schemas.
 import { registerWritebackRoutes, type WritebackRouteService } from "./routes/writeback.routes";
 import { registerKnowledgeRoutes, type KnowledgeRouteService } from "./routes/knowledge.routes";
 import { registerV1Routes, type V1RouteService } from "./routes/v1.routes";
+import { registerStatsRoutes, type StatsRouteService } from "./routes/stats.routes";
 
 export interface ApiServerServices {
   authService: AuthLayerService & AuthRouteService;
@@ -34,6 +35,7 @@ export interface ApiServerServices {
   providerService: ProviderRouteService;
   evaluationService: EvaluationRouteService;
   knowledgeService?: KnowledgeRouteService;
+  statsService?: StatsRouteService;
   v1Service?: V1RouteService;
   jobQueue?: {
     drain(): Promise<void>;
@@ -284,6 +286,10 @@ export async function createApiServer(options: CreateApiServerOptions) {
 
   if (options.services.knowledgeService) {
     await registerKnowledgeRoutes(server, options.services.knowledgeService);
+  }
+
+  if (options.services.statsService) {
+    await registerStatsRoutes(server, options.services.statsService);
   }
 
   if (options.services.v1Service) {

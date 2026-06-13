@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   Tag,
@@ -6,16 +6,18 @@ import {
   Spin,
   Grid,
   Message,
-  Table,
   Descriptions,
   Typography,
   Space,
   List,
 } from '@arco-design/web-react';
 import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion } from '../hooks/useSchemas';
+import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import StatusTag from '../components/StatusTag';
+import FieldCard from '../components/FieldCard';
+import { groupSchemaFields } from '../utils/schemaGroups';
 import type { SchemaVersion, SchemaField } from '../api/types';
 
 const { Row, Col } = Grid;
@@ -27,9 +29,39 @@ export default function SchemaPage() {
   const rollbackMutation = useRollbackSchemaVersion();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [localFields, setLocalFields] = useState<SchemaField[] | null>(null);
 
   const schemas = data?.items || [];
   const selected = schemas.find((s) => s.id === selectedId) || null;
+  const schemaKey = selected?.schemaKey;
+
+  const { data: statsData } = useFieldStats(schemaKey);
+  const statsMap = useMemo(() => {
+    const map = new Map<string, typeof statsData extends { stats: infer S } ? S extends Array<infer T> ? T : never : never>();
+    if (statsData?.stats) {
+      for (const s of statsData.stats) {
+        map.set(s.fieldKey, s as never);
+      }
+    }
+    return map;
+  }, [statsData]);
+
+  // 使用本地编辑的字段，或从 Schema definition 读取
+  const fields: SchemaField[] = localFields || selected?.definition?.fields || [];
+  const fieldGroups = useMemo(() => groupSchemaFields(fields), [fields]);
+
+  // 切换 Schema 时重置本地编辑
+  const handleSelectSchema = (id: string) => {
+    setSelectedId(id);
+    setLocalFields(null);
+  };
+
+  const handleFieldUpdate = (key: string, updates: Partial<SchemaField>) => {
+    const updatedFields = fields.map((f) =>
+      f.key === key ? { ...f, ...updates } : f
+    );
+    setLocalFields(updatedFields);
+  };
 
   const handleDeactivate = async (id: string) => {
     try {
@@ -90,53 +122,6 @@ export default function SchemaPage() {
     );
   }
 
-  const fields: SchemaField[] = selected?.definition?.fields || [];
-
-  const fieldColumns = [
-    { title: '标签', dataIndex: 'label', width: 140, render: (v: string) => v || '-' },
-    { title: 'Key', dataIndex: 'key', width: 140 },
-    { title: '类型', dataIndex: 'type', width: 80, render: (v: string) => v || '-' },
-    {
-      title: '必填',
-      dataIndex: 'required',
-      width: 70,
-      render: (v: boolean) => (v ? <Tag color="red">是</Tag> : <Tag>否</Tag>),
-    },
-    {
-      title: '关键字段',
-      dataIndex: 'critical',
-      width: 90,
-      render: (v: boolean) => (v ? <Tag color="orange">是</Tag> : <Tag>否</Tag>),
-    },
-    {
-      title: 'LIMS映射',
-      width: 140,
-      render: (_: unknown, record: SchemaField) => {
-        const hints = record.adapterHints as { limsTargetPath?: string } | undefined;
-        const path = hints?.limsTargetPath;
-        return path ? <Text code style={{ fontSize: 12 }}>{path}</Text> : <span style={{ color: '#999' }}>-</span>;
-      },
-    },
-    {
-      title: '识别说明',
-      dataIndex: 'comments',
-      width: 200,
-      render: (v: string) => v ? <Text ellipsis style={{ maxWidth: 180 }} title={v}>{v}</Text> : <span style={{ color: '#999' }}>-</span>,
-    },
-    {
-      title: '枚举值',
-      width: 200,
-      render: (_: unknown, record: SchemaField) => {
-        const enumMap = record.enumMap as Record<string, string> | undefined;
-        if (!enumMap || Object.keys(enumMap).length === 0) return <span style={{ color: '#999' }}>-</span>;
-        const entries = Object.entries(enumMap);
-        const display = entries.slice(0, 3).map(([k, v]) => `${k}→${v}`).join(', ');
-        const suffix = entries.length > 3 ? ` ...等${entries.length}项` : '';
-        return <Text ellipsis style={{ maxWidth: 180, fontSize: 12 }} title={entries.map(([k, v]) => `${k}→${v}`).join('\n')}>{display}{suffix}</Text>;
-      },
-    },
-  ];
-
   return (
     <div>
       <PageHeader
@@ -160,7 +145,7 @@ export default function SchemaPage() {
                     background: selectedId === s.id ? 'var(--color-primary-soft)' : undefined,
                     padding: '12px 20px',
                   }}
-                  onClick={() => setSelectedId(s.id)}
+                  onClick={() => handleSelectSchema(s.id)}
                 >
                   <List.Item.Meta
                     title={
@@ -237,14 +222,37 @@ export default function SchemaPage() {
                   {fields.length === 0 ? (
                     <Text type="secondary">暂无字段定义</Text>
                   ) : (
-                    <Table
-                      columns={fieldColumns}
-                      data={fields.map((f, i) => ({ ...f, _key: f.key || i }))}
-                      rowKey="_key"
-                      pagination={false}
-                      size="small"
-                      border={false}
-                    />
+                    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+                      {fieldGroups.map((group) => (
+                        <div key={group.key}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginBottom: 10,
+                            paddingBottom: 6,
+                            borderBottom: '1px solid var(--color-border-2)',
+                          }}>
+                            <Tag color="blue" size="small">{group.fields.length}</Tag>
+                            <Text bold style={{ fontSize: 14 }}>{group.label}</Text>
+                          </div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
+                            gap: 12,
+                          }}>
+                            {group.fields.map((field) => (
+                              <FieldCard
+                                key={field.key}
+                                field={field}
+                                stats={statsMap.get(field.key)}
+                                onUpdate={handleFieldUpdate}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </Space>
                   )}
                 </div>
               </Space>
