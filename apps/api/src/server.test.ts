@@ -105,7 +105,8 @@ function createServices(authService = createAuthService()): ApiServerServices {
     },
     jobService: {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
-      get: vi.fn(async () => ({ id: "job-001", status: "completed" }))
+      get: vi.fn(async () => ({ id: "job-001", status: "completed" })),
+      list: vi.fn(async () => [])
     },
     resultService: {
       getByJobId: vi.fn(async () => ({ jobId: "job-001", fields: [] }))

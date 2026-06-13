@@ -296,7 +296,8 @@ describe("base route groups", () => {
     const tools = createRouteTools(["job:create", "job:read"]);
     const jobService: JobRouteService = {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
-      get: vi.fn(async () => ({ id: "job-001", status: "completed" }))
+      get: vi.fn(async () => ({ id: "job-001", status: "completed" })),
+      list: vi.fn(async () => [])
     };
     await registerJobRoutes(server, {
       jobService,
@@ -332,7 +333,8 @@ describe("base route groups", () => {
     const tools = createRouteTools(["job:create"]);
     const jobService: JobRouteService = {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
-      get: vi.fn()
+      get: vi.fn(),
+      list: vi.fn(async () => [])
     };
     await registerJobRoutes(server, {
       jobService,
@@ -386,7 +388,8 @@ describe("base route groups", () => {
     const tools = createRouteTools(["job:create"]);
     const jobService: JobRouteService = {
       create: vi.fn(),
-      get: vi.fn()
+      get: vi.fn(),
+      list: vi.fn(async () => [])
     };
     await registerJobRoutes(server, {
       jobService,

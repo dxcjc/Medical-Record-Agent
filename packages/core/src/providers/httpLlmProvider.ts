@@ -54,7 +54,7 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
       console.error(`[httpLlmProvider] extractFields 被调用, endpoint=${config.endpoint}, model=${config.model}`);
       // Vision 请求（带图片）需要更长超时
       const hasImage = request.imageBase64 && request.imageBase64.length > 0;
-      const timeoutMs = hasImage ? 120_000 : (config.timeoutMs ?? 30_000);
+      const timeoutMs = hasImage ? 300_000 : (config.timeoutMs ?? 120_000);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 

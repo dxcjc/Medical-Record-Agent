@@ -184,9 +184,8 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     }
 
     try {
-      const imageBase64 = state.document.content
-        ? Buffer.from(state.document.content).toString("base64")
-        : undefined;
+      // 暂时禁用视觉增强（大图片触发火山引擎内容审核）
+      const imageBase64 = undefined;
 
       const extraction = await extractionAgent.run({
         schema: config.schema,

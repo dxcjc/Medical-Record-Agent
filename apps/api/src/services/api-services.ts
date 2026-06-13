@@ -93,6 +93,7 @@ export interface ApiServiceRepositories {
       options?: Prisma.InputJsonValue;
     }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
     findById(id: string): Promise<unknown | null>;
+    list(limit?: number): Promise<Array<{ id: string; status?: string } & Record<string, unknown>>>;
     updateStatus(input: {
       id: string;
       status: RecognitionJobStatus;
@@ -1640,7 +1641,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
 
         // Prisma BigInt 不能直接 JSON.stringify，转为 Number
         return assertRouteRecord(
-          { ...created, byteSize: Number(created.byteSize) },
+          { ...(created as Record<string, unknown>), byteSize: Number((created as { byteSize: unknown }).byteSize) },
           "FILE_RESPONSE_INVALID"
         );
       },
@@ -1786,7 +1787,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       },
       async list(limit = 50) {
         const jobs = await repositories.jobsRepository.list(limit);
-        return jobs.map((job) => ({
+        return jobs.map((job: { id: string; status?: string } & Record<string, unknown>) => ({
           ...job,
           executionMode: "asynchronous" as const,
           statusUrl: `/jobs/${job.id}`,

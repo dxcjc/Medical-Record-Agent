@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Table, Select, Button, Typography } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
 import { useJobs } from '../hooks/useJobs';
+import { useSchemas } from '../hooks/useSchemas';
+import { useProviders } from '../hooks/useProviders';
 import StatusTag from '../components/StatusTag';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
@@ -27,8 +29,28 @@ export default function JobListPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('all');
   const { data, isLoading, error, refetch } = useJobs(100);
+  const { data: schemasData } = useSchemas();
+  const { data: providersData } = useProviders();
 
   const jobs = data?.items || [];
+
+  // 构建 displayName 映射
+  const schemaNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    schemasData?.items?.forEach((s) => {
+      map[s.schemaKey] = s.displayName || s.schemaKey;
+    });
+    return map;
+  }, [schemasData]);
+
+  const providerNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    providersData?.items?.forEach((p) => {
+      map[p.key] = p.displayName || p.key;
+    });
+    return map;
+  }, [providersData]);
+
   const filteredJobs = useMemo(() => {
     if (statusFilter === 'all') return jobs;
     return jobs.filter((j) => j.status === statusFilter);
@@ -36,17 +58,10 @@ export default function JobListPage() {
 
   const columns = [
     {
-      title: '任务 ID',
-      dataIndex: 'id',
-      width: 200,
-      render: (id: string) => (
-        <Text code>{id.slice(0, 16)}...</Text>
-      ),
-    },
-    {
       title: 'Schema',
       dataIndex: 'schemaKey',
-      width: 150,
+      width: 160,
+      render: (key: string) => schemaNameMap[key] || key,
     },
     {
       title: '状态',
@@ -56,10 +71,11 @@ export default function JobListPage() {
     },
     {
       title: 'Provider',
-      width: 150,
+      width: 160,
       render: (_: unknown, record: RecognitionJob) => {
         const cfg = record.providerConfig as Record<string, unknown>;
-        return <span>{(cfg?.providerKey as string) || (cfg?.ocrProviderKey as string) || '-'}</span>;
+        const providerKey = (cfg?.providerKey as string) || (cfg?.ocrProviderKey as string) || '';
+        return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : '-'}</span>;
       },
     },
     {

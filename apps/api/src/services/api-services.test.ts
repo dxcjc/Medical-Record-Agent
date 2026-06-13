@@ -75,6 +75,7 @@ function createRepositories(): ApiServiceRepositories {
     jobsRepository: {
       create: vi.fn(async (input) => ({ id: "job-001", status: "queued", ...input })),
       findById: vi.fn(async () => ({ id: "job-001", status: "completed", sourceFileId: "file-001" })),
+      list: vi.fn(async () => []),
       updateStatus: vi.fn(async (input) => ({ id: input.id, ...input })),
       listEligibleForWriteback: vi.fn(async () => [])
     },

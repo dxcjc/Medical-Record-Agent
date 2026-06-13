@@ -55,7 +55,8 @@ void validFileService;
 
 const validJobService: JobRouteService = {
   create: async () => routeObject,
-  get: async () => routeObject
+  get: async () => routeObject,
+  list: async () => []
 };
 
 void validJobService;
