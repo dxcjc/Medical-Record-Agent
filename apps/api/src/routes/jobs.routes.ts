@@ -25,6 +25,8 @@ export interface JobRouteService {
   create(input: CreateRecognitionJobServiceInput): Promise<ApiRouteResponseObject>;
   get(id: string): Promise<ApiRouteResponseObject | null>;
   list(limit?: number): Promise<ApiRouteResponseObject[]>;
+  softDelete(id: string): Promise<ApiRouteResponseObject>;
+  rerun(id: string): Promise<ApiRouteResponseObject>;
 }
 
 export interface JobRoutesDependencies {
@@ -99,6 +101,36 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
       const limit = query.limit ? parseInt(query.limit, 10) : 50;
       const jobs = await dependencies.jobService.list(limit);
       return { items: jobs };
+    }
+  );
+
+  server.delete(
+    "/jobs/:id",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.jobCreate)
+      ]
+    },
+    async (request, reply) => {
+      const params = request.params as { id: string };
+      const result = await dependencies.jobService.softDelete(params.id);
+      return reply.status(200).send(result);
+    }
+  );
+
+  server.post(
+    "/jobs/:id/rerun",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.jobCreate)
+      ]
+    },
+    async (request, reply) => {
+      const params = request.params as { id: string };
+      const result = await dependencies.jobService.rerun(params.id);
+      return reply.status(201).send(result);
     }
   );
 }

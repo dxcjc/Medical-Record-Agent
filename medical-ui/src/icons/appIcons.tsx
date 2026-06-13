@@ -37,6 +37,7 @@ import {
   XCircle,
   Beaker,
   Eye,
+  ImageIcon,
 } from 'lucide-react';
 
 export type AppIcon = (props: LucideProps) => ReactElement;
@@ -83,3 +84,4 @@ export const IconCode = createAppIcon(Code);
 export const IconApps = createAppIcon(Grid3X3);
 export const IconStorage = createAppIcon(HardDrive);
 export const IconInfoCircle = createAppIcon(Info);
+export const IconImage = createAppIcon(ImageIcon);

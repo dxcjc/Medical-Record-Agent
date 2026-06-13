@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Grid, Card, Table, Button, Spin, Typography } from '@arco-design/web-react';
 import {
@@ -9,6 +10,7 @@ import {
   IconDatabase,
   IconFileUp,
 } from '../icons/appIcons';
+import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useJobs } from '../hooks/useJobs';
 import { useProviders } from '../hooks/useProviders';
 import StatusTag from '../components/StatusTag';
@@ -22,20 +24,44 @@ const { Text } = Typography;
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { data: statsData, isLoading: statsLoading, error: statsError } = useDashboardStats();
+  // Fallback: 用 jobs + providers 端点自行计算
   const { data: jobsData, isLoading: jobsLoading, error: jobsError, refetch } = useJobs(20);
   const { data: providersData, isLoading: providersLoading } = useProviders();
 
   const jobs = jobsData?.items || [];
   const providers = providersData?.items || [];
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayJobs = jobs.filter((j) => j.createdAt && new Date(j.createdAt) >= todayStart).length;
-  const needsReview = jobs.filter((j) => j.status === 'needs_review' || j.status === 'partial_completed').length;
-  const onlineProviders = providers.filter((p) => p.status === 'active').length;
-  const completedJobs = jobs.filter((j) => j.status === 'completed').length;
+  // 优先使用 stats API；如果失败则使用 fallback
+  const useStatsApi = !!statsData && !statsError;
 
-  if (jobsError) {
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const todayJobs = useStatsApi
+    ? statsData!.todayJobs
+    : jobs.filter((j) => j.createdAt && new Date(j.createdAt) >= todayStart).length;
+  const needsReview = useStatsApi
+    ? statsData!.needsReview
+    : jobs.filter((j) => j.status === 'needs_review' || j.status === 'partial_completed').length;
+  const completedJobs = useStatsApi
+    ? statsData!.completedJobs
+    : jobs.filter((j) => j.status === 'completed').length;
+  const onlineProviders = useStatsApi
+    ? statsData!.onlineProviders
+    : providers.filter((p) => p.status === 'active').length;
+
+  const recentJobs = useStatsApi
+    ? (statsData!.recentAlerts || [])
+    : jobs;
+
+  const isLoading = useStatsApi ? statsLoading : (jobsLoading || providersLoading);
+  const hasError = useStatsApi ? !!statsError : !!jobsError;
+
+  if (hasError && !useStatsApi) {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: 40 }}>
@@ -75,7 +101,7 @@ export default function DashboardPage() {
     {
       title: '操作',
       width: 80,
-      render: (_: unknown, record: RecognitionJob) => (
+      render: (_: unknown, record: RecognitionJob | Record<string, unknown>) => (
         <Button type="text" size="small" onClick={() => navigate(`/jobs/${record.id}`)}>
           查看
         </Button>
@@ -102,7 +128,7 @@ export default function DashboardPage() {
             value={todayJobs}
             icon={IconClipboardList}
             tone="blue"
-            loading={jobsLoading}
+            loading={isLoading}
           />
         </Col>
         <Col span={6}>
@@ -111,7 +137,7 @@ export default function DashboardPage() {
             value={needsReview}
             icon={IconAlertTriangle}
             tone="amber"
-            loading={jobsLoading}
+            loading={isLoading}
           />
         </Col>
         <Col span={6}>
@@ -120,7 +146,7 @@ export default function DashboardPage() {
             value={completedJobs}
             icon={IconCheckCircle}
             tone="green"
-            loading={jobsLoading}
+            loading={isLoading}
           />
         </Col>
         <Col span={6}>
@@ -129,7 +155,7 @@ export default function DashboardPage() {
             value={onlineProviders}
             icon={IconDatabase}
             tone="blue"
-            loading={providersLoading}
+            loading={isLoading}
           />
         </Col>
       </Row>
@@ -140,11 +166,11 @@ export default function DashboardPage() {
           查看全部
         </Button>
       }>
-        {jobsLoading ? (
+        {isLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <Spin />
           </div>
-        ) : jobs.length === 0 ? (
+        ) : recentJobs.length === 0 ? (
           <EmptyState
             title="暂无识别任务"
             description="上传医疗文档，AI 自动识别并提取结构化数据"
@@ -156,7 +182,7 @@ export default function DashboardPage() {
         ) : (
           <Table
             columns={columns}
-            data={jobs}
+            data={recentJobs as Record<string, unknown>[]}
             rowKey="id"
             pagination={false}
             size="small"

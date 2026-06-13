@@ -454,3 +454,15 @@ export type CompareSchemaVersionsRouteQuery = z.infer<typeof compareSchemaVersio
 export type ProviderConfigRouteInput = z.infer<typeof providerConfigRouteInputSchema>;
 export type AuditListRouteQuery = z.infer<typeof auditListQuerySchema>;
 export type ConfirmedWritebackRouteInput = z.infer<typeof confirmedWritebackRouteInputSchema>;
+
+// ─── Webhook subscription DTOs ───────────────────────────────────────────────
+
+export const createWebhookSubscriptionRouteInputSchema = z
+  .object({
+    callbackUrl: nonEmptyString,
+    schemaKey: optionalNonEmptyString,
+    events: z.array(nonEmptyString).optional()
+  })
+  .strip();
+
+export type CreateWebhookSubscriptionRouteInput = z.infer<typeof createWebhookSubscriptionRouteInputSchema>;

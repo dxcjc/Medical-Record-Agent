@@ -184,8 +184,14 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     }
 
     try {
-      // 暂时禁用视觉增强（大图片触发火山引擎内容审核）
-      const imageBase64 = undefined;
+      // 启用视觉增强，用于识别勾选框和手写体
+      const imageBase64 = state.document.content
+        ? Buffer.from(state.document.content).toString('base64')
+        : undefined;
+
+      console.log(`[Vision Enhancement] Document content length: ${state.document.content?.length ?? 0}`);
+      console.log(`[Vision Enhancement] Image base64 length: ${imageBase64?.length ?? 0}`);
+      console.log(`[Vision Enhancement] Has image: ${imageBase64 !== undefined}`);
 
       const extraction = await extractionAgent.run({
         schema: config.schema,

@@ -27,6 +27,7 @@ import type {
   ListEvaluationRunsRouteInput
 } from "../routes/evaluation.routes";
 import type { SchemaRouteService } from "../routes/schemas.routes";
+import type { V1JobsListResponse, V1RouteService } from "../routes/v1.routes";
 import type { ApiServerServices } from "../server";
 import type { StorageProvider } from "../storage";
 
@@ -94,6 +95,13 @@ export interface ApiServiceRepositories {
     }): Promise<{ id: string; status?: string } & Record<string, unknown>>;
     findById(id: string): Promise<unknown | null>;
     list(limit?: number): Promise<Array<{ id: string; status?: string } & Record<string, unknown>>>;
+    listPaginated(input: {
+      skip: number;
+      take: number;
+      status?: string;
+      schemaKey?: string;
+      search?: string;
+    }): Promise<{ items: unknown[]; total: number }>;
     updateStatus(input: {
       id: string;
       status: RecognitionJobStatus;
@@ -103,6 +111,7 @@ export interface ApiServiceRepositories {
       warnings?: Prisma.InputJsonValue;
       error?: Prisma.InputJsonValue;
     }): Promise<unknown>;
+    softDelete(id: string): Promise<unknown>;
     listEligibleForWriteback(limit?: number): Promise<unknown[]>;
   };
   resultsRepository: {
@@ -119,6 +128,7 @@ export interface ApiServiceRepositories {
   };
   feedbackRepository: {
     create(input: unknown): Promise<unknown>;
+    listByJobId(jobId: string): Promise<unknown[]>;
   };
   writebackRepository: {
     create(input: {
@@ -326,7 +336,10 @@ export interface CreateApiServicesOptions {
 
 function toStorageKey(originalName: string, now: Date) {
   const safeName = originalName.replace(/[^\w.-]+/g, "_");
-  return `uploads/${now.toISOString().slice(0, 10)}/${safeName}`;
+  const uniqueId = Math.random().toString(36).slice(2, 10);
+  const key = `uploads/${now.toISOString().slice(0, 10)}/${uniqueId}-${safeName}`;
+  console.log(`[STORAGE_KEY] originalName=${originalName} → key=${key}`);
+  return key;
 }
 
 function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -1588,7 +1601,91 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
     }
   }
 
+  const v1Service: V1RouteService = {
+    async listJobs(input) {
+      const paginatedInput: Parameters<typeof repositories.jobsRepository.listPaginated>[0] = {
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize
+      };
+      if (input.status !== undefined) {
+        paginatedInput.status = input.status;
+      }
+      if (input.schemaKey !== undefined) {
+        paginatedInput.schemaKey = input.schemaKey;
+      }
+      if (input.search !== undefined) {
+        paginatedInput.search = input.search;
+      }
+
+      const { items, total } = await repositories.jobsRepository.listPaginated(paginatedInput);
+
+      const mapped = (items as Array<Record<string, unknown>>).map((job) => {
+        const schemaVersion = job.schemaVersion as Record<string, unknown> | undefined;
+        const displayName = schemaVersion?.displayName;
+        const item: {
+          id: string;
+          status: string;
+          schemaKey: string;
+          schemaDisplayName?: string | undefined;
+          createdAt: string;
+          updatedAt: string;
+          sourceFileId?: string | undefined;
+        } = {
+          id: job.id as string,
+          status: job.status as string,
+          schemaKey: job.schemaKey as string,
+          createdAt: (job.createdAt as Date).toISOString(),
+          updatedAt: (job.updatedAt as Date).toISOString()
+        };
+        if (typeof displayName === "string") {
+          item.schemaDisplayName = displayName;
+        }
+        if (typeof job.sourceFileId === "string") {
+          item.sourceFileId = job.sourceFileId;
+        }
+        return item;
+      });
+
+      return {
+        items: mapped,
+        total,
+        page: input.page,
+        pageSize: input.pageSize
+      };
+    },
+    async getJobResult(jobId) {
+      const result = await repositories.resultsRepository.findByJobId(jobId);
+      if (!result || !isRecord(result)) {
+        return null;
+      }
+
+      return assertRouteRecord(result, "V1_RESULT_RESPONSE_INVALID");
+    },
+    async getJobResultFields(jobId) {
+      const result = await repositories.resultsRepository.findByJobId(jobId);
+      if (!result || !isRecord(result)) {
+        return null;
+      }
+
+      const fields: Record<string, unknown> = {};
+      const resultFields = Array.isArray(result.fields) ? result.fields : [];
+      const normalizedFields = isRecord(result.normalizedFields) ? result.normalizedFields : {};
+
+      for (const field of resultFields) {
+        if (isRecord(field) && typeof field.fieldKey === "string") {
+          const normalized = normalizedFields[field.fieldKey];
+          fields[field.fieldKey] = isRecord(normalized) && normalized.value !== undefined
+            ? normalized.value
+            : field.value;
+        }
+      }
+
+      return { fields };
+    }
+  };
+
   const services: ApiServerServices = {
+    v1Service,
     authService: options.authService,
     auditService: options.auditService,
     schemaService: options.schemaService,
@@ -1793,6 +1890,27 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           statusUrl: `/jobs/${job.id}`,
           resultUrl: `/results/${job.id}`
         }));
+      },
+      async softDelete(id) {
+        await repositories.jobsRepository.softDelete(id);
+        return { id, deleted: true };
+      },
+      async rerun(id) {
+        const original = await repositories.jobsRepository.findById(id);
+        if (!isRecord(original)) {
+          throw createApiServiceError("JOB_NOT_FOUND", 404);
+        }
+
+        const sourceFileId = typeof original.sourceFileId === "string" ? original.sourceFileId : null;
+        const schemaKey = typeof original.schemaKey === "string" ? original.schemaKey : "lims-clinical-info";
+
+        const newJob = await repositories.jobsRepository.create({
+          schemaKey,
+          sourceFileId,
+          createdById: typeof original.createdById === "string" ? original.createdById : null
+        });
+
+        return assertRouteRecord({ ...newJob, status: "queued" }, "JOB_RERUN_RESPONSE_INVALID");
       }
     },
     resultService: {
@@ -1808,6 +1926,10 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           await repositories.feedbackRepository.create(input),
           "FEEDBACK_RESPONSE_INVALID"
         );
+      },
+      async listByJobId(jobId) {
+        const items = await repositories.feedbackRepository.listByJobId(jobId);
+        return items.map((item) => assertRouteRecord(item, "FEEDBACK_RESPONSE_INVALID"));
       }
     },
     writebackService: {

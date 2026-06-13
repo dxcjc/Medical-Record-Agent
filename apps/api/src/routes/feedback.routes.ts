@@ -12,6 +12,7 @@ import {
 
 export interface FeedbackRouteService {
   create(input: CreateFeedbackRouteInput): Promise<ApiRouteResponseObject>;
+  listByJobId(jobId: string): Promise<ApiRouteResponseObject[]>;
 }
 
 export interface FeedbackRoutesDependencies {
@@ -58,6 +59,31 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
       const feedback = await dependencies.feedbackService.create(input);
 
       return assertRouteResponseObject(feedback, "FEEDBACK_RESPONSE_INVALID");
+    }
+  );
+
+  server.get(
+    "/feedback",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.feedbackCreate)
+      ]
+    },
+    async (request, reply) => {
+      const query = request.query as { jobId?: string };
+      if (!query.jobId || typeof query.jobId !== "string") {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "jobId query parameter is required"
+        });
+      }
+
+      const items = await dependencies.feedbackService.listByJobId(query.jobId);
+
+      return {
+        items: items.map((item) => assertRouteResponseObject(item, "FEEDBACK_RESPONSE_INVALID"))
+      };
     }
   );
 }

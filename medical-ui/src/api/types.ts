@@ -107,7 +107,11 @@ export interface SchemaField {
   label?: string;
   type?: string;
   required?: boolean;
+  critical?: boolean;
   description?: string;
+  comments?: string;
+  enumMap?: Record<string, string>;
+  adapterHints?: { limsTargetPath?: string; [key: string]: unknown };
   [key: string]: unknown;
 }
 
@@ -206,6 +210,28 @@ export interface AuditEntry {
 
 export interface PaginatedResponse<T> {
   items: T[];
+  total: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface DashboardStats {
+  todayJobs: number;
+  needsReview: number;
+  completedJobs: number;
+  onlineProviders: number;
+  totalJobs: number;
+  recentAlerts: Array<{
+    id: string;
+    status: string;
+    schemaKey: string;
+    createdAt: string;
+    [key: string]: unknown;
+  }>;
+}
+
+export interface AuditActionLabel {
+  [key: string]: string;
 }
 
 export interface FieldValue {

@@ -1,0 +1,12 @@
+{
+  "name": "mra",
+  "version": "0.1.0",
+  "description": "Medical Record Agent CLI",
+  "type": "module",
+  "bin": {
+    "mra": "./index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

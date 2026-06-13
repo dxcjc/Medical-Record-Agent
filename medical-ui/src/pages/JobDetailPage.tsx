@@ -8,7 +8,6 @@ import {
   Form,
   Input,
   Select,
-  Steps,
   Message,
   Grid,
   Descriptions,
@@ -23,6 +22,7 @@ import FieldGroup from '../components/FieldGroup';
 import CheckboxMatrix from '../components/CheckboxMatrix';
 import ImageViewer from '../components/ImageViewer';
 import ConfidenceDashboard from '../components/ConfidenceDashboard';
+import PipelineProgress from '../components/PipelineProgress';
 import {
   IconArrowLeft,
   IconRefresh,
@@ -42,7 +42,6 @@ const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 const FormItem = Form.Item;
 const { Option } = Select;
-const { Step } = Steps;
 
 /* ------------------------------------------------------------------ */
 /*  Field group mapping keys                                           */
@@ -148,13 +147,13 @@ function extractOcrText(result: Record<string, unknown> | null | undefined): str
 
 function extractOcrBlocks(
   result: Record<string, unknown> | null | undefined,
-): Array<{ text: string; confidence: number; page: number }> {
+): Array<{ text: string; confidence: number; page: number; blockId?: string; coordinates?: { x: number; y: number; width: number; height: number } }> {
   if (!result) return [];
   const payload = result.payload as Record<string, unknown> | undefined;
   if (!payload) return [];
   const ocr = payload.ocr as Record<string, unknown> | undefined;
   if (!ocr) return [];
-  const blocks = ocr.blocks as Array<{ text: string; confidence: number; page: number }> | undefined;
+  const blocks = ocr.blocks as Array<{ text: string; confidence: number; page: number; blockId?: string; coordinates?: { x: number; y: number; width: number; height: number } }> | undefined;
   return blocks || [];
 }
 
@@ -167,7 +166,7 @@ function normalizeFields(result: Record<string, unknown> | null | undefined) {
       key: String(f.fieldKey || f.key || '-'),
       value: f.value != null ? String(f.value) : '-',
       rawValue: f.rawValue != null ? String(f.rawValue) : '',
-      confidence: typeof f.confidence === 'number' ? f.confidence : 0,
+      confidence: typeof f.confidence === 'number' && f.confidence > 0 ? f.confidence : undefined,
       evidence: (Array.isArray(f.evidence) ? f.evidence : []) as EvidenceItem[],
     }));
   }
@@ -177,7 +176,7 @@ function normalizeFields(result: Record<string, unknown> | null | undefined) {
       key,
       value: val != null ? String(val) : '-',
       rawValue: '',
-      confidence: 0,
+      confidence: undefined,
       evidence: [],
     }));
   }
@@ -249,6 +248,32 @@ const OTHER_TEST_ITEMS = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Calculate display status based on confidence                       */
+/* ------------------------------------------------------------------ */
+
+function calculateDisplayStatus(
+  backendStatus: string,
+  normalizedFields: Array<{ confidence?: number }>
+): string {
+  // 只在后端状态为 partial_completed 时重新计算
+  if (backendStatus !== 'partial_completed') return backendStatus;
+
+  // 计算有效置信度字段
+  const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
+  
+  // 如果没有有效置信度字段，保持后端状态
+  if (fieldsWithConfidence.length === 0) return backendStatus;
+
+  // 检查是否所有有效置信度字段都 >= 80%
+  const allHighConfidence = fieldsWithConfidence.every((f) => (f.confidence || 0) >= 0.8);
+  
+  // 如果所有有效置信度字段都 >= 80%，显示"已完成"
+  if (allHighConfidence) return 'completed';
+
+  return backendStatus;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Build field list from normalized fields map                        */
 /* ------------------------------------------------------------------ */
 
@@ -256,7 +281,7 @@ interface NormalizedField {
   key: string;
   value: string;
   rawValue: string;
-  confidence: number;
+  confidence?: number;
   evidence: EvidenceItem[];
 }
 
@@ -265,6 +290,7 @@ function getFieldData(fields: NormalizedField[], keys: string[]) {
   return keys.map((key) => {
     const f = fieldMap.get(key);
     return {
+      key,
       label: FIELD_LABELS[key] || key,
       value: f?.value ?? null,
       confidence: f?.confidence,
@@ -288,6 +314,7 @@ export default function JobDetailPage() {
   const [feedbackCorrection, setFeedbackCorrection] = useState('');
   const [feedbackComment, setFeedbackComment] = useState('');
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [highlightedField, setHighlightedField] = useState<string | undefined>(undefined);
 
   // Local checkbox state for test items
   const [lungSelected, setLungSelected] = useState<string[]>([]);
@@ -316,6 +343,12 @@ export default function JobDetailPage() {
     } finally {
       setFeedbackLoading(false);
     }
+  };
+
+  // 点击字段值时打开图片查看器并高亮对应区域
+  const handleFieldClickToImageViewer = (fieldKey: string) => {
+    setHighlightedField(fieldKey);
+    setImageViewerVisible(true);
   };
 
   if (error) {
@@ -361,12 +394,16 @@ export default function JobDetailPage() {
   const ocrText = extractOcrText(result as Record<string, unknown> | null | undefined);
   const ocrBlocks = extractOcrBlocks(result as Record<string, unknown> | null | undefined);
   const confidenceStr = result?.confidence;
-  // 如果 API 没有返回整体置信度，从字段置信度计算平均值
+  // 如果 API 没有返回整体置信度，从字段置信度计算平均值（排除空值字段）
+  const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
   const confidenceNum = confidenceStr
     ? parseFloat(confidenceStr)
-    : normalizedFields.length > 0
-      ? normalizedFields.reduce((sum, f) => sum + (f.confidence || 0), 0) / normalizedFields.length
+    : fieldsWithConfidence.length > 0
+      ? fieldsWithConfidence.reduce((sum, f) => sum + (f.confidence || 0), 0) / fieldsWithConfidence.length
       : null;
+
+  // 根据置信度重新计算显示状态（置信度0=空值=通过，≥80%=完成）
+  const displayStatus = calculateDisplayStatus(job.status, normalizedFields);
 
   // Build field data for each group
   const fieldMap = new Map(normalizedFields.map((f) => [f.key, f]));
@@ -385,9 +422,10 @@ export default function JobDetailPage() {
   const effectiveGiSelected = giSelected.length > 0 ? giSelected : giParsed.checked;
   const effectiveOtherSelected = otherSelected.length > 0 ? otherSelected : otherParsed.checked;
 
-  const effectiveLungOptions = LUNG_TEST_ITEMS;
-  const effectiveGiOptions = GI_TEST_ITEMS;
-  const effectiveOtherOptions = OTHER_TEST_ITEMS;
+  // 合并硬编码选项和 LLM 识别到的项目（去重）
+  const effectiveLungOptions = Array.from(new Set([...LUNG_TEST_ITEMS, ...effectiveLungSelected]));
+  const effectiveGiOptions = Array.from(new Set([...GI_TEST_ITEMS, ...effectiveGiSelected]));
+  const effectiveOtherOptions = Array.from(new Set([...OTHER_TEST_ITEMS, ...effectiveOtherSelected]));
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -403,7 +441,7 @@ export default function JobDetailPage() {
         <Text code style={{ fontSize: 14 }}>
           {job.id}
         </Text>
-        <StatusTag status={job.status} />
+        <StatusTag status={displayStatus} />
         {job.sourceFileId && (
           <Button
             type="outline"
@@ -415,6 +453,30 @@ export default function JobDetailPage() {
           </Button>
         )}
       </div>
+
+      {/* Recognition Progress (at top, horizontal) */}
+      {trace.length > 0 && (
+        <Card
+          style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <IconInfoCircle style={{ color: '#3370FF', fontSize: 16 }} />
+              识别进度
+            </span>
+          }
+        >
+          <PipelineProgress
+            nodes={trace.map((step) => ({
+              key: step.node || step.step || String(Math.random()),
+              label: traceStepTitle(step),
+              status: traceStepStatus(step),
+              message: step.message ? String(step.message) : undefined,
+              duration: step.duration,
+              error: step.error ? String(step.error) : undefined,
+            }))}
+          />
+        </Card>
+      )}
 
       {/* Card 1: Task Info (full width) */}
       <Card
@@ -437,7 +499,7 @@ export default function JobDetailPage() {
                 (job.providerConfig?.ocrProviderKey as string) ||
                 '-',
             },
-            { label: '状态', value: <StatusTag status={job.status} /> },
+            { label: '状态', value: <StatusTag status={displayStatus} /> },
             { label: '创建时间', value: formatTime(job.createdAt) },
             { label: '更新时间', value: formatTime(job.updatedAt) },
             ...(confidenceNum != null
@@ -480,6 +542,7 @@ export default function JobDetailPage() {
             icon={<IconUser style={{ color: '#3370FF', fontSize: 16 }} />}
             fields={getFieldData(normalizedFields, FIELD_GROUPS.patientInfo)}
             columns={2}
+            onFieldClick={handleFieldClickToImageViewer}
           />
         </Col>
         <Col xs={24} lg={12}>
@@ -488,6 +551,7 @@ export default function JobDetailPage() {
             icon={<IconSend style={{ color: '#3370FF', fontSize: 16 }} />}
             fields={getFieldData(normalizedFields, FIELD_GROUPS.referralInfo)}
             columns={2}
+            onFieldClick={handleFieldClickToImageViewer}
           />
         </Col>
       </Row>
@@ -500,6 +564,7 @@ export default function JobDetailPage() {
             icon={<IconCode style={{ color: '#3370FF', fontSize: 16 }} />}
             fields={getFieldData(normalizedFields, FIELD_GROUPS.clinicalDiagnosis)}
             columns={2}
+            onFieldClick={handleFieldClickToImageViewer}
           />
         </Col>
         <Col xs={24} lg={12}>
@@ -508,6 +573,7 @@ export default function JobDetailPage() {
             icon={<IconBeaker style={{ color: '#3370FF', fontSize: 16 }} />}
             fields={getFieldData(normalizedFields, FIELD_GROUPS.sampleInfo)}
             columns={2}
+            onFieldClick={handleFieldClickToImageViewer}
           />
         </Col>
       </Row>
@@ -553,12 +619,44 @@ export default function JobDetailPage() {
       {/* 2-column grid: Test Product + Other Info */}
       <Row gutter={16}>
         <Col xs={24} lg={12}>
-          <FieldGroup
-            title="检测产品"
-            icon={<IconStorage style={{ color: '#3370FF', fontSize: 16 }} />}
-            fields={getFieldData(normalizedFields, FIELD_GROUPS.testProduct)}
-            columns={2}
-          />
+          <Card
+            style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', minHeight: '100%' }}
+            title={
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <IconStorage style={{ color: '#3370FF', fontSize: 16 }} />
+                检测产品
+              </span>
+            }
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* 检测公司 */}
+              {fieldMap.get('testProvider')?.value && (
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>检测公司</Text>
+                  <div style={{ marginTop: 4 }}>{fieldMap.get('testProvider')?.value}</div>
+                </div>
+              )}
+              {/* 已选检测项目 */}
+              {(effectiveLungSelected.length > 0 || effectiveGiSelected.length > 0 || effectiveOtherSelected.length > 0) ? (
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>已选检测项目</Text>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {effectiveLungSelected.map((item) => (
+                      <Tag key={`lung-${item}`} color="blue" size="small">{item}</Tag>
+                    ))}
+                    {effectiveGiSelected.map((item) => (
+                      <Tag key={`gi-${item}`} color="green" size="small">{item}</Tag>
+                    ))}
+                    {effectiveOtherSelected.map((item) => (
+                      <Tag key={`other-${item}`} color="orange" size="small">{item}</Tag>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 13 }}>暂无已选检测项目</Text>
+              )}
+            </div>
+          </Card>
         </Col>
         <Col xs={24} lg={12}>
           <Card
@@ -581,7 +679,7 @@ export default function JobDetailPage() {
                   ? [
                       {
                         label: '复核状态',
-                        value: <Tag color="orange" style={{ fontWeight: 600 }}>需要复核</Tag>,
+                        value: <Tag color="orange" style={{ fontWeight: 600 }}>需复核</Tag>,
                       },
                     ]
                   : []),
@@ -590,43 +688,6 @@ export default function JobDetailPage() {
           </Card>
         </Col>
       </Row>
-
-      {/* Trace Progress (collapsible, below main results) */}
-      {trace.length > 0 && (
-        <Card
-          style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-          title="识别进度"
-        >
-          <Steps
-            direction="vertical"
-            current={trace.filter((s) => s.status === 'completed').length}
-            style={{ marginLeft: 8 }}
-          >
-            {trace.map((step, idx) => (
-              <Step
-                key={idx}
-                title={traceStepTitle(step)}
-                description={
-                  <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>
-                    {step.message && <span>{String(step.message)}</span>}
-                    {step.duration && (
-                      <span style={{ marginLeft: 12 }}>
-                        耗时: {formatDuration(step.duration)}
-                      </span>
-                    )}
-                    {step.error && (
-                      <div style={{ color: 'var(--color-danger)', marginTop: 4 }}>
-                        {String(step.error)}
-                      </div>
-                    )}
-                  </div>
-                }
-                status={traceStepStatus(step)}
-              />
-            ))}
-          </Steps>
-        </Card>
-      )}
 
       {/* OCR Text */}
       <Card
@@ -789,15 +850,36 @@ export default function JobDetailPage() {
       {/* Image Viewer Drawer */}
       <ImageViewer
         visible={imageViewerVisible}
-        onClose={() => setImageViewerVisible(false)}
+        onClose={() => { setImageViewerVisible(false); setHighlightedField(undefined); }}
         imageUrl={job.sourceFileId ? `/api/files/${job.sourceFileId}/content` : ''}
-        fields={normalizedFields.map((f) => ({
-          key: f.key,
-          label: FIELD_LABELS[f.key] || f.key,
-          value: f.value,
-          confidence: f.confidence,
-          confirmed: false,
-        }))}
+        highlightedField={highlightedField}
+        fields={normalizedFields.map((f) => {
+          // 尝试从 OCR blocks 映射坐标：优先用 evidence.blockId 匹配
+          let coordinates: { x: number; y: number; width: number; height: number } | undefined;
+          const firstEvidence = f.evidence?.[0];
+          if (firstEvidence?.blockId && ocrBlocks.length > 0) {
+            const matchedBlock = ocrBlocks.find((b) => b.blockId === firstEvidence.blockId);
+            if (matchedBlock?.coordinates) {
+              coordinates = matchedBlock.coordinates;
+            }
+          }
+          // 如果 blockId 没匹配到，尝试用 snippet 文本匹配 OCR block
+          if (!coordinates && firstEvidence?.snippet && ocrBlocks.length > 0) {
+            const snippet = String(firstEvidence.snippet).trim().substring(0, 20);
+            const matchedBlock = ocrBlocks.find((b) => b.text.includes(snippet));
+            if (matchedBlock?.coordinates) {
+              coordinates = matchedBlock.coordinates;
+            }
+          }
+          return {
+            key: f.key,
+            label: FIELD_LABELS[f.key] || f.key,
+            value: f.value,
+            confidence: f.confidence,
+            confirmed: false,
+            coordinates,
+          };
+        })}
         onFieldClick={(fieldKey) => {
           setFeedbackField(fieldKey);
         }}

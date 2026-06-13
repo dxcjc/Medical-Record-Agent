@@ -213,6 +213,7 @@ model RecognitionJob {
   completedAt     DateTime?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
   schemaVersion   SchemaVersion?       @relation(fields: [schemaVersionId], references: [id], onDelete: SetNull)
   sourceFile      StoredFile?          @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
   createdBy       User?                @relation("JobCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -443,4 +444,44 @@ model EvaluationMetric {
   @@unique([runId, name])
   @@index([runId])
   @@index([name])
+}
+
+enum KnowledgeEntryKind {
+  medical_term
+  cancer_alias
+  lims_dictionary
+  field_description
+}
+
+model KnowledgeEntry {
+  id          String              @id @default(cuid())
+  kind        KnowledgeEntryKind
+  title       String
+  content     String
+  keywords    String[]            @default([])
+  fieldKeys   String[]            @default([])
+  enabled     Boolean             @default(true)
+  sortOrder   Int                 @default(0)
+  createdById String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([kind])
+  @@index([enabled])
+  @@index([sortOrder])
+}
+
+model WebhookSubscription {
+  id           String   @id @default(cuid())
+  callbackUrl  String
+  schemaKey    String?
+  events       Json     @default("[\"recognition.completed\"]")
+  active       Boolean  @default(true)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([active])
+  @@index([createdById])
+  @@index([createdAt])
 }

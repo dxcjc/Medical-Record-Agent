@@ -13,7 +13,11 @@ const jobSelection = {
   options: true,
   trace: true,
   warnings: true,
-  error: true
+  error: true,
+  startedAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true
 } as const;
 
 export interface CreateRecognitionJobInput {
@@ -79,11 +83,58 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
 
     async list(limit = 50) {
       return dependencies.recognitionJob.findMany({
+        where: { deletedAt: null },
         select: jobSelection,
         orderBy: {
           createdAt: "desc"
         },
         take: limit
+      });
+    },
+
+    async listPaginated(input: {
+      skip: number;
+      take: number;
+      status?: string;
+      schemaKey?: string;
+      search?: string;
+    }) {
+      const where: Prisma.RecognitionJobWhereInput = { deletedAt: null };
+
+      if (input.status) {
+        where.status = input.status as RecognitionJobStatus;
+      }
+      if (input.schemaKey) {
+        where.schemaKey = input.schemaKey;
+      }
+      if (input.search) {
+        where.OR = [
+          { id: { contains: input.search, mode: "insensitive" } },
+          { schemaKey: { contains: input.search, mode: "insensitive" } }
+        ];
+      }
+
+      const [items, total] = await Promise.all([
+        dependencies.recognitionJob.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: input.skip,
+          take: input.take,
+          include: {
+            schemaVersion: { select: { displayName: true } }
+          }
+        }),
+        dependencies.recognitionJob.count({ where })
+      ]);
+
+      return { items, total };
+    },
+
+    async softDelete(id: string) {
+      return dependencies.recognitionJob.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+        select: { id: true }
       });
     },
 

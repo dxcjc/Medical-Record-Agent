@@ -1,5 +1,7 @@
 const API_BASE = '/api';
 
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
 function getToken(): string | null {
   return localStorage.getItem('accessToken');
 }
@@ -70,6 +72,17 @@ async function request<T>(
   return res.json();
 }
 
+/** Convert a Uint8Array to base64 string without stack overflow */
+function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+  const CHUNK_SIZE = 8192;
+  const chunks: string[] = [];
+  for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+    const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+    chunks.push(String.fromCharCode(...chunk));
+  }
+  return btoa(chunks.join(''));
+}
+
 // Auth
 export const authApi = {
   login: (email: string, password: string) =>
@@ -85,6 +98,18 @@ export const authApi = {
 export const jobsApi = {
   list: (limit = 50) =>
     request<{ items: import('./types').RecognitionJob[] }>(`/jobs?limit=${limit}`),
+  listPaginated: (params?: { page?: number; pageSize?: number; status?: string; schemaKey?: string; search?: string }) => {
+    const p = new URLSearchParams();
+    if (params?.page) p.set('page', String(params.page));
+    if (params?.pageSize) p.set('pageSize', String(params.pageSize));
+    if (params?.status && params.status !== 'all') p.set('status', params.status);
+    if (params?.schemaKey) p.set('schemaKey', params.schemaKey);
+    if (params?.search) p.set('search', params.search);
+    const qs = p.toString();
+    return request<{ items: import('./types').RecognitionJob[]; total: number; page: number; pageSize: number }>(
+      `/jobs${qs ? `?${qs}` : ''}`
+    );
+  },
   get: (id: string) =>
     request<import('./types').RecognitionJob>(`/jobs/${id}`),
   create: (body: { schemaKey: string; sourceFileId?: string; schemaVersionId?: string; providerConfig?: Record<string, unknown> }) =>
@@ -102,13 +127,42 @@ export const resultsApi = {
 
 // Files
 export const filesApi = {
-  upload: (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
+  upload: async (file: File): Promise<import('./types').StoredFile> => {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`文件 ${file.name} 超过 20MB 限制`);
+    }
+
+    // Read file as base64
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Calculate SHA256
+    const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const checksumSha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // Convert to base64 using chunked approach to avoid stack overflow
+    const base64 = uint8ArrayToBase64(uint8Array);
+    
     return request<import('./types').StoredFile>('/files', {
       method: 'POST',
-      body: formData,
+      body: JSON.stringify({
+        originalName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        byteSize: file.size,
+        contentBase64: base64,
+        checksumSha256,
+      }),
     });
+  },
+  /** Check if a file exists by ID */
+  exists: async (id: string): Promise<boolean> => {
+    try {
+      await request<unknown>(`/files/${id}`);
+      return true;
+    } catch {
+      return false;
+    }
   },
   downloadUrl: (id: string) => `${API_BASE}/files/${id}/content`,
 };
@@ -197,16 +251,31 @@ export const feedbackApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  listByJob: (jobId: string) =>
+    request<{ items: Record<string, unknown>[] }>(`/feedback?jobId=${jobId}`),
 };
 
 // Audit
 export const auditApi = {
   list: (take = 20) =>
     request<{ items: import('./types').AuditEntry[] }>(`/audit?take=${take}`),
+  listPaginated: (params?: { take?: number; action?: string }) => {
+    const p = new URLSearchParams();
+    if (params?.take) p.set('take', String(params.take));
+    if (params?.action) p.set('action', params.action);
+    const qs = p.toString();
+    return request<{ items: import('./types').AuditEntry[] }>(`/audit${qs ? `?${qs}` : ''}`);
+  },
 };
 
 // Health
 export const healthApi = {
   check: () =>
     request<{ status: string; service: string }>('/health'),
+};
+
+// Dashboard Stats
+export const statsApi = {
+  getDashboard: () =>
+    request<import('./types').DashboardStats>('/stats/dashboard'),
 };

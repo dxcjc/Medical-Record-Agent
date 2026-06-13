@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "skills": {
+    "superpowers-skill": {
+      "name": "Superpowers",
+      "zip_url": "https://api.skillhub.cn/api/v1/download?slug=superpowers-skill",
+      "source": "community",
+      "version": "1.0.1",
+      "installedAt": "2026-06-13T14:24:20Z"
+    }
+  }
+}

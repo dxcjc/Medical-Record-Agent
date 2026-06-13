@@ -12,6 +12,7 @@
     "@aws-sdk/client-s3": "^3.888.0",
     "@fastify/cors": "^10.0.2",
     "@fastify/jwt": "^9.0.2",
+    "@fastify/multipart": "^10.0.0",
     "@medical-record-agent/core": "workspace:*",
     "@medical-record-agent/shared": "workspace:*",
     "@prisma/client": "^6.1.0",

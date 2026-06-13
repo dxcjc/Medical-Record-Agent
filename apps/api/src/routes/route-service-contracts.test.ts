@@ -56,7 +56,9 @@ void validFileService;
 const validJobService: JobRouteService = {
   create: async () => routeObject,
   get: async () => routeObject,
-  list: async () => []
+  list: async () => [],
+  softDelete: async () => routeObject,
+  rerun: async () => routeObject
 };
 
 void validJobService;
@@ -68,7 +70,8 @@ const validResultService: ResultRouteService = {
 void validResultService;
 
 const validFeedbackService: FeedbackRouteService = {
-  create: async () => routeObject
+  create: async () => routeObject,
+  listByJobId: async () => []
 };
 
 void validFeedbackService;

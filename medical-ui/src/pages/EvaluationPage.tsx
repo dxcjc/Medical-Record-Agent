@@ -7,15 +7,17 @@ import {
   Modal,
   Tag,
   Card,
+  Typography,
 } from '@arco-design/web-react';
 import { useQuery } from '@tanstack/react-query';
 import { evaluationApi } from '../api/client';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import StatusTag from '../components/StatusTag';
-import type { EvaluationDataset, EvaluationRun } from '../api/types';
+import type { EvaluationDataset, EvaluationRun, EvaluationMetric } from '../api/types';
 
 const TabPane = Tabs.TabPane;
+const { Text } = Typography;
 
 function MetricsModal({
   runId,
@@ -67,6 +69,27 @@ function MetricsModal({
   );
 }
 
+function formatDuration(startedAt?: string, completedAt?: string): string {
+  if (!startedAt) return '-';
+  const start = new Date(startedAt).getTime();
+  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+  const ms = end - start;
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}min`;
+}
+
+function formatMetricSummary(metrics: EvaluationMetric[]): string {
+  if (!metrics || metrics.length === 0) return '-';
+  const accuracy = metrics.find((m) => m.metricName === 'field_accuracy');
+  const latency = metrics.find((m) => m.metricName === 'average_latency_ms');
+  const parts: string[] = [];
+  if (accuracy) parts.push(`准确率 ${(accuracy.value * 100).toFixed(1)}%`);
+  if (latency) parts.push(`延迟 ${latency.value.toFixed(0)}ms`);
+  if (parts.length === 0) return `${metrics.length} 项指标`;
+  return parts.join(' · ');
+}
+
 export default function EvaluationPage() {
   const {
     data: datasetsData,
@@ -89,9 +112,29 @@ export default function EvaluationPage() {
   });
 
   const [metricsRunId, setMetricsRunId] = useState<string | null>(null);
+  const [runMetricsCache, setRunMetricsCache] = useState<Record<string, EvaluationMetric[]>>({});
 
   const datasets = datasetsData?.items || [];
   const runs = runsData?.items || [];
+
+  // 构建数据集名称映射
+  const datasetNameMap: Record<string, string> = {};
+  datasets.forEach((d) => {
+    datasetNameMap[d.id] = d.displayName || d.key;
+  });
+
+  // 当指标Modal打开时预取
+  const handleViewMetrics = async (runId: string) => {
+    setMetricsRunId(runId);
+    if (!runMetricsCache[runId]) {
+      try {
+        const res = await evaluationApi.getRunMetrics(runId);
+        setRunMetricsCache((prev) => ({ ...prev, [runId]: res.metrics || [] }));
+      } catch {
+        // ignore, modal will show loading
+      }
+    }
+  };
 
   const datasetColumns = [
     { title: '名称', dataIndex: 'displayName', width: 200 },
@@ -107,6 +150,24 @@ export default function EvaluationPage() {
       render: (_: unknown, record: EvaluationDataset) => record._count?.samples ?? '-',
     },
     {
+      title: '关联 Schema',
+      width: 150,
+      render: (_: unknown, record: EvaluationDataset) => {
+        const meta = record.metadata as Record<string, unknown>;
+        const schemaKey = meta?.schemaKey as string;
+        return schemaKey || <span style={{ color: '#999' }}>-</span>;
+      },
+    },
+    {
+      title: '创建人',
+      width: 120,
+      render: (_: unknown, record: EvaluationDataset) => {
+        const meta = record.metadata as Record<string, unknown>;
+        const createdBy = meta?.createdBy as string;
+        return createdBy ? <span>{createdBy.slice(0, 8)}</span> : <span style={{ color: '#999' }}>-</span>;
+      },
+    },
+    {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 180,
@@ -119,7 +180,12 @@ export default function EvaluationPage() {
       title: '数据集',
       width: 200,
       render: (_: unknown, record: EvaluationRun) =>
-        record.dataset?.displayName || record.datasetId,
+        record.dataset?.displayName || datasetNameMap[record.datasetId] || record.datasetId,
+    },
+    {
+      title: 'Provider',
+      dataIndex: 'providerKey',
+      width: 150,
     },
     {
       title: '状态',
@@ -127,12 +193,32 @@ export default function EvaluationPage() {
       width: 100,
       render: (status: string) => <StatusTag status={status} />,
     },
-    { title: 'Provider', dataIndex: 'providerKey', width: 150 },
     {
-      title: '创建时间',
-      dataIndex: 'createdAt',
+      title: '指标摘要',
+      width: 200,
+      render: (_: unknown, record: EvaluationRun) => {
+        if (record.status !== 'completed') return <span style={{ color: '#999' }}>-</span>;
+        const cached = runMetricsCache[record.id];
+        if (cached) return formatMetricSummary(cached);
+        return (
+          <Button type="text" size="mini" onClick={() => handleViewMetrics(record.id)}>
+            查看指标
+          </Button>
+        );
+      },
+    },
+    {
+      title: '开始时间',
       width: 180,
-      render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
+      render: (_: unknown, record: EvaluationRun) => {
+        // Use createdAt as start time
+        return record.createdAt ? new Date(record.createdAt).toLocaleString('zh-CN') : '-';
+      },
+    },
+    {
+      title: '耗时',
+      width: 100,
+      render: (_: unknown, record: EvaluationRun) => formatDuration(record.createdAt, record.completedAt),
     },
     {
       title: '操作',
@@ -142,7 +228,7 @@ export default function EvaluationPage() {
           type="text"
           size="small"
           disabled={record.status !== 'completed'}
-          onClick={() => setMetricsRunId(record.id)}
+          onClick={() => handleViewMetrics(record.id)}
         >
           查看指标
         </Button>
@@ -186,7 +272,8 @@ export default function EvaluationPage() {
                   columns={datasetColumns}
                   data={datasets}
                   rowKey="id"
-                  pagination={{ pageSize: 20 }}
+                  pagination={{ pageSize: 20, showTotal: true }}
+                  size="small"
                 />
               )}
             </div>
@@ -207,7 +294,7 @@ export default function EvaluationPage() {
                   action={{ label: '刷新', onClick: refetchRuns }}
                 />
               ) : (
-                <Table columns={runColumns} data={runs} rowKey="id" pagination={{ pageSize: 20 }} />
+                <Table columns={runColumns} data={runs} rowKey="id" pagination={{ pageSize: 20, showTotal: true }} size="small" />
               )}
             </div>
           </TabPane>

@@ -7,6 +7,7 @@ const { Text } = Typography;
 
 interface FieldDef {
   label: string;
+  key?: string;
   value: string | string[] | null;
   confidence?: number;
   source?: string;
@@ -17,6 +18,7 @@ interface FieldGroupProps {
   icon?: React.ReactNode;
   fields: FieldDef[];
   columns?: 1 | 2;
+  onFieldClick?: (fieldKey: string) => void;
 }
 
 function ConfidenceBadge({ confidence, source }: { confidence?: number; source?: string }) {
@@ -54,7 +56,7 @@ function formatFieldValue(val: string | string[] | null): string {
   return val;
 }
 
-export default function FieldGroup({ title, icon, fields, columns = 2 }: FieldGroupProps) {
+export default function FieldGroup({ title, icon, fields, columns = 2, onFieldClick }: FieldGroupProps) {
   const spanPerField = columns === 1 ? 24 : 12;
 
   return (
@@ -89,7 +91,10 @@ export default function FieldGroup({ title, icon, fields, columns = 2 }: FieldGr
                     color: formatFieldValue(field.value) === '-'
                       ? 'var(--color-text-4)'
                       : 'var(--color-text-1)',
+                    cursor: onFieldClick && field.key ? 'pointer' : undefined,
+                    borderBottom: onFieldClick && field.key ? '1px dashed var(--color-border)' : undefined,
                   }}
+                  onClick={() => onFieldClick && field.key && onFieldClick(field.key)}
                 >
                   {formatFieldValue(field.value)}
                 </Text>

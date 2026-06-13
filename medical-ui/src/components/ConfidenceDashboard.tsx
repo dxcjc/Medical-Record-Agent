@@ -27,7 +27,7 @@ export interface ConfidenceField {
   key: string;
   label: string;
   value: string | null;
-  confidence: number;
+  confidence?: number;
 }
 
 interface ConfidenceDashboardProps {
@@ -140,22 +140,22 @@ export default function ConfidenceDashboard({
       (f) => f.value != null && f.value !== '' && f.value !== '-',
     ).length;
     const empty = total - filled;
-    const needReview = fields.filter((f) => f.confidence < 0.7).length;
+    const needReview = fields.filter((f) => f.confidence != null && f.confidence < 0.7).length;
     return { total, filled, empty, needReview };
   }, [fields]);
 
   const distribution = useMemo(() => {
-    const high = fields.filter((f) => f.confidence >= 0.8).length;
-    const medium = fields.filter((f) => f.confidence >= 0.5 && f.confidence < 0.8).length;
-    const low = fields.filter((f) => f.confidence < 0.5).length;
+    const high = fields.filter((f) => f.confidence != null && f.confidence >= 0.8).length;
+    const medium = fields.filter((f) => f.confidence != null && f.confidence >= 0.5 && f.confidence < 0.8).length;
+    const low = fields.filter((f) => f.confidence != null && f.confidence < 0.5).length;
     return { high, medium, low };
   }, [fields]);
 
   const lowConfidenceFields = useMemo(
     () =>
       fields
-        .filter((f) => f.confidence < 0.7)
-        .sort((a, b) => a.confidence - b.confidence),
+        .filter((f) => f.confidence != null && f.confidence < 0.7)
+        .sort((a, b) => (a.confidence || 0) - (b.confidence || 0)),
     [fields],
   );
 
@@ -363,8 +363,9 @@ export default function ConfidenceDashboard({
               }}
             >
               {lowConfidenceFields.map((field) => {
-                const percent = Math.round(field.confidence * 100);
-                const tagColor = getConfidenceTagColor(field.confidence);
+                const conf = field.confidence || 0;
+                const percent = Math.round(conf * 100);
+                const tagColor = getConfidenceTagColor(conf);
                 return (
                   <div
                     key={field.key}

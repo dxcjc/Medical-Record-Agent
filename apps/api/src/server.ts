@@ -17,6 +17,8 @@ import { registerProviderRoutes, type ProviderRouteService } from "./routes/prov
 import { registerResultRoutes, type ResultRouteService } from "./routes/results.routes";
 import { registerSchemaRoutes, type SchemaRouteService } from "./routes/schemas.routes";
 import { registerWritebackRoutes, type WritebackRouteService } from "./routes/writeback.routes";
+import { registerKnowledgeRoutes, type KnowledgeRouteService } from "./routes/knowledge.routes";
+import { registerV1Routes, type V1RouteService } from "./routes/v1.routes";
 
 export interface ApiServerServices {
   authService: AuthLayerService & AuthRouteService;
@@ -31,6 +33,8 @@ export interface ApiServerServices {
   writebackService: WritebackRouteService;
   providerService: ProviderRouteService;
   evaluationService: EvaluationRouteService;
+  knowledgeService?: KnowledgeRouteService;
+  v1Service?: V1RouteService;
   jobQueue?: {
     drain(): Promise<void>;
     describe?(): unknown;
@@ -277,6 +281,17 @@ export async function createApiServer(options: CreateApiServerOptions) {
     evaluationService: options.services.evaluationService,
     authHooks
   });
+
+  if (options.services.knowledgeService) {
+    await registerKnowledgeRoutes(server, options.services.knowledgeService);
+  }
+
+  if (options.services.v1Service) {
+    await registerV1Routes(server, {
+      v1Service: options.services.v1Service,
+      authHooks
+    });
+  }
 
   // 先挂载审计 hook 工厂，后续 Task 13+ 可以给高风险路由添加更精细的 action/object 配置。
   server.decorate("auditHooks", auditHooks);

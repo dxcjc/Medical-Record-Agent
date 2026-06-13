@@ -93,14 +93,47 @@ export default function SchemaPage() {
   const fields: SchemaField[] = selected?.definition?.fields || [];
 
   const fieldColumns = [
-    { title: 'Key', dataIndex: 'key', width: 150 },
-    { title: '标签', dataIndex: 'label', width: 150 },
-    { title: '类型', dataIndex: 'type', width: 100 },
+    { title: '标签', dataIndex: 'label', width: 140, render: (v: string) => v || '-' },
+    { title: 'Key', dataIndex: 'key', width: 140 },
+    { title: '类型', dataIndex: 'type', width: 80, render: (v: string) => v || '-' },
     {
       title: '必填',
       dataIndex: 'required',
-      width: 80,
+      width: 70,
       render: (v: boolean) => (v ? <Tag color="red">是</Tag> : <Tag>否</Tag>),
+    },
+    {
+      title: '关键字段',
+      dataIndex: 'critical',
+      width: 90,
+      render: (v: boolean) => (v ? <Tag color="orange">是</Tag> : <Tag>否</Tag>),
+    },
+    {
+      title: 'LIMS映射',
+      width: 140,
+      render: (_: unknown, record: SchemaField) => {
+        const hints = record.adapterHints as { limsTargetPath?: string } | undefined;
+        const path = hints?.limsTargetPath;
+        return path ? <Text code style={{ fontSize: 12 }}>{path}</Text> : <span style={{ color: '#999' }}>-</span>;
+      },
+    },
+    {
+      title: '识别说明',
+      dataIndex: 'comments',
+      width: 200,
+      render: (v: string) => v ? <Text ellipsis style={{ maxWidth: 180 }} title={v}>{v}</Text> : <span style={{ color: '#999' }}>-</span>,
+    },
+    {
+      title: '枚举值',
+      width: 200,
+      render: (_: unknown, record: SchemaField) => {
+        const enumMap = record.enumMap as Record<string, string> | undefined;
+        if (!enumMap || Object.keys(enumMap).length === 0) return <span style={{ color: '#999' }}>-</span>;
+        const entries = Object.entries(enumMap);
+        const display = entries.slice(0, 3).map(([k, v]) => `${k}→${v}`).join(', ');
+        const suffix = entries.length > 3 ? ` ...等${entries.length}项` : '';
+        return <Text ellipsis style={{ maxWidth: 180, fontSize: 12 }} title={entries.map(([k, v]) => `${k}→${v}`).join('\n')}>{display}{suffix}</Text>;
+      },
     },
   ];
 

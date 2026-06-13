@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Select, Button, Typography } from '@arco-design/web-react';
+import { Card, Table, Select, Input, Button, Typography, Space } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
-import { useJobs } from '../hooks/useJobs';
+import { usePaginatedJobs } from '../hooks/useJobs';
 import { useSchemas } from '../hooks/useSchemas';
 import { useProviders } from '../hooks/useProviders';
 import StatusTag from '../components/StatusTag';
@@ -18,9 +18,10 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'queued', label: '排队中' },
   { value: 'running', label: '识别中' },
   { value: 'completed', label: '已完成' },
-  { value: 'needs_review', label: '待复核' },
+  { value: 'needs_review', label: '需复核' },
   { value: 'partial_completed', label: '部分完成' },
   { value: 'failed', label: '失败' },
+  { value: 'writeback_pending', label: '待回写' },
   { value: 'writeback_completed', label: '已回写' },
   { value: 'writeback_failed', label: '回写失败' },
 ];
@@ -28,11 +29,23 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 export default function JobListPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('all');
-  const { data, isLoading, error, refetch } = useJobs(100);
+  const [schemaFilter, setSchemaFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const { data, isLoading, error, refetch } = usePaginatedJobs({
+    page,
+    pageSize,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    schemaKey: schemaFilter !== 'all' ? schemaFilter : undefined,
+    search: searchText || undefined,
+  });
   const { data: schemasData } = useSchemas();
   const { data: providersData } = useProviders();
 
   const jobs = data?.items || [];
+  const total = data?.total || 0;
 
   // 构建 displayName 映射
   const schemaNameMap = useMemo(() => {
@@ -51,17 +64,46 @@ export default function JobListPage() {
     return map;
   }, [providersData]);
 
-  const filteredJobs = useMemo(() => {
-    if (statusFilter === 'all') return jobs;
-    return jobs.filter((j) => j.status === statusFilter);
-  }, [jobs, statusFilter]);
+  // Schema 下拉选项
+  const schemaOptions = useMemo(() => {
+    const opts = [{ value: 'all', label: '全部 Schema' }];
+    schemasData?.items?.forEach((s) => {
+      if (!opts.find((o) => o.value === s.schemaKey)) {
+        opts.push({ value: s.schemaKey, label: s.displayName || s.schemaKey });
+      }
+    });
+    return opts;
+  }, [schemasData]);
 
   const columns = [
+    {
+      title: '任务ID',
+      dataIndex: 'id',
+      width: 120,
+      render: (id: string) => <Text code>{id.slice(0, 8)}</Text>,
+    },
     {
       title: 'Schema',
       dataIndex: 'schemaKey',
       width: 160,
       render: (key: string) => schemaNameMap[key] || key,
+    },
+    {
+      title: '文件名',
+      width: 180,
+      render: (_: unknown, record: RecognitionJob) => {
+        const name = record.sourceFile?.originalName;
+        if (!name) return <span style={{ color: '#999' }}>-</span>;
+        return (
+          <Text
+            ellipsis
+            style={{ maxWidth: 160 }}
+            title={name}
+          >
+            {name}
+          </Text>
+        );
+      },
     },
     {
       title: '状态',
@@ -70,8 +112,42 @@ export default function JobListPage() {
       render: (status: string) => <StatusTag status={status} />,
     },
     {
+      title: '整体置信度',
+      width: 110,
+      render: (_: unknown, record: RecognitionJob) => {
+        const result = record.result;
+        if (!result) return <span style={{ color: '#999' }}>-</span>;
+        const conf = result.confidence;
+        if (!conf) return <span style={{ color: '#999' }}>-</span>;
+        const pct = (parseFloat(conf) * 100).toFixed(0);
+        const color = parseFloat(conf) >= 0.8 ? 'green' : parseFloat(conf) >= 0.5 ? 'orange' : 'red';
+        return <span style={{ color, fontWeight: 600 }}>{pct}%</span>;
+      },
+    },
+    {
+      title: '识别字段数',
+      width: 100,
+      render: (_: unknown, record: RecognitionJob) => {
+        const fields = record.result?.fields;
+        if (!fields) return <span style={{ color: '#999' }}>-</span>;
+        const count = Array.isArray(fields) ? fields.length : Object.keys(fields).length;
+        return <span>{count}</span>;
+      },
+    },
+    {
+      title: '需复核',
+      width: 80,
+      render: (_: unknown, record: RecognitionJob) => {
+        const needsReview = record.result?.reviewRequired;
+        if (needsReview === undefined) return <span style={{ color: '#999' }}>-</span>;
+        return needsReview
+          ? <span style={{ color: '#F53F3F', fontWeight: 600 }}>是</span>
+          : <span style={{ color: '#00B42A' }}>否</span>;
+      },
+    },
+    {
       title: 'Provider',
-      width: 160,
+      width: 140,
       render: (_: unknown, record: RecognitionJob) => {
         const cfg = record.providerConfig as Record<string, unknown>;
         const providerKey = (cfg?.providerKey as string) || (cfg?.ocrProviderKey as string) || '';
@@ -79,14 +155,38 @@ export default function JobListPage() {
       },
     },
     {
+      title: '耗时',
+      width: 100,
+      render: (_: unknown, record: RecognitionJob) => {
+        if (!record.startedAt) return <span style={{ color: '#999' }}>-</span>;
+        const start = new Date(record.startedAt).getTime();
+        const end = record.completedAt ? new Date(record.completedAt).getTime() : Date.now();
+        const durationMs = end - start;
+        if (durationMs < 1000) return <span>{durationMs}ms</span>;
+        if (durationMs < 60000) return <span>{(durationMs / 1000).toFixed(1)}s</span>;
+        return <span>{(durationMs / 60000).toFixed(1)}min</span>;
+      },
+    },
+    {
+      title: '创建人',
+      width: 100,
+      render: (_: unknown, record: RecognitionJob) => {
+        // Try to extract from metadata or fallback to createdById
+        const createdBy = record.createdById;
+        if (!createdBy) return <span style={{ color: '#999' }}>-</span>;
+        return <span>{createdBy.slice(0, 8)}</span>;
+      },
+    },
+    {
       title: '创建时间',
       dataIndex: 'createdAt',
-      width: 180,
+      width: 170,
       render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
     },
     {
       title: '操作',
       width: 80,
+      fixed: 'right' as const,
       render: (_: unknown, record: RecognitionJob) => (
         <Button
           type="text"
@@ -118,19 +218,20 @@ export default function JobListPage() {
       <PageHeader
         eyebrow="识别管理"
         title="任务列表"
-        subtitle={`共 ${filteredJobs.length} 条任务`}
+        subtitle={`共 ${total} 条任务`}
         action="新建识别"
         onAction={() => navigate('/recognition/new')}
         onRefresh={() => refetch()}
       />
 
-      <Card
-        extra={
+      {/* 筛选栏 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Space size={12} wrap>
           <Select
             value={statusFilter}
-            onChange={setStatusFilter}
-            style={{ width: 160 }}
-            prefix={<IconSearch size={14} />}
+            onChange={(v) => { setStatusFilter(v); setPage(1); }}
+            style={{ width: 150 }}
+            placeholder="状态筛选"
           >
             {STATUS_OPTIONS.map((opt) => (
               <Option key={opt.value} value={opt.value}>
@@ -138,13 +239,36 @@ export default function JobListPage() {
               </Option>
             ))}
           </Select>
-        }
-      >
+          <Select
+            value={schemaFilter}
+            onChange={(v) => { setSchemaFilter(v); setPage(1); }}
+            style={{ width: 200 }}
+            placeholder="Schema 筛选"
+          >
+            {schemaOptions.map((opt) => (
+              <Option key={opt.value} value={opt.value}>
+                {opt.label}
+              </Option>
+            ))}
+          </Select>
+          <Input.Search
+            value={searchText}
+            onChange={setSearchText}
+            onSearch={() => { setPage(1); refetch(); }}
+            placeholder="搜索任务ID / Schema"
+            style={{ width: 240 }}
+            allowClear
+            prefix={<IconSearch size={14} />}
+          />
+        </Space>
+      </Card>
+
+      <Card>
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 60 }}>
             <Text type="secondary">加载中...</Text>
           </div>
-        ) : filteredJobs.length === 0 ? (
+        ) : jobs.length === 0 ? (
           <EmptyState
             title="暂无任务"
             description="上传医疗文档开始识别"
@@ -156,9 +280,22 @@ export default function JobListPage() {
         ) : (
           <Table
             columns={columns}
-            data={filteredJobs}
+            data={jobs}
             rowKey="id"
-            pagination={{ pageSize: 20, showTotal: true }}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showTotal: true,
+              showJumper: true,
+              sizeCanChange: true,
+              sizeOptions: [10, 20, 50],
+              onChange: (p, ps) => {
+                setPage(p);
+                setPageSize(ps);
+              },
+            }}
+            scroll={{ x: 1500 }}
             size="small"
             onRow={(record) => ({
               onClick: () => navigate(`/jobs/${record.id}`),

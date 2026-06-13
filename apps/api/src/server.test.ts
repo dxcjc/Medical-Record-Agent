@@ -106,13 +106,16 @@ function createServices(authService = createAuthService()): ApiServerServices {
     jobService: {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
       get: vi.fn(async () => ({ id: "job-001", status: "completed" })),
-      list: vi.fn(async () => [])
+      list: vi.fn(async () => []),
+      softDelete: vi.fn(async () => ({ id: "job-001", status: "deleted" })),
+      rerun: vi.fn(async () => ({ id: "job-002", status: "queued" }))
     },
     resultService: {
       getByJobId: vi.fn(async () => ({ jobId: "job-001", fields: [] }))
     },
     feedbackService: {
-      create: vi.fn(async () => ({ id: "feedback-001", status: "open" }))
+      create: vi.fn(async () => ({ id: "feedback-001", status: "open" })),
+      listByJobId: vi.fn(async () => [])
     },
     writebackService: {
       execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" })),

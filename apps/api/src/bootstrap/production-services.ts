@@ -67,6 +67,8 @@ import {
   type RedisJobQueueClient
 } from "../services/api-services";
 import { createSchemaService } from "../services/schema.service";
+import { createKnowledgeRepository } from "../repositories/knowledge.repository";
+import { createDatabaseKnowledgeRetriever } from "../services/database-knowledge-retriever";
 import type { ApiServerServices } from "../server";
 import { assertRouteResponseObject } from "../routes/route-dtos";
 import {
@@ -2649,6 +2651,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
   const jobsRepository = createJobsRepository(prisma);
   const resultsRepository = createResultsRepository(prisma);
   const writebackRepository = createWritebackRepository(prisma);
+  const knowledgeRepository = createKnowledgeRepository(prisma);
   const storageProvider = options.storageProvider ?? buildStorageProvider(options.env);
   const limsWritebackAdapter = options.limsWritebackAdapter ?? createConfiguredLimsWritebackAdapter(options.env);
   const sessionInvalidationStoreOptions: CreateProductionSessionInvalidationStoreOptions = {
@@ -2704,7 +2707,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
       schema,
       ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env, modelProviderOptions),
       modelProvider: providers.modelProvider ?? buildModelProvider(options.env, modelProviderOptions),
-      knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
+      knowledgeRetriever: createDatabaseKnowledgeRetriever(knowledgeRepository),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: true,
       schemaActive: true,
@@ -2732,7 +2735,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
       modelProvider:
         providers.modelProvider ??
         buildModelProvider(options.env, modelProviderOptions),
-      knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
+      knowledgeRetriever: createDatabaseKnowledgeRetriever(knowledgeRepository),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: false,
       schemaActive: true
@@ -2794,6 +2797,9 @@ export function createProductionApiServices(options: CreateProductionApiServices
 
   return {
     ...services,
+    knowledgeService: {
+      knowledgeRepository
+    },
     writebackService: {
       async execute(input) {
         return assertRouteResponseObject(await productionWritebackExecutor(input), "WRITEBACK_RESPONSE_INVALID");

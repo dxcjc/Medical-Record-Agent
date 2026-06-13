@@ -297,7 +297,9 @@ describe("base route groups", () => {
     const jobService: JobRouteService = {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
       get: vi.fn(async () => ({ id: "job-001", status: "completed" })),
-      list: vi.fn(async () => [])
+      list: vi.fn(async () => []),
+      softDelete: vi.fn(async () => ({ id: "job-001", status: "deleted" })),
+      rerun: vi.fn(async () => ({ id: "job-001", status: "queued" }))
     };
     await registerJobRoutes(server, {
       jobService,
@@ -334,7 +336,9 @@ describe("base route groups", () => {
     const jobService: JobRouteService = {
       create: vi.fn(async () => ({ id: "job-001", status: "queued" })),
       get: vi.fn(),
-      list: vi.fn(async () => [])
+      list: vi.fn(async () => []),
+      softDelete: vi.fn(async () => ({ id: "job-001", status: "deleted" })),
+      rerun: vi.fn(async () => ({ id: "job-001", status: "queued" }))
     };
     await registerJobRoutes(server, {
       jobService,
@@ -389,7 +393,9 @@ describe("base route groups", () => {
     const jobService: JobRouteService = {
       create: vi.fn(),
       get: vi.fn(),
-      list: vi.fn(async () => [])
+      list: vi.fn(async () => []),
+      softDelete: vi.fn(async () => ({ id: "job-001", status: "deleted" })),
+      rerun: vi.fn(async () => ({ id: "job-001", status: "queued" }))
     };
     await registerJobRoutes(server, {
       jobService,
@@ -528,7 +534,8 @@ describe("base route groups", () => {
     const server = Fastify();
     const tools = createRouteTools(["feedback:create"]);
     const feedbackService: FeedbackRouteService = {
-      create: vi.fn(async () => ({ id: "feedback-001" }))
+      create: vi.fn(async () => ({ id: "feedback-001" })),
+      listByJobId: vi.fn(async () => [])
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -567,7 +574,8 @@ describe("base route groups", () => {
     const server = Fastify();
     const tools = createRouteTools(["feedback:create"]);
     const feedbackService: FeedbackRouteService = {
-      create: vi.fn(async () => ({ id: "feedback-001" }))
+      create: vi.fn(async () => ({ id: "feedback-001" })),
+      listByJobId: vi.fn(async () => []),
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -612,7 +620,8 @@ describe("base route groups", () => {
     const server = Fastify();
     const tools = createRouteTools(["feedback:create"]);
     const feedbackService: FeedbackRouteService = {
-      create: vi.fn()
+      create: vi.fn(),
+      listByJobId: vi.fn(async () => [])
     };
     await registerFeedbackRoutes(server, {
       feedbackService,

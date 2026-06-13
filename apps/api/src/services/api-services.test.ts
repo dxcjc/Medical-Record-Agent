@@ -76,7 +76,9 @@ function createRepositories(): ApiServiceRepositories {
       create: vi.fn(async (input) => ({ id: "job-001", status: "queued", ...input })),
       findById: vi.fn(async () => ({ id: "job-001", status: "completed", sourceFileId: "file-001" })),
       list: vi.fn(async () => []),
+      listPaginated: vi.fn(async () => ({ items: [], total: 0 })),
       updateStatus: vi.fn(async (input) => ({ id: input.id, ...input })),
+      softDelete: vi.fn(async (id) => ({ id, deletedAt: new Date() })),
       listEligibleForWriteback: vi.fn(async () => [])
     },
     resultsRepository: {
@@ -84,7 +86,8 @@ function createRepositories(): ApiServiceRepositories {
       upsertByJobId: vi.fn(async (input) => ({ id: "result-001", ...input }))
     },
     feedbackRepository: {
-      create: vi.fn(async (input) => ({ id: "feedback-001", ...input }))
+      create: vi.fn(async (input) => ({ id: "feedback-001", ...input })),
+      listByJobId: vi.fn(async () => [])
     },
     writebackRepository: {
       create: vi.fn(async (input) => ({ id: "writeback-001", ...input })),
