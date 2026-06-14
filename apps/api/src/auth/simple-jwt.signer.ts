@@ -121,6 +121,36 @@ export function createSimpleJwtSigner(options: SimpleJwtSignerOptions): JwtSigne
         authType: payload.authType,
         ...(payload.apiTokenId !== undefined ? { apiTokenId: payload.apiTokenId } : {})
       };
+    },
+
+    async verifySignature(token) {
+      try {
+        const [header, body, signature] = token.split(".");
+        if (!header || !body || !signature) {
+          return null;
+        }
+
+        const unsigned = `${header}.${body}`;
+        const expectedSignature = signSegment(unsigned, options.secret);
+        if (!timingSafeEqual(signature, expectedSignature)) {
+          return null;
+        }
+
+        const payload = JSON.parse(base64UrlDecode(body)) as unknown;
+        if (!isAuthTokenPayload(payload)) {
+          return null;
+        }
+
+        return {
+          sub: payload.sub,
+          permissions: payload.permissions,
+          roles: payload.roles,
+          authType: payload.authType,
+          ...(payload.apiTokenId !== undefined ? { apiTokenId: payload.apiTokenId } : {})
+        };
+      } catch {
+        return null;
+      }
     }
   };
 }

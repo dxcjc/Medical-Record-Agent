@@ -444,7 +444,7 @@ describe("LLM extraction engine", () => {
     expect(httpProvider.providerName).toBe("http-llm");
   });
 
-  it("rejects schema mismatched field keys, values and enum values", async () => {
+  it("rejects schema mismatched field keys and value types", async () => {
     const schemaWithAge = {
       ...limsClinicalInfoSchema,
       fields: [
@@ -468,20 +468,6 @@ describe("LLM extraction engine", () => {
               rawValue: "DEMO_DIAGNOSIS_A",
               confidence: 0.9,
               evidence: [{ snippet: "DEMO_DIAGNOSIS_A", startOffset: 28, endOffset: 44 }]
-            }
-          ]
-        }
-      },
-      {
-        schema: limsClinicalInfoSchema,
-        output: {
-          fields: [
-            {
-              fieldKey: "smokingHistory",
-              value: "unsupported-enum",
-              rawValue: "unsupported-enum",
-              confidence: 0.9,
-              evidence: [{ snippet: "unsupported-enum", startOffset: 10, endOffset: 26 }]
             }
           ]
         }
@@ -523,6 +509,36 @@ describe("LLM extraction engine", () => {
         code: "MODEL_OUTPUT_MALFORMED"
       });
     }
+  });
+
+  it("accepts enum field values not in enumMap as valid string candidates", async () => {
+    const output = {
+      fields: [
+        {
+          fieldKey: "smokingHistory",
+          value: "unsupported-enum",
+          rawValue: "unsupported-enum",
+          confidence: 0.9,
+          evidence: [{ snippet: "unsupported-enum", startOffset: 10, endOffset: 26 }]
+        }
+      ]
+    };
+    const provider = createLangChainModelProvider({
+      providerName: "langchain-enum-tolerance-test",
+      model: {
+        invoke: vi.fn(async () => output)
+      }
+    });
+
+    const result = await provider.extractFields({
+      schema: limsClinicalInfoSchema,
+      prompt: "请抽取字段。",
+      ocrText: demoOcrText
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].fieldKey).toBe("smokingHistory");
+    expect(result.candidates[0].value).toBe("unsupported-enum");
   });
 
   it("gates OpenAI Responses provider behind explicit experimental config", () => {

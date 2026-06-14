@@ -5,10 +5,10 @@ import { describe, expect, it } from "vitest";
 const userVisibleFiles = [
   "README.md",
   "docs/evaluation-datasets.md",
-  "apps/demo-web/src/layouts/AppShell.tsx",
-  "apps/demo-web/src/pages/recognition/NewRecognitionPage.tsx",
-  "apps/demo-web/src/pages/operations/ProviderSettingsPage.tsx",
-  "apps/demo-web/src/pages/misc/DatasetSpecPage.tsx"
+  "medical-ui/src/layout/AppLayout.tsx",
+  "medical-ui/src/pages/NewRecognitionPage.tsx",
+  "medical-ui/src/pages/ProviderPage.tsx",
+  "medical-ui/src/pages/EvaluationPage.tsx"
 ];
 
 const forbiddenMainlineTerms = [

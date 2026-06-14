@@ -66,7 +66,6 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
   return {
     providerName,
     async extractFields(request) {
-      console.error(`[httpLlmProvider] extractFields 被调用, endpoint=${config.endpoint}, model=${config.model}`);
       // Vision 请求（带图片）需要更长超时
       const hasImage = request.imageBase64 && request.imageBase64.length > 0;
       const timeoutMs = hasImage ? 300_000 : (config.timeoutMs ?? 120_000);
@@ -116,7 +115,6 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
           });
 
           if (!response.ok) {
-            console.error(`[httpLlmProvider] HTTP 错误: ${response.status} ${response.statusText}, endpoint=${config.endpoint}`);
             if (isRetryableStatus(response.status) && attempt < maxRetries) {
               await delay(retryDelayMs * Math.pow(2, attempt));
               continue;
@@ -132,7 +130,6 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
           }
 
           const content = getFirstChoiceContent(data);
-          console.error(`[httpLlmProvider] LLM 返回内容: ${typeof content === 'string' ? content.substring(0, 2000) : JSON.stringify(content)?.substring(0, 2000)}`);
           const candidates = parseModelExtractionOutput(content, request.schema);
           if (!candidates) {
             throw createMalformedModelOutputError(providerName);
@@ -157,7 +154,6 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
           // Network errors and retryable ProviderErrors
           if (!(error instanceof ProviderError) || error.retryable) {
             if (attempt < maxRetries) {
-              console.error(`[httpLlmProvider] 第 ${attempt + 1} 次尝试失败，${attempt < maxRetries - 1 ? '将重试' : '最后一次重试'}: ${error instanceof Error ? error.message : String(error)}`);
               await delay(retryDelayMs * Math.pow(2, attempt));
               continue;
             }
@@ -165,10 +161,6 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
 
           if (error instanceof ProviderError) {
             throw error;
-          }
-          console.error(`[httpLlmProvider] 原始异常 (${providerName}):`, error instanceof Error ? error.message : String(error));
-          if (error instanceof Error && error.stack) {
-            console.error(error.stack);
           }
           throw createRetryableModelError(providerName, error);
         } finally {

@@ -27,6 +27,29 @@ export function createFastifyJwtSigner(server: FastifyInstance, options: Fastify
         authType: payload.authType,
         ...(payload.apiTokenId !== undefined ? { apiTokenId: payload.apiTokenId } : {})
       };
+    },
+
+    async verifySignature(token: string) {
+      try {
+        // @fastify/jwt verify 支持 ignoreExpiration 选项跳过过期检查
+        const payload = await server.jwt.verify<AuthTokenPayload>(token, {
+          ignoreExpiration: true
+        } as Record<string, unknown>);
+
+        if (!payload || typeof payload.sub !== "string") {
+          return null;
+        }
+
+        return {
+          sub: payload.sub,
+          permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+          roles: Array.isArray(payload.roles) ? payload.roles : [],
+          authType: payload.authType,
+          ...(payload.apiTokenId !== undefined ? { apiTokenId: payload.apiTokenId } : {})
+        };
+      } catch {
+        return null;
+      }
     }
   };
 }

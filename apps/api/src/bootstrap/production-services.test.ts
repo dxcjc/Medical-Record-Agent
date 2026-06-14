@@ -179,6 +179,10 @@ function createPrismaClientStub() {
         ...input.create
       })),
       findMany: vi.fn(async () => [])
+    },
+    knowledgeEntry: {
+      findMany: vi.fn(async () => []),
+      createMany: vi.fn(async () => ({ count: 0 }))
     }
   };
 }

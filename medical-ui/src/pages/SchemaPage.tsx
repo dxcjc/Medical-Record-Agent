@@ -16,8 +16,11 @@ import {
   Switch,
   Table,
   Popconfirm,
+  Modal,
+  Timeline,
+  Divider,
 } from '@arco-design/web-react';
-import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown } from '@arco-design/web-react/icon';
+import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown, IconSwap, IconClockCircle } from '@arco-design/web-react/icon';
 import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
@@ -84,6 +87,185 @@ function fromEditable(rows: EditableField[]): SchemaField[] {
   });
 }
 
+// ── Version diff types & helpers ──────────────────────────────────
+
+type DiffKind = 'added' | 'removed' | 'modified' | 'unchanged';
+
+interface FieldDiffRow {
+  key: string;
+  kind: DiffKind;
+  oldField?: SchemaField;
+  newField?: SchemaField;
+  changes?: string[];
+}
+
+/** Compute a side-by-side diff of two fields arrays. */
+function computeFieldDiff(oldFields: SchemaField[], newFields: SchemaField[]): FieldDiffRow[] {
+  const oldMap = new Map(oldFields.map((f) => [f.key, f]));
+  const newMap = new Map(newFields.map((f) => [f.key, f]));
+
+  const allKeys = new Set([...oldMap.keys(), ...newMap.keys()]);
+  const rows: FieldDiffRow[] = [];
+
+  for (const key of allKeys) {
+    const oldF = oldMap.get(key);
+    const newF = newMap.get(key);
+
+    if (!oldF && newF) {
+      rows.push({ key, kind: 'added', newField: newF });
+    } else if (oldF && !newF) {
+      rows.push({ key, kind: 'removed', oldField: oldF });
+    } else if (oldF && newF) {
+      const changes: string[] = [];
+      if (oldF.type !== newF.type) changes.push(`类型: ${oldF.type ?? '-'} -> ${newF.type ?? '-'}`);
+      if (oldF.description !== newF.description) changes.push('描述已变更');
+      if (!!oldF.required !== !!newF.required) changes.push(`必填: ${oldF.required ? '是' : '否'} -> ${newF.required ? '是' : '否'}`);
+      if (oldF.label !== newF.label) changes.push('标签已变更');
+      if (JSON.stringify(oldF.enumMap) !== JSON.stringify(newF.enumMap)) changes.push('枚举值已变更');
+
+      rows.push({
+        key,
+        kind: changes.length > 0 ? 'modified' : 'unchanged',
+        oldField: oldF,
+        newField: newF,
+        changes: changes.length > 0 ? changes : undefined,
+      });
+    }
+  }
+
+  // Sort: modified first, then added, then removed, then unchanged
+  const order: Record<DiffKind, number> = { modified: 0, added: 1, removed: 2, unchanged: 3 };
+  rows.sort((a, b) => order[a.kind] - order[b.kind]);
+  return rows;
+}
+
+const DIFF_KIND_CONFIG: Record<DiffKind, { label: string; color: string; bgColor: string }> = {
+  added: { label: '新增', color: '#00b42a', bgColor: '#e6fffb' },
+  removed: { label: '删除', color: '#f53f3f', bgColor: '#fff1f0' },
+  modified: { label: '修改', color: '#ff7d00', bgColor: '#fffbe6' },
+  unchanged: { label: '未变', color: '#86909c', bgColor: 'transparent' },
+};
+
+// ── Schema Diff Modal Component ──────────────────────────────────
+
+interface SchemaDiffModalProps {
+  visible: boolean;
+  onClose: () => void;
+  oldVersion: SchemaVersion;
+  newVersion: SchemaVersion;
+}
+
+function SchemaDiffModal({ visible, onClose, oldVersion, newVersion }: SchemaDiffModalProps) {
+  const oldFields = oldVersion.definition?.fields || [];
+  const newFields = newVersion.definition?.fields || [];
+  const diffRows = useMemo(() => computeFieldDiff(oldFields, newFields), [oldFields, newFields]);
+
+  const addedCount = diffRows.filter((r) => r.kind === 'added').length;
+  const removedCount = diffRows.filter((r) => r.kind === 'removed').length;
+  const modifiedCount = diffRows.filter((r) => r.kind === 'modified').length;
+
+  return (
+    <Modal
+      title="Schema 版本对比"
+      visible={visible}
+      onCancel={onClose}
+      footer={null}
+      style={{ width: 880 }}
+    >
+      {/* Header: version info */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Card size="small" style={{ flex: 1, marginRight: 8, borderRadius: 8 }}>
+          <Space direction="vertical" size={4}>
+            <Text bold>旧版本</Text>
+            <Text type="secondary">v{oldVersion.version} · {oldVersion.displayName}</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {oldVersion.publishedAt ? new Date(oldVersion.publishedAt).toLocaleString('zh-CN') : '-'}
+            </Text>
+          </Space>
+        </Card>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+          <IconSwap style={{ fontSize: 20, color: '#86909c' }} />
+        </div>
+        <Card size="small" style={{ flex: 1, marginLeft: 8, borderRadius: 8 }}>
+          <Space direction="vertical" size={4}>
+            <Text bold>新版本</Text>
+            <Text type="secondary">v{newVersion.version} · {newVersion.displayName}</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {newVersion.publishedAt ? new Date(newVersion.publishedAt).toLocaleString('zh-CN') : '-'}
+            </Text>
+          </Space>
+        </Card>
+      </div>
+
+      {/* Summary tags */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <Tag color="green">新增 {addedCount}</Tag>
+        <Tag color="red">删除 {removedCount}</Tag>
+        <Tag color="orange">修改 {modifiedCount}</Tag>
+        <Tag>未变 {diffRows.length - addedCount - removedCount - modifiedCount}</Tag>
+      </div>
+
+      {/* Diff table */}
+      <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+        <Table
+          data={diffRows.map((r, i) => ({ ...r, _idx: i }))}
+          rowKey="_idx"
+          border
+          size="small"
+          pagination={false}
+          columns={[
+            {
+              title: '状态',
+              width: 70,
+              align: 'center',
+              render: (_: unknown, record: FieldDiffRow) => (
+                <Tag color={DIFF_KIND_CONFIG[record.kind].color} size="small">
+                  {DIFF_KIND_CONFIG[record.kind].label}
+                </Tag>
+              ),
+            },
+            {
+              title: '字段名',
+              dataIndex: 'key',
+              width: 140,
+            },
+            {
+              title: '旧版本',
+              width: 140,
+              render: (_: unknown, record: FieldDiffRow) => (
+                record.oldField ? (
+                  <Text style={record.kind === 'removed' ? { textDecoration: 'line-through' } : undefined}>
+                    {record.oldField.type || '-'}
+                  </Text>
+                ) : <Text type="secondary">-</Text>
+              ),
+            },
+            {
+              title: '新版本',
+              width: 140,
+              render: (_: unknown, record: FieldDiffRow) => (
+                record.newField ? <Text>{record.newField.type || '-'}</Text> : <Text type="secondary">-</Text>
+              ),
+            },
+            {
+              title: '变更说明',
+              render: (_: unknown, record: FieldDiffRow) => (
+                record.changes && record.changes.length > 0
+                  ? <Text type="secondary" style={{ fontSize: 12 }}>{record.changes.join('; ')}</Text>
+                  : <Text type="secondary" style={{ fontSize: 12 }}>-</Text>
+              ),
+            },
+          ]}
+          rowClassName={(record: FieldDiffRow) => ''}
+          onRow={(record: FieldDiffRow) => ({
+            style: { backgroundColor: DIFF_KIND_CONFIG[record.kind].bgColor },
+          })}
+        />
+      </div>
+    </Modal>
+  );
+}
+
 export default function SchemaPage() {
   const { data, isLoading, error, refetch } = useSchemas();
   const deactivateMutation = useDeactivateSchemaVersion();
@@ -94,6 +276,9 @@ export default function SchemaPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [localFields, setLocalFields] = useState<SchemaField[] | null>(null);
 
+  // Version compare state
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+
   // Drawer state
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [form] = Form.useForm();
@@ -103,6 +288,24 @@ export default function SchemaPage() {
   const schemas = data?.items || [];
   const selected = schemas.find((s) => s.id === selectedId) || null;
   const schemaKey = selected?.schemaKey;
+
+  // Derive version history for the selected schema's schemaKey
+  const versionHistory = useMemo(() => {
+    if (!schemaKey) return [];
+    return schemas
+      .filter((s) => s.schemaKey === schemaKey)
+      .sort((a, b) => b.version - a.version);
+  }, [schemas, schemaKey]);
+
+  // Compare modal state
+  const compareVersion = schemas.find((s) => s.id === compareVersionId) || null;
+  const diffModalVisible = !!compareVersion && !!selected;
+  const handleOpenCompare = useCallback((versionId: string) => {
+    setCompareVersionId(versionId);
+  }, []);
+  const handleCloseCompare = useCallback(() => {
+    setCompareVersionId(null);
+  }, []);
 
   const { data: statsData } = useFieldStats(schemaKey);
   const statsMap = useMemo(() => {
@@ -417,6 +620,66 @@ export default function SchemaPage() {
             </Space>
           )}
         </div>
+
+        {/* Version History */}
+        {versionHistory.length > 1 && (
+          <div style={{ marginTop: 32 }}>
+            <Title heading={6} style={{ marginBottom: 16 }}>版本历史</Title>
+            <Timeline style={{ marginBottom: 16 }}>
+              {versionHistory.map((v) => (
+                <Timeline.Item
+                  key={v.id}
+                  dotColor={v.id === selected.id ? '#165dff' : v.status === 'active' ? '#00b42a' : '#c9cdd4'}
+                  label={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        <IconClockCircle style={{ marginRight: 4 }} />
+                        {v.publishedAt ? new Date(v.publishedAt).toLocaleString('zh-CN') : '-'}
+                      </Text>
+                    </div>
+                  }
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <Text bold style={{ marginRight: 8 }}>
+                        v{v.version}
+                        {v.id === selected.id && (
+                          <Tag color="blue" size="small" style={{ marginLeft: 8 }}>当前</Tag>
+                        )}
+                      </Text>
+                      <StatusTag status={v.status} />
+                      {v.changelog && (
+                        <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
+                          {v.changelog}
+                        </Text>
+                      )}
+                    </div>
+                    {v.id !== selected.id && (
+                      <Button
+                        type="outline"
+                        size="mini"
+                        icon={<IconSwap />}
+                        onClick={() => handleOpenCompare(v.id)}
+                      >
+                        对比
+                      </Button>
+                    )}
+                  </div>
+                </Timeline.Item>
+              ))}
+            </Timeline>
+          </div>
+        )}
+
+        {/* Diff Modal */}
+        {diffModalVisible && compareVersion && (
+          <SchemaDiffModal
+            visible={diffModalVisible}
+            onClose={handleCloseCompare}
+            oldVersion={compareVersion}
+            newVersion={selected}
+          />
+        )}
       </div>
     );
   }

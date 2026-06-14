@@ -189,10 +189,6 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
         ? Buffer.from(state.document.content).toString('base64')
         : undefined;
 
-      console.log(`[Vision Enhancement] Document content length: ${state.document.content?.length ?? 0}`);
-      console.log(`[Vision Enhancement] Image base64 length: ${imageBase64?.length ?? 0}`);
-      console.log(`[Vision Enhancement] Has image: ${imageBase64 !== undefined}`);
-
       const extraction = await extractionAgent.run({
         schema: config.schema,
         ocrText: state.ocrText,

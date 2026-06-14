@@ -12,6 +12,8 @@ const DEFAULT_SESSION_INVALIDATION_TTL_MS = 24 * 60 * 60 * 1000;
 export interface JwtSigner {
   sign(payload: AuthTokenPayload): Promise<string>;
   verify(token: string): Promise<AuthTokenPayload>;
+  /** 验证签名和 payload 结构，忽略过期时间；签名无效返回 null */
+  verifySignature?(token: string): Promise<AuthTokenPayload | null>;
 }
 
 export interface AuthTokenPayload {
@@ -118,6 +120,10 @@ export interface AuthService {
   isSessionTokenInvalidated(token: string): Promise<boolean>;
   describeSessionInvalidationStore(): SessionInvalidationStoreDescription;
   requirePermission(context: AuthContext | null, permission: string): void;
+  /** 验证 token 签名（忽略过期），返回 payload；签名无效返回 null */
+  verifySessionToken(token: string): Promise<{ sub: string; permissions: string[]; roles: string[] } | null>;
+  /** 签发新 JWT token */
+  signSessionToken(payload: { sub: string; permissions: string[]; roles: string[] }): Promise<string>;
 }
 
 export async function hashPassword(password: string) {
@@ -423,6 +429,32 @@ export function createAuthService(dependencies: AuthServiceDependencies): AuthSe
       if (!context.permissions.includes(permission)) {
         throw new AuthError("FORBIDDEN", "FORBIDDEN");
       }
+    },
+
+    async verifySessionToken(token: string) {
+      if (!dependencies.jwtSigner.verifySignature) {
+        return null;
+      }
+
+      const payload = await dependencies.jwtSigner.verifySignature(token);
+      if (!payload) {
+        return null;
+      }
+
+      return {
+        sub: payload.sub,
+        permissions: payload.permissions,
+        roles: payload.roles
+      };
+    },
+
+    async signSessionToken(payload) {
+      return dependencies.jwtSigner.sign({
+        sub: payload.sub,
+        permissions: payload.permissions,
+        roles: payload.roles,
+        authType: "jwt"
+      });
     }
   };
 }

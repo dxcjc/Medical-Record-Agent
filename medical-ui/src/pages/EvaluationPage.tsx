@@ -16,6 +16,7 @@ import {
   Switch,
   Grid,
   Checkbox,
+  Upload,
 } from '@arco-design/web-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { evaluationApi, providersApi, schemasApi, jobsApi, resultsApi } from '../api/client';
@@ -701,6 +702,236 @@ function JsonPasteTab({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Tab 4: CSV 上传                                                     */
+/* ------------------------------------------------------------------ */
+
+/** Parse a single CSV line, handling quoted fields with commas */
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        // Check for escaped quote ""
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++; // skip the second quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/** Parse a CSV string into headers and rows */
+function parseCsv(text: string): { headers: string[]; rows: string[][] } {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (lines.length < 2) {
+    throw new Error('CSV 至少需要包含表头行和一行数据');
+  }
+
+  const headers = parseCsvLine(lines[0]);
+  const rows = lines.slice(1).map((line) => parseCsvLine(line));
+
+  return { headers, rows };
+}
+
+function CsvUploadTab({
+  datasetId,
+  onSuccess,
+}: {
+  datasetId: string;
+  onSuccess: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rows, setRows] = useState<string[][]>([]);
+  const [fileName, setFileName] = useState('');
+  const [parseError, setParseError] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: (samples: FieldExtractionMap[]) =>
+      evaluationApi.importSamples(datasetId, samples),
+    onSuccess: (data) => {
+      const count = data.samples?.length || 0;
+      Message.success(`成功从 CSV 导入 ${count} 个样本`);
+      queryClient.invalidateQueries({ queryKey: ['eval-datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['eval-samples', datasetId] });
+      resetState();
+      onSuccess();
+    },
+    onError: () => {
+      Message.error('样本导入失败');
+    },
+  });
+
+  const resetState = useCallback(() => {
+    setHeaders([]);
+    setRows([]);
+    setFileName('');
+    setParseError('');
+  }, []);
+
+  const handleFileRead = useCallback((file: File) => {
+    setParseError('');
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      Message.error('请上传 .csv 格式的文件');
+      return;
+    }
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const parsed = parseCsv(text);
+        setHeaders(parsed.headers);
+        setRows(parsed.rows);
+      } catch (err) {
+        setParseError((err as Error).message);
+        setHeaders([]);
+        setRows([]);
+      }
+    };
+    reader.onerror = () => {
+      Message.error('文件读取失败');
+    };
+    reader.readAsText(file, 'UTF-8');
+  }, []);
+
+  const handleImport = async () => {
+    if (rows.length === 0) {
+      Message.warning('没有可导入的数据');
+      return;
+    }
+
+    // Convert rows to FieldExtractionMap objects
+    const samples: FieldExtractionMap[] = rows.map((row) => {
+      const sample: FieldExtractionMap = {};
+      headers.forEach((header, idx) => {
+        const value = row[idx] ?? '';
+        sample[header] = value || null;
+      });
+      return sample;
+    });
+
+    await mutation.mutateAsync(samples);
+  };
+
+  // Preview table: show up to 5 rows
+  const previewData = useMemo(() => rows.slice(0, 5), [rows]);
+
+  const previewColumns = useMemo(
+    () =>
+      headers.map((h) => ({
+        title: h,
+        dataIndex: h,
+        width: 140,
+        ellipsis: true,
+      })),
+    [headers]
+  );
+
+  // Convert preview rows to objects keyed by header
+  const previewTableData = useMemo(
+    () =>
+      previewData.map((row, rowIdx) => {
+        const obj: Record<string, string> = { _rowIdx: String(rowIdx) };
+        headers.forEach((h, colIdx) => {
+          obj[h] = row[colIdx] ?? '';
+        });
+        return obj;
+      }),
+    [previewData, headers]
+  );
+
+  return (
+    <div>
+      <div style={{ marginBottom: 12 }}>
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          上传 CSV 文件，第一行为字段名（表头），后续行为数据。支持带引号的字段值。
+        </Text>
+      </div>
+
+      <Upload
+        accept=".csv"
+        showUploadList={false}
+        beforeUpload={(file: File) => {
+          handleFileRead(file);
+          return false; // prevent default upload
+        }}
+      >
+        <Button type="outline" long style={{ marginBottom: 12 }}>
+          {fileName ? `已选择: ${fileName}` : '选择 CSV 文件'}
+        </Button>
+      </Upload>
+
+      {parseError && (
+        <Text type="error" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+          {parseError}
+        </Text>
+      )}
+
+      {headers.length > 0 && rows.length > 0 && (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            <Space>
+              <Tag size="small" color="blue">{headers.length} 列</Tag>
+              <Tag size="small" color="green">{rows.length} 行数据</Tag>
+              {rows.length > 5 && (
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  预览前 5 行
+                </Text>
+              )}
+            </Space>
+          </div>
+
+          <Table
+            columns={previewColumns}
+            data={previewTableData}
+            rowKey="_rowIdx"
+            pagination={false}
+            size="small"
+            scroll={{ x: 'max-content', y: 240 }}
+            style={{ marginBottom: 12 }}
+          />
+
+          <Button
+            type="primary"
+            onClick={handleImport}
+            loading={mutation.isPending}
+            long
+          >
+            确认导入 {rows.length} 条样本
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  增强导入样本弹窗（多 Tab 版本）                                      */
 /* ------------------------------------------------------------------ */
 
@@ -743,6 +974,11 @@ function ImportSamplesModal({
         <TabPane key="json-paste" title="JSON 粘贴">
           <div style={{ paddingTop: 8 }}>
             <JsonPasteTab datasetId={datasetId} onSuccess={handleSuccess} />
+          </div>
+        </TabPane>
+        <TabPane key="csv-upload" title="CSV 上传">
+          <div style={{ paddingTop: 8 }}>
+            <CsvUploadTab datasetId={datasetId} onSuccess={handleSuccess} />
           </div>
         </TabPane>
       </Tabs>

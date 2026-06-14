@@ -130,11 +130,8 @@ export function buildExtractionPrompt(input: BuildExtractionPromptInput): string
 export async function extractStructuredFields(
   input: ExtractStructuredFieldsInput
 ): Promise<ExtractStructuredFieldsResult> {
-  console.error(`[extractionEngine] extractStructuredFields 被调用, provider=${input.provider.providerName}`);
-  console.error(`[extractionEngine] schema: key=${input.schema?.key}, label=${input.schema?.label}, fields=${Array.isArray(input.schema?.fields) ? input.schema.fields.length : 'NOT_ARRAY'}`);
   try {
     const prompt = buildExtractionPrompt(input);
-    console.error(`[extractionEngine] prompt 构建完成, 长度=${prompt.length}`);
     const request: ModelExtractionRequest = {
       schema: input.schema,
       prompt,
@@ -146,16 +143,13 @@ export async function extractStructuredFields(
     if (input.imageBase64 !== undefined) {
       request.imageBase64 = input.imageBase64;
     }
-    console.error(`[extractionEngine] 即将调用 provider.extractFields...`);
     const result = await input.provider.extractFields(request);
-    console.error(`[extractionEngine] provider.extractFields 完成`);
 
     return {
       ...result,
       prompt
     };
   } catch (error) {
-    console.error(`[extractionEngine] 捕获异常:`, error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
@@ -217,34 +211,27 @@ function matchesSchemaFieldValue(
 }
 
 export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDraft): ModelFieldCandidate[] | null {
-  console.error(`[parseModelExtractionOutput] >>> CALLED, output type=${typeof output}, is string=${typeof output === "string"}`);
   const root = typeof output === "string" ? parseJsonObject(output) : output;
   if (!isRecord(root)) {
-    console.error(`[parseModelExtractionOutput] root is not a record`);
     return null;
   }
   if (!hasOnlyKeys(root, ["fields"])) {
-    console.error(`[parseModelExtractionOutput] root has extra keys: ${Object.keys(root).join(", ")}`);
     return null;
   }
   if (!Array.isArray(root.fields)) {
-    console.error(`[parseModelExtractionOutput] root.fields is not an array`);
     return null;
   }
 
   if (root.fields.length === 0) {
-    console.error(`[parseModelExtractionOutput] root.fields is empty`);
     return null;
   }
 
   const candidates: ModelFieldCandidate[] = [];
   for (const item of root.fields) {
     if (!isRecord(item)) {
-      console.error(`[parseModelExtractionOutput] field item is not a record`);
       return null;
     }
     if (!hasOnlyKeys(item, ["fieldKey", "value", "rawValue", "confidence", "evidence"])) {
-      console.error(`[parseModelExtractionOutput] field item has extra keys: ${Object.keys(item).join(", ")}`);
       return null;
     }
 
@@ -262,7 +249,6 @@ export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDr
       !Array.isArray(evidence) ||
       (item.value !== null && evidence.length === 0)
     ) {
-      console.error(`[parseModelExtractionOutput] REJECTED "${item.fieldKey}": fk=${typeof item.fieldKey} schema=${schemaField?.type} candidate=${isCandidateValue(item.value)} match=${schemaField ? matchesSchemaFieldValue(item.value as ModelFieldCandidate["value"], schemaField) : "NO_FIELD"} rv=${typeof item.rawValue} conf=${item.confidence} ev=${Array.isArray(evidence) ? evidence.length : "N/A"}`);
       return null;
     }
 
