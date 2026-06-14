@@ -8,9 +8,9 @@ import {
   Typography,
   Button,
   Divider,
-  Message,
   Popconfirm,
 } from '@arco-design/web-react';
+import { toast } from './GlobalToast';
 import {
   IconEdit,
   IconCheck,
@@ -90,7 +90,7 @@ export default function FieldCard({ field, stats, onUpdate }: FieldCardProps) {
     updates.comments = editComments || undefined;
     onUpdate(field.key, updates);
     setEditing(false);
-    Message.success(`字段 ${field.key} 已更新`);
+    toast.success(`字段 ${field.key} 已更新`);
   };
 
   const handleCancel = () => {
@@ -105,7 +105,7 @@ export default function FieldCard({ field, stats, onUpdate }: FieldCardProps) {
 
   const handleAddKnowledge = async () => {
     if (!newKwTitle.trim() || !newKwContent.trim()) {
-      Message.warning('标题和内容不能为空');
+      toast.warning('标题和内容不能为空');
       return;
     }
     try {
@@ -116,31 +116,31 @@ export default function FieldCard({ field, stats, onUpdate }: FieldCardProps) {
         fieldKeys: [field.key],
         keywords: [],
       });
-      Message.success('知识条目已添加');
+      toast.success('知识条目已添加');
       setAddingKnowledge(false);
       setNewKwTitle('');
       setNewKwContent('');
     } catch {
-      Message.error('添加失败');
+      toast.error('添加失败');
     }
   };
 
   const handleUpdateKnowledge = async (id: string) => {
     try {
       await updateKnowledge.mutateAsync({ id, title: editKwTitle, content: editKwContent });
-      Message.success('知识条目已更新');
+      toast.success('知识条目已更新');
       setEditingKnowledgeId(null);
     } catch {
-      Message.error('更新失败');
+      toast.error('更新失败');
     }
   };
 
   const handleDeleteKnowledge = async (id: string) => {
     try {
       await deleteKnowledge.mutateAsync(id);
-      Message.success('知识条目已删除');
+      toast.success('知识条目已删除');
     } catch {
-      Message.error('删除失败');
+      toast.error('删除失败');
     }
   };
 

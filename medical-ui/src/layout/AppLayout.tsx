@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Avatar, Breadcrumb, Button, Layout, Message } from '@arco-design/web-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Avatar, Breadcrumb, Button, Layout } from '@arco-design/web-react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   IconBeaker,
@@ -91,7 +91,6 @@ export default function AppLayout() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [message, messageContextHolder] = Message.useMessage();
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)');
@@ -157,7 +156,6 @@ export default function AppLayout() {
 
   return (
     <Layout className="app-shell" style={{ minHeight: '100vh' }}>
-      {messageContextHolder}
       {isMobile && mobileNavOpen && (
         <button
           type="button"

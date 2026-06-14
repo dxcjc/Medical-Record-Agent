@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Select, Button, Upload, Message, Tag } from '@arco-design/web-react';
+import { Card, Form, Select, Button, Upload, Tag } from '@arco-design/web-react';
+import { toast } from '../components/GlobalToast';
 import type { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useSchemas } from '../hooks/useSchemas';
 import { useCreateJob } from '../hooks/useJobs';
@@ -64,7 +65,7 @@ export default function NewRecognitionPage() {
   /** Fetch example file eagerly and add to file list */
   const handleUseExample = async () => {
     if (useExample) {
-      Message.info('示例文件已选中');
+      toast.info('示例文件已选中');
       return;
     }
 
@@ -79,7 +80,7 @@ export default function NewRecognitionPage() {
     // If already fetched, reuse
     if (exampleFile) {
       setUseExample(true);
-      Message.success('已选中示例文件');
+      toast.success('已选中示例文件');
       return;
     }
 
@@ -92,9 +93,9 @@ export default function NewRecognitionPage() {
       const file = new File([blob], '肿瘤基因检测申请单示例.png', { type: 'image/png' });
       setExampleFile(file);
       setUseExample(true);
-      Message.success('已加载示例文件');
+      toast.success('已加载示例文件');
     } catch {
-      Message.error('示例文件加载失败，请直接上传文件');
+      toast.error('示例文件加载失败，请直接上传文件');
     } finally {
       setExampleLoading(false);
     }
@@ -114,18 +115,18 @@ export default function NewRecognitionPage() {
     const filesToUpload = useExample && exampleFile ? [exampleFile] : files;
 
     if (filesToUpload.length === 0) {
-      Message.warning('请至少上传一个文件');
+      toast.warning('请至少上传一个文件');
       return;
     }
     if (!schemaKey) {
-      Message.warning('请选择识别 Schema');
+      toast.warning('请选择识别 Schema');
       return;
     }
 
     // Pre-check file sizes
     for (const f of filesToUpload) {
       if (f.size > MAX_FILE_SIZE) {
-        Message.error(`文件 ${f.name} 超过 20MB 限制`);
+        toast.error(`文件 ${f.name} 超过 20MB 限制`);
         return;
       }
     }
@@ -143,20 +144,20 @@ export default function NewRecognitionPage() {
           createdCount++;
         } catch (e: unknown) {
           const errMsg = e instanceof Error ? e.message : '未知错误';
-          Message.error(`文件 ${filesToUpload[i].name} 处理失败: ${errMsg}`);
+          toast.error(`文件 ${filesToUpload[i].name} 处理失败: ${errMsg}`);
         }
       }
 
       if (createdCount > 0) {
         setProgressText('✅ 任务创建成功，正在跳转...');
-        Message.success(`成功创建 ${createdCount} 个识别任务`);
+        toast.success(`成功创建 ${createdCount} 个识别任务`);
         setFiles([]);
         setUseExample(false);
         setTimeout(() => navigate('/jobs'), 2000);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '创建失败，请重试';
-      Message.error(msg);
+      toast.error(msg);
     } finally {
       // Only reset submitting if no successful jobs (since we navigate away on success)
       if (createdCount === 0) {
@@ -213,7 +214,7 @@ export default function NewRecognitionPage() {
                     // Size check
                     const oversized = incoming.find((f) => f.size > MAX_FILE_SIZE);
                     if (oversized) {
-                      Message.error(`文件 ${oversized.name} 超过 20MB 限制`);
+                      toast.error(`文件 ${oversized.name} 超过 20MB 限制`);
                       return;
                     }
 
@@ -224,7 +225,7 @@ export default function NewRecognitionPage() {
                         (f) => !existingKeys.has(`${f.name}::${f.size}`)
                       );
                       if (unique.length > 0) {
-                        Message.success(`已选择 ${unique.length} 个文件`);
+                        toast.success(`已选择 ${unique.length} 个文件`);
                         return [...prev, ...unique];
                       }
                       return prev;

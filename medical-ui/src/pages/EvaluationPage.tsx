@@ -11,7 +11,6 @@ import {
   Form,
   Input,
   Select,
-  Message,
   Space,
   Switch,
   Grid,
@@ -20,6 +19,7 @@ import {
 } from '@arco-design/web-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { evaluationApi, providersApi, schemasApi, jobsApi, resultsApi } from '../api/client';
+import { toast } from '../components/GlobalToast';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import MetricCard from '../components/MetricCard';
@@ -112,13 +112,13 @@ function CreateDatasetModal({
         deidentified,
       }),
     onSuccess: () => {
-      Message.success('数据集创建成功');
+      toast.success('数据集创建成功');
       queryClient.invalidateQueries({ queryKey: ['eval-datasets'] });
       form.resetFields();
       onSuccess();
     },
     onError: () => {
-      Message.error('数据集创建失败');
+      toast.error('数据集创建失败');
     },
   });
 
@@ -253,7 +253,7 @@ function ImportFromResultsTab({
       evaluationApi.importSamples(datasetId, samples),
     onSuccess: (data) => {
       const count = data.samples?.length || 0;
-      Message.success(`成功从识别结果导入 ${count} 个样本`);
+      toast.success(`成功从识别结果导入 ${count} 个样本`);
       queryClient.invalidateQueries({ queryKey: ['eval-datasets'] });
       queryClient.invalidateQueries({ queryKey: ['eval-samples', datasetId] });
       setSelectedJobId(null);
@@ -261,13 +261,13 @@ function ImportFromResultsTab({
       onSuccess();
     },
     onError: () => {
-      Message.error('样本导入失败');
+      toast.error('样本导入失败');
     },
   });
 
   const handleImport = async () => {
     if (!resultData?.fields || selectedFieldKeys.length === 0) {
-      Message.warning('请至少选择一个字段');
+      toast.warning('请至少选择一个字段');
       return;
     }
 
@@ -477,7 +477,7 @@ function ManualEntryTab({
   const handleAddSample = useCallback(() => {
     const hasAtLeastOne = Object.values(fieldValues).some((v) => v && v.trim());
     if (!hasAtLeastOne) {
-      Message.warning('请至少填写一个字段');
+      toast.warning('请至少填写一个字段');
       return;
     }
     const sample: FieldExtractionMap = {};
@@ -488,7 +488,7 @@ function ManualEntryTab({
     }
     setSampleList((prev) => [...prev, sample]);
     setFieldValues({});
-    Message.success('已添加一条样本');
+    toast.success('已添加一条样本');
   }, [fieldValues]);
 
   const handleRemoveSample = useCallback((index: number) => {
@@ -501,7 +501,7 @@ function ManualEntryTab({
       evaluationApi.importSamples(datasetId, samples),
     onSuccess: (data) => {
       const count = data.samples?.length || 0;
-      Message.success(`成功导入 ${count} 个样本`);
+      toast.success(`成功导入 ${count} 个样本`);
       queryClient.invalidateQueries({ queryKey: ['eval-datasets'] });
       queryClient.invalidateQueries({ queryKey: ['eval-samples', datasetId] });
       setSampleList([]);
@@ -509,13 +509,13 @@ function ManualEntryTab({
       onSuccess();
     },
     onError: () => {
-      Message.error('样本导入失败');
+      toast.error('样本导入失败');
     },
   });
 
   const handleImportAll = async () => {
     if (sampleList.length === 0) {
-      Message.warning('请先添加至少一条样本');
+      toast.warning('请先添加至少一条样本');
       return;
     }
     await importMutation.mutateAsync(sampleList);
@@ -649,14 +649,14 @@ function JsonPasteTab({
       evaluationApi.importSamples(datasetId, samples),
     onSuccess: (data) => {
       const count = data.samples?.length || 0;
-      Message.success(`成功导入 ${count} 个样本`);
+      toast.success(`成功导入 ${count} 个样本`);
       queryClient.invalidateQueries({ queryKey: ['eval-datasets'] });
       queryClient.invalidateQueries({ queryKey: ['eval-samples', datasetId] });
       setJsonInput('');
       onSuccess();
     },
     onError: () => {
-      Message.error('样本导入失败');
+      toast.error('样本导入失败');
     },
   });
 
@@ -775,14 +775,14 @@ function CsvUploadTab({
       evaluationApi.importSamples(datasetId, samples),
     onSuccess: (data) => {
       const count = data.samples?.length || 0;
-      Message.success(`成功从 CSV 导入 ${count} 个样本`);
+      toast.success(`成功从 CSV 导入 ${count} 个样本`);
       queryClient.invalidateQueries({ queryKey: ['eval-datasets'] });
       queryClient.invalidateQueries({ queryKey: ['eval-samples', datasetId] });
       resetState();
       onSuccess();
     },
     onError: () => {
-      Message.error('样本导入失败');
+      toast.error('样本导入失败');
     },
   });
 
@@ -796,7 +796,7 @@ function CsvUploadTab({
   const handleFileRead = useCallback((file: File) => {
     setParseError('');
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      Message.error('请上传 .csv 格式的文件');
+      toast.error('请上传 .csv 格式的文件');
       return;
     }
     setFileName(file.name);
@@ -815,14 +815,14 @@ function CsvUploadTab({
       }
     };
     reader.onerror = () => {
-      Message.error('文件读取失败');
+      toast.error('文件读取失败');
     };
     reader.readAsText(file, 'UTF-8');
   }, []);
 
   const handleImport = async () => {
     if (rows.length === 0) {
-      Message.warning('没有可导入的数据');
+      toast.warning('没有可导入的数据');
       return;
     }
 
@@ -1023,13 +1023,13 @@ function CreateRunModal({
     mutationFn: (values: { datasetId: string; providerKey: string; sampleLimit?: number }) =>
       evaluationApi.createRun(values),
     onSuccess: () => {
-      Message.success('评测运行已创建');
+      toast.success('评测运行已创建');
       queryClient.invalidateQueries({ queryKey: ['eval-runs'] });
       form.resetFields();
       onSuccess();
     },
     onError: () => {
-      Message.error('创建评测运行失败');
+      toast.error('创建评测运行失败');
     },
   });
 
@@ -1142,7 +1142,7 @@ function MetricsDetailModal({
     a.download = `evaluation-report-${runId.slice(0, 8)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    Message.success('评测报告已导出');
+    toast.success('评测报告已导出');
   };
 
   const columns = [
