@@ -295,7 +295,7 @@ export const filesApi = {
         mimeType: file.type || 'application/octet-stream',
         byteSize: file.size,
         contentBase64: base64,
-        checksumSha256,
+        ...(checksumSha256 ? { checksumSha256 } : {}),
       }),
     });
   },

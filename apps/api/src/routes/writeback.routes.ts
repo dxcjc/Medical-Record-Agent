@@ -97,16 +97,17 @@ export async function registerWritebackRoutes(server: FastifyInstance, dependenc
     async (request, reply) => {
       const parsedBody = confirmedWritebackRouteInputSchema.safeParse(request.body);
       if (!parsedBody.success) {
-        const confirmed = request.body && typeof request.body === "object" ? (request.body as { confirmed?: unknown }).confirmed : undefined;
-        if (confirmed !== true) {
-          return reply.status(409).send({
-            error: "WRITEBACK_REQUIRES_CONFIRMED_JOB"
-          });
-        }
-
         return reply.status(400).send({
           error: "BAD_REQUEST",
-          message: "Invalid writeback payload"
+          message: "Invalid writeback payload",
+          details: parsedBody.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }))
+        });
+      }
+
+      const confirmed = request.body && typeof request.body === "object" ? (request.body as { confirmed?: unknown }).confirmed : undefined;
+      if (confirmed !== true) {
+        return reply.status(409).send({
+          error: "WRITEBACK_REQUIRES_CONFIRMED_JOB"
         });
       }
 

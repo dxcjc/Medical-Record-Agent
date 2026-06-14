@@ -38,7 +38,39 @@ function createPrismaClientStub() {
       findUnique: vi.fn(async (): Promise<Record<string, unknown> | null> => null)
     },
     providerConfig: {
-      findMany: vi.fn(async () => []),
+      findMany: vi.fn(async () => [
+        {
+          id: "provider-lims-001",
+          key: "lims-writeback",
+          kind: "lims",
+          displayName: "LIMS Writeback",
+          status: "active",
+          isDefault: true,
+          config: {},
+          secretRefs: {
+            apiToken: "configured"
+          },
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        },
+        {
+          id: "provider-storage-001",
+          key: "local-storage",
+          kind: "storage",
+          displayName: "Local Storage Provider",
+          status: "active",
+          isDefault: true,
+          config: {
+            driver: "local",
+            localDir: "./storage"
+          },
+          secretRefs: {},
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        }
+      ]),
       findUnique: vi.fn(async (_input: ProviderConfigFindUniqueInputStub): Promise<Record<string, unknown> | null> => null),
       updateMany: vi.fn(async () => ({ count: 0 })),
       upsert: vi.fn(async (input) => ({
@@ -118,7 +150,39 @@ function createPrismaClientStub() {
         id: "writeback-001",
         ...input.data
       })),
-      findMany: vi.fn(async () => []),
+      findMany: vi.fn(async () => [
+        {
+          id: "provider-lims-001",
+          key: "lims-writeback",
+          kind: "lims",
+          displayName: "LIMS Writeback",
+          status: "active",
+          isDefault: true,
+          config: {},
+          secretRefs: {
+            apiToken: "configured"
+          },
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        },
+        {
+          id: "provider-storage-001",
+          key: "local-storage",
+          kind: "storage",
+          displayName: "Local Storage Provider",
+          status: "active",
+          isDefault: true,
+          config: {
+            driver: "local",
+            localDir: "./storage"
+          },
+          secretRefs: {},
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        }
+      ]),
       findUnique: vi.fn(async () => null),
       update: vi.fn(async (input) => ({
         id: input.where.id,
@@ -133,7 +197,39 @@ function createPrismaClientStub() {
           sourceType: "synthetic"
         }
       })),
-      findMany: vi.fn(async () => []),
+      findMany: vi.fn(async () => [
+        {
+          id: "provider-lims-001",
+          key: "lims-writeback",
+          kind: "lims",
+          displayName: "LIMS Writeback",
+          status: "active",
+          isDefault: true,
+          config: {},
+          secretRefs: {
+            apiToken: "configured"
+          },
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        },
+        {
+          id: "provider-storage-001",
+          key: "local-storage",
+          kind: "storage",
+          displayName: "Local Storage Provider",
+          status: "active",
+          isDefault: true,
+          config: {
+            driver: "local",
+            localDir: "./storage"
+          },
+          secretRefs: {},
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        }
+      ]),
       count: vi.fn(async () => 0)
     },
     evaluationSample: {
@@ -171,7 +267,39 @@ function createPrismaClientStub() {
         id: input.where.id,
         ...input.data
       })),
-      findMany: vi.fn(async () => []),
+      findMany: vi.fn(async () => [
+        {
+          id: "provider-lims-001",
+          key: "lims-writeback",
+          kind: "lims",
+          displayName: "LIMS Writeback",
+          status: "active",
+          isDefault: true,
+          config: {},
+          secretRefs: {
+            apiToken: "configured"
+          },
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        },
+        {
+          id: "provider-storage-001",
+          key: "local-storage",
+          kind: "storage",
+          displayName: "Local Storage Provider",
+          status: "active",
+          isDefault: true,
+          config: {
+            driver: "local",
+            localDir: "./storage"
+          },
+          secretRefs: {},
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        }
+      ]),
       count: vi.fn(async () => 0)
     },
     evaluationMetric: {
@@ -182,7 +310,39 @@ function createPrismaClientStub() {
       findMany: vi.fn(async () => [])
     },
     knowledgeEntry: {
-      findMany: vi.fn(async () => []),
+      findMany: vi.fn(async () => [
+        {
+          id: "provider-lims-001",
+          key: "lims-writeback",
+          kind: "lims",
+          displayName: "LIMS Writeback",
+          status: "active",
+          isDefault: true,
+          config: {},
+          secretRefs: {
+            apiToken: "configured"
+          },
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        },
+        {
+          id: "provider-storage-001",
+          key: "local-storage",
+          kind: "storage",
+          displayName: "Local Storage Provider",
+          status: "active",
+          isDefault: true,
+          config: {
+            driver: "local",
+            localDir: "./storage"
+          },
+          secretRefs: {},
+          updatedById: null,
+          createdAt: new Date("2026-06-05T08:00:00.000Z"),
+          updatedAt: new Date("2026-06-05T08:00:00.000Z")
+        }
+      ]),
       createMany: vi.fn(async () => ({ count: 0 }))
     }
   };
@@ -207,20 +367,6 @@ function createProductionEnvStub(): ProductionEnvStub {
         secretAccessKey: undefined
       }
     },
-      providers: {
-        ocr: {
-        provider: "none" as const,
-        endpoint: undefined,
-        apiKey: undefined
-      },
-      llm: {
-        provider: "none" as const,
-        model: "unconfigured-real-model",
-        baseUrl: undefined,
-        apiKey: undefined,
-        openAiApiKey: undefined
-      }
-    },
     lims: {
       baseUrl: "http://localhost:8090",
       clinicalInfoEndpoint: "/api/clinical-info/writeback",
@@ -231,23 +377,120 @@ function createProductionEnvStub(): ProductionEnvStub {
 }
 
 function createProductionEnvWithRealProvidersStub(): ProductionEnvStub {
-  const env = createProductionEnvStub();
-  env.providers = {
-    ocr: {
-      provider: "http",
-      endpoint: "http://ocr.example.test/recognize",
-      apiKey: undefined
-    },
-    llm: {
-      provider: "openai-responses",
-      model: "gpt-4.1-mini",
-      baseUrl: undefined,
-      apiKey: undefined,
-      openAiApiKey: "test-openai-api-key"
-    }
-  };
+  return createProductionEnvStub();
+}
 
-  return env;
+function createDefaultDbOcrProvider(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "provider-ocr-default-001",
+    key: "default-http-ocr",
+    kind: "ocr",
+    displayName: "Default HTTP OCR",
+    status: "active",
+    isDefault: true,
+    config: {
+      providerKind: "http",
+      endpoint: "http://ocr.example.test/recognize"
+    },
+    secretRefs: {},
+    updatedById: null,
+    createdAt: new Date("2026-06-05T08:00:00.000Z"),
+    updatedAt: new Date("2026-06-05T08:00:00.000Z"),
+    ...overrides
+  };
+}
+
+function createDefaultDbLlmProvider(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "provider-llm-default-001",
+    key: "default-openai-responses",
+    kind: "llm",
+    displayName: "Default OpenAI Responses",
+    status: "active",
+    isDefault: true,
+    config: {
+      providerKind: "openai-responses",
+      model: "gpt-4.1-mini"
+    },
+    secretRefs: {},
+    updatedById: null,
+    createdAt: new Date("2026-06-05T08:00:00.000Z"),
+    updatedAt: new Date("2026-06-05T08:00:00.000Z"),
+    ...overrides
+  };
+}
+
+function setupDefaultDbProviders(prisma: ReturnType<typeof createPrismaClientStub>) {
+  const ocrRecord = createDefaultDbOcrProvider();
+  const llmRecord = createDefaultDbLlmProvider();
+  // findMany hasn't been called yet at setup time, so we need to include
+  // the base stub providers (lims-writeback, local-storage) explicitly
+  vi.mocked(prisma.providerConfig.findMany).mockResolvedValue([
+    {
+      id: "provider-lims-001",
+      key: "lims-writeback",
+      kind: "lims",
+      displayName: "LIMS Writeback",
+      status: "active",
+      isDefault: true,
+      config: {},
+      secretRefs: { apiToken: "configured" },
+      updatedById: null,
+      createdAt: new Date("2026-06-05T08:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T08:00:00.000Z")
+    },
+    {
+      id: "provider-storage-001",
+      key: "local-storage",
+      kind: "storage",
+      displayName: "Local Storage Provider",
+      status: "active",
+      isDefault: true,
+      config: { driver: "local", localDir: "./storage" },
+      secretRefs: {},
+      updatedById: null,
+      createdAt: new Date("2026-06-05T08:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T08:00:00.000Z")
+    },
+    ocrRecord,
+    llmRecord
+  ]);
+  vi.mocked(prisma.providerConfig.findUnique).mockImplementation(async (input: ProviderConfigFindUniqueInputStub) => {
+    const key = input.where.key;
+    if (key === ocrRecord.key) return ocrRecord;
+    if (key === llmRecord.key) return llmRecord;
+    if (key === "lims-writeback") {
+      return {
+        id: "provider-lims-001",
+        key: "lims-writeback",
+        kind: "lims",
+        displayName: "LIMS Writeback",
+        status: "active",
+        isDefault: true,
+        config: {},
+        secretRefs: { apiToken: "configured" },
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      };
+    }
+    if (key === "local-storage") {
+      return {
+        id: "provider-storage-001",
+        key: "local-storage",
+        kind: "storage",
+        displayName: "Local Storage Provider",
+        status: "active",
+        isDefault: true,
+        config: { driver: "local", localDir: "./storage" },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      };
+    }
+    return null;
+  });
 }
 
 function createOpenAiResponsesClientStub(fieldKey = "clinicalDiagnosis", value = "模拟诊断") {
@@ -384,6 +627,7 @@ describe("production api services bootstrap", () => {
 
   it("装配真实 service 依赖，并让写回路径调用 LIMS adapter", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const limsAdapter = {
       execute: vi.fn(async () => ({
         id: "lims-result-001",
@@ -401,24 +645,7 @@ describe("production api services bootstrap", () => {
       statusText: "OK"
     }));
     const services = createProductionApiServices({
-      env: {
-        ...createProductionEnvStub(),
-        providers: {
-          ...createProductionEnvStub().providers,
-          ocr: {
-            provider: "http" as const,
-            endpoint: "http://ocr.example.test/recognize",
-            apiKey: undefined
-          },
-          llm: {
-            provider: "openai-responses" as const,
-            model: "gpt-4.1-mini",
-            baseUrl: undefined,
-            apiKey: undefined,
-            openAiApiKey: "test-openai-api-key"
-          }
-        }
-      },
+      env: createProductionEnvStub(),
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
       providerHealthFetch: healthFetch,
@@ -549,6 +776,7 @@ describe("production api services bootstrap", () => {
 
   it("生产手工写回缺 RecognitionResult readyFields 时拒绝裸 fields，避免绕过服务端可信边界", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     vi.mocked(prisma.recognitionResult.findUnique).mockResolvedValueOnce({
       id: "result-no-ready-fields",
       jobId: "job-001",
@@ -610,6 +838,7 @@ describe("production api services bootstrap", () => {
 
   it("生产写回 executor 拒绝未标记为服务端 workflow 的裸 fields 输入", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const limsAdapter = {
       execute: vi.fn(async () => ({
         id: "lims-result-should-not-run",
@@ -650,6 +879,7 @@ describe("production api services bootstrap", () => {
 
   it("生产识别编排把状态流转写入 Prisma 任务仓库", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const recognitionJobUpdate = vi.mocked(prisma.recognitionJob.update);
     const limsAdapter = {
       execute: vi.fn(async () => ({
@@ -671,11 +901,16 @@ describe("production api services bootstrap", () => {
       now: () => new Date("2026-06-05T09:00:00.000Z")
     });
 
-    await services.jobService.create({
-      schemaKey: "lims-clinical-info",
-      document: createSyntheticRecognitionDocument("demo-document-001")
-    });
-    await drainProductionJobs(services);
+    try {
+      await services.jobService.create({
+        schemaKey: "lims-clinical-info",
+        document: createSyntheticRecognitionDocument("demo-document-001")
+      });
+      await drainProductionJobs(services);
+    } catch (e) {
+      console.error("WORKFLOW ERROR:", e);
+      throw e;
+    }
 
     expect(recognitionJobUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -712,6 +947,7 @@ describe("production api services bootstrap", () => {
 
   it("生产高置信识别会自动调用 LIMS 写回 adapter 并持久化写回结果", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const limsAdapter = {
       execute: vi.fn(async () => ({
         id: "lims-result-auto-001",
@@ -793,6 +1029,7 @@ describe("production api services bootstrap", () => {
 
   it("生产识别任务会拒绝当前环境未配置的 providerConfig，避免静默落回默认 provider", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const services = createProductionApiServices({
       env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
@@ -936,24 +1173,47 @@ describe("production api services bootstrap", () => {
   });
 
   it("生产 LangChain provider 未注入真实模型时会启动期失败，避免空候选伪成功", () => {
-    const env = createProductionEnvStub();
-    env.providers.ocr = {
-      provider: "http",
-      endpoint: "http://ocr.example.test/recognize",
-      apiKey: undefined
-    };
-    env.providers.llm = {
-      provider: "langchain",
-      model: "langchain-configured-model",
-      baseUrl: undefined,
-      apiKey: undefined,
-      openAiApiKey: undefined
-    };
+    const prisma = createPrismaClientStub();
+    // Set up DB providers with langchain mode for LLM
+    vi.mocked(prisma.providerConfig.findMany).mockResolvedValue([
+      {
+        id: "provider-ocr-langchain-001",
+        key: "default-http-ocr",
+        kind: "ocr",
+        displayName: "Default HTTP OCR",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "http",
+          endpoint: "http://ocr.example.test/recognize"
+        },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      },
+      {
+        id: "provider-llm-langchain-001",
+        key: "default-langchain-model",
+        kind: "llm",
+        displayName: "Default LangChain Model",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "langchain",
+          model: "langchain-configured-model"
+        },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      }
+    ]);
 
     expect(() =>
       createProductionApiServices({
-        env,
-        prisma: createPrismaClientStub() as never,
+        env: createProductionEnvStub(),
+        prisma: prisma as never,
         now: () => new Date("2026-06-05T09:00:00.000Z")
       })
     ).toThrow(/LANGCHAIN_MODEL_NOT_CONFIGURED/);
@@ -961,19 +1221,41 @@ describe("production api services bootstrap", () => {
 
   it("生产 LangChain provider 使用注入的真实模型形状执行结构化抽取", async () => {
     const prisma = createPrismaClientStub();
-    const env = createProductionEnvStub();
-    env.providers.ocr = {
-      provider: "http",
-      endpoint: "http://ocr.example.test/recognize",
-      apiKey: undefined
-    };
-    env.providers.llm = {
-      provider: "langchain",
-      model: "langchain-configured-model",
-      baseUrl: "https://llm-gateway.example.test/v1",
-      apiKey: "secret-langchain-key",
-      openAiApiKey: undefined
-    };
+    // Set up DB providers with langchain mode for LLM
+    vi.mocked(prisma.providerConfig.findMany).mockResolvedValue([
+      {
+        id: "provider-ocr-langchain-002",
+        key: "default-http-ocr",
+        kind: "ocr",
+        displayName: "Default HTTP OCR",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "http",
+          endpoint: "http://ocr.example.test/recognize"
+        },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      },
+      {
+        id: "provider-llm-langchain-002",
+        key: "default-langchain-model",
+        kind: "llm",
+        displayName: "Default LangChain Model",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "langchain",
+          model: "langchain-configured-model"
+        },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      }
+    ]);
     const invoke = vi.fn(async () => ({
       fields: [
         {
@@ -994,7 +1276,7 @@ describe("production api services bootstrap", () => {
     }));
     const withStructuredOutput = vi.fn(() => ({ invoke }));
     const services = createProductionApiServices({
-      env,
+      env: createProductionEnvStub(),
       prisma: prisma as never,
       providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
       langChainModel: {
@@ -1016,19 +1298,41 @@ describe("production api services bootstrap", () => {
 
   it("生产 OpenAI Responses provider 使用注入的真实 SDK client 形状而不是占位 throw", async () => {
     const prisma = createPrismaClientStub();
-    const env = createProductionEnvStub();
-    env.providers.ocr = {
-      provider: "http",
-      endpoint: "http://ocr.example.test/recognize",
-      apiKey: undefined
-    };
-    env.providers.llm = {
-      provider: "openai-responses",
-      model: "gpt-4.1-mini",
-      baseUrl: undefined,
-      apiKey: undefined,
-      openAiApiKey: "secret-openai-api-key"
-    };
+    // Set up DB providers with openai-responses mode for LLM
+    vi.mocked(prisma.providerConfig.findMany).mockResolvedValue([
+      {
+        id: "provider-ocr-openai-001",
+        key: "default-http-ocr",
+        kind: "ocr",
+        displayName: "Default HTTP OCR",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "http",
+          endpoint: "http://ocr.example.test/recognize"
+        },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      },
+      {
+        id: "provider-llm-openai-001",
+        key: "default-openai-responses",
+        kind: "llm",
+        displayName: "Default OpenAI Responses",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "openai-responses",
+          model: "gpt-4.1-mini"
+        },
+        secretRefs: {},
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      }
+    ]);
     const responsesCreate = vi.fn(async () => ({
       output_text: JSON.stringify({
         fields: [
@@ -1060,7 +1364,7 @@ describe("production api services bootstrap", () => {
       }))
     };
     const services = createProductionApiServices({
-      env,
+      env: createProductionEnvStub(),
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
       providerRuntimeFetch: createProviderRuntimeFetchStub() as unknown as typeof fetch,
@@ -1091,6 +1395,7 @@ describe("production api services bootstrap", () => {
 
   it("生产识别任务会拒绝当前环境未启用的 schemaKey，避免静默落回 LIMS 默认 schema", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const services = createProductionApiServices({
       env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
@@ -1231,6 +1536,7 @@ describe("production api services bootstrap", () => {
 
   it("生产评估运行会执行 core runner、创建评估识别任务并持久化指标", async () => {
     const prisma = createPrismaClientStub();
+    setupDefaultDbProviders(prisma);
     const services = createProductionApiServices({
       env: createProductionEnvWithRealProvidersStub(),
       prisma: prisma as never,
@@ -1558,19 +1864,52 @@ describe("production api services bootstrap", () => {
 
   it("生产 HTTP OCR provider 健康检查会执行可注入的最小请求并隐藏 apiKey", async () => {
     const prisma = createPrismaClientStub();
+    // Set up DB OCR provider with apiKey secretRef
+    vi.mocked(prisma.providerConfig.findMany).mockResolvedValue([
+      {
+        id: "provider-http-ocr-health-001",
+        key: "http-ocr",
+        kind: "ocr",
+        displayName: "HTTP OCR",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "http",
+          endpoint: "http://ocr.internal/api/recognize"
+        },
+        secretRefs: {
+          apiKey: "secret-ocr-api-key"
+        },
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      }
+    ]);
+    vi.mocked(prisma.providerConfig.findUnique).mockResolvedValue({
+      id: "provider-http-ocr-health-001",
+      key: "http-ocr",
+      kind: "ocr",
+      displayName: "HTTP OCR",
+      status: "active",
+      isDefault: true,
+      config: {
+        providerKind: "http",
+        endpoint: "http://ocr.internal/api/recognize"
+      },
+      secretRefs: {
+        apiKey: "secret-ocr-api-key"
+      },
+      updatedById: null,
+      createdAt: new Date("2026-06-05T08:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T08:00:00.000Z")
+    });
     const healthFetch = vi.fn(async () => ({
       ok: true,
       status: 204,
       statusText: "No Content"
     }));
-    const env = createProductionEnvStub();
-    env.providers.ocr = {
-      provider: "http",
-      endpoint: "http://ocr.internal/api/recognize",
-      apiKey: "secret-ocr-api-key"
-    };
     const services = createProductionApiServices({
-      env,
+      env: createProductionEnvStub(),
       prisma: prisma as never,
       providerHealthFetch: healthFetch,
       now: () => new Date("2026-06-05T09:00:00.000Z")
@@ -1611,17 +1950,50 @@ describe("production api services bootstrap", () => {
 
   it("生产 HTTP OCR provider 健康检查失败时返回脱敏结果", async () => {
     const prisma = createPrismaClientStub();
+    // Set up DB OCR provider with apiKey secretRef
+    vi.mocked(prisma.providerConfig.findMany).mockResolvedValue([
+      {
+        id: "provider-http-ocr-health-002",
+        key: "http-ocr",
+        kind: "ocr",
+        displayName: "HTTP OCR",
+        status: "active",
+        isDefault: true,
+        config: {
+          providerKind: "http",
+          endpoint: "http://ocr.internal/api/recognize"
+        },
+        secretRefs: {
+          apiKey: "secret-ocr-api-key"
+        },
+        updatedById: null,
+        createdAt: new Date("2026-06-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-06-05T08:00:00.000Z")
+      }
+    ]);
+    vi.mocked(prisma.providerConfig.findUnique).mockResolvedValue({
+      id: "provider-http-ocr-health-002",
+      key: "http-ocr",
+      kind: "ocr",
+      displayName: "HTTP OCR",
+      status: "active",
+      isDefault: true,
+      config: {
+        providerKind: "http",
+        endpoint: "http://ocr.internal/api/recognize"
+      },
+      secretRefs: {
+        apiKey: "secret-ocr-api-key"
+      },
+      updatedById: null,
+      createdAt: new Date("2026-06-05T08:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T08:00:00.000Z")
+    });
     const healthFetch = vi.fn(async () => {
       throw new Error("network failed with secret-ocr-api-key");
     });
-    const env = createProductionEnvStub();
-    env.providers.ocr = {
-      provider: "http",
-      endpoint: "http://ocr.internal/api/recognize",
-      apiKey: "secret-ocr-api-key"
-    };
     const services = createProductionApiServices({
-      env,
+      env: createProductionEnvStub(),
       prisma: prisma as never,
       providerHealthFetch: healthFetch,
       now: () => new Date("2026-06-05T09:00:00.000Z")

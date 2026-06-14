@@ -2,43 +2,44 @@
 
 ## 审计范围
 
-### 1. API 端点完整性
-检查以下端点是否正常工作（用 curl 测试）：
-- POST /auth/login（正确密码、错误密码、空输入）
-- GET /providers（列表）
-- PUT /providers/:key（toggle enabled）
-- GET /schemas（列表）
-- POST /files（上传）
-- POST /jobs（创建任务）
-- GET /jobs/:id（详情）
-- GET /results/:id（结果）
-- GET /feedback/all（反馈列表）
-- GET /audit（审计日志）
+### 1. 集成测试验证
+运行 `npx vitest run apps/api/src/integration/api-e2e.integration.test.ts --reporter=verbose`，记录所有失败的测试用例，分析根因。
 
-### 2. 数据库一致性
-- ProviderConfig 表是否有且仅有 4 个 provider
-- 没有 test- 前缀的垃圾数据
+### 2. 单元测试验证
+运行 `npx vitest run --reporter=verbose`（排除 integration），确认全部通过。
 
-### 3. 测试覆盖
-- 运行 npm test（排除 integration 测试）
-- 检查是否有失败的测试
-- 检查测试覆盖率是否合理
+### 3. API 端点实际调用测试
+用 curl 测试以下端点（API 在 localhost:3000）：
+- POST /api/auth/login（正确密码 admin.dev@example.local / admin123）
+- GET /api/providers
+- PUT /api/providers/:key（toggle enabled）
+- GET /api/schemas
+- POST /api/files（上传文件元数据）
+- POST /api/jobs（创建任务）
+- GET /api/jobs/:id
+- GET /api/feedback/all
+- GET /api/audit
 
-### 4. 代码质量
-- 检查是否有 TODO/FIXME/HACK 注释
-- 检查是否有 console.log 残留
-- 检查是否有未处理的 Promise
+### 4. 上传→创建任务完整链路
+测试 POST /api/files 上传 → 拿到 fileId → POST /api/jobs { sourceFileId } 创建任务的完整流程。
 
-### 5. 安全性
-- 检查 auth 错误处理（不应泄露敏感信息）
-- 检查 env provider 是否被保护（不可通过 API 修改）
-- 检查 JWT 密钥是否在代码中硬编码
+### 5. 数据库一致性
+- ProviderConfig 表是否干净（无垃圾数据）
+- 所有外键关系是否正确
+
+### 6. 前端构建
+cd /tmp/Medical-Record-Agent/medical-ui && npm run build
+
+### 7. 代码质量扫描
+- grep -rn "TODO\|FIXME\|HACK" --include="*.ts" | grep -v node_modules | grep -v test
+- grep -rn "console\.log" --include="*.ts" | grep -v node_modules | grep -v test
+- 检查 crypto.subtle 等浏览器兼容性问题
 
 ## 输出要求
-将审计报告写入 /tmp/Medical-Record-Agent/AUDIT-REPORT.md，包含：
-1. 每个检查项的通过/失败状态
-2. 失败项的具体错误信息
+将完整审计报告写入 /tmp/Medical-Record-Agent/CODEX-AUDIT-REPORT.md，包含：
+1. 每个测试项的通过/失败状态
+2. 失败项的根因分析
 3. 修复建议
-4. 总体评分（A/B/C/D）
+4. 总体评分（0-100）
 
-完成后在报告末尾写上 `---审计完成---`
+【重要】不要问问题，不要启动浏览器，不要询问确认。直接开始工作。

@@ -56,7 +56,7 @@ export function registerKnowledgeRoutes(
         fieldKey: query.fieldKey,
         search: query.search,
       });
-      return reply.send({ entries, total: entries.length });
+      return reply.send({ items: entries, total: entries.length });
     }
   );
 

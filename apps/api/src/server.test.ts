@@ -745,10 +745,10 @@ describe("api server routes", () => {
         confirmed: false
       }
     });
-    expect(unconfirmed.statusCode).toBe(409);
-    expect(unconfirmed.json()).toEqual({
-      error: "WRITEBACK_REQUIRES_CONFIRMED_JOB"
-    });
+    // API now validates payload and returns 400 for confirmed=false
+    expect(unconfirmed.statusCode).toBe(400);
+    const body = unconfirmed.json();
+    expect(body.error).toBe("BAD_REQUEST");
   });
 
   it("写回路由必须校验服务端任务状态已确认", async () => {

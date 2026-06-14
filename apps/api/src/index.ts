@@ -15,8 +15,6 @@ const server = await createApiServer({
   runtimeInfo: {
     serviceMode: "production",
     providers: {
-      ocr: env.providers.ocr.provider,
-      llm: env.providers.llm.provider,
       storage: env.storage.driver,
       writeback: "lims"
     },

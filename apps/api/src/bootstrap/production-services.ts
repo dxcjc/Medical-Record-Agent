@@ -80,7 +80,7 @@ import {
   type StorageProvider
 } from "../storage";
 
-type ProductionEnv = Pick<AppEnv, "jwt" | "storage" | "providers" | "lims">;
+type ProductionEnv = Pick<AppEnv, "jwt" | "storage" | "lims">;
 type ProviderHealthFetch = (url: string, init: RequestInit) => Promise<Pick<Response, "ok" | "status" | "statusText">>;
 type ProviderRuntimeFetch = typeof fetch;
 type ProductionProviderRepository = ReturnType<typeof createProviderRepository>;
@@ -1034,123 +1034,6 @@ type ProviderConfigRecord = {
  * 从数据库 ProviderConfig 提取配置值，fallback 到 env。
  * 数据库配置优先级高于环境变量。
  */
-function mergeOcrEnvWithDbConfig(env: ProductionEnv, dbConfig?: ProviderConfigRecord) {
-  return {
-    provider: (dbConfig?.config?.provider as string) ?? env.providers.ocr.provider,
-    endpoint: (dbConfig?.config?.endpoint as string) ?? env.providers.ocr.endpoint,
-    apiKey: (dbConfig?.config?.apiKey as string) ?? env.providers.ocr.apiKey
-  };
-}
-
-function mergeLlmEnvWithDbConfig(env: ProductionEnv, dbConfig?: ProviderConfigRecord) {
-  return {
-    provider: (dbConfig?.config?.provider as string) ?? env.providers.llm.provider,
-    model: (dbConfig?.config?.model as string) ?? env.providers.llm.model,
-    baseUrl: (dbConfig?.config?.endpoint as string) ?? env.providers.llm.baseUrl,
-    apiKey: (dbConfig?.config?.apiKey as string) ?? env.providers.llm.apiKey,
-    openAiApiKey: (dbConfig?.config?.openAiApiKey as string) ?? env.providers.llm.openAiApiKey
-  };
-}
-
-function buildOcrProvider(env: ProductionEnv, runtimeOptions: ProviderRuntimeOptions, dbConfig?: ProviderConfigRecord) {
-  const effective = mergeOcrEnvWithDbConfig(env, dbConfig);
-  if (effective.provider === "http") {
-    return createOcrProvider({
-      kind: "http",
-      http: {
-        endpoint: effective.endpoint ?? "",
-        headers: effective.apiKey ? { Authorization: `Bearer ${effective.apiKey}` } : {},
-        ...(runtimeOptions.providerRuntimeFetch ? { fetchFn: runtimeOptions.providerRuntimeFetch } : {}),
-        timeoutMs: 30_000
-      }
-    });
-  }
-
-  return createUnconfiguredOcrProvider();
-}
-
-function buildModelProvider(
-  env: ProductionEnv,
-  options: {
-    langChainModel?: LangChainModelLike;
-    openAiResponsesClient?: OpenAiResponsesClientLike;
-  } = {},
-  dbConfig?: ProviderConfigRecord
-) {
-  const effective = mergeLlmEnvWithDbConfig(env, dbConfig);
-
-  if (effective.provider === "openai-compatible") {
-    const httpConfig: Parameters<typeof createModelProvider>[0] = {
-      kind: "http",
-      http: {
-        endpoint: effective.baseUrl ?? "",
-        model: effective.model,
-        timeoutMs: 90_000
-      }
-    };
-
-    if (effective.apiKey) {
-      httpConfig.http.apiKey = effective.apiKey;
-    }
-
-    return createModelProvider({
-      ...httpConfig
-    });
-  }
-
-  if (effective.provider === "langchain") {
-    const apiKey = effective.openAiApiKey ?? effective.apiKey;
-    const openAiLangChainConfig: Parameters<typeof createOpenAiLangChainModel>[0] | undefined = apiKey
-      ? {
-          apiKey,
-          model: effective.model
-        }
-      : undefined;
-
-    if (openAiLangChainConfig && effective.baseUrl) {
-      openAiLangChainConfig.baseUrl = effective.baseUrl;
-    }
-
-    const model =
-      options.langChainModel ??
-      (openAiLangChainConfig ? createOpenAiLangChainModel(openAiLangChainConfig) : undefined);
-
-    if (!model) {
-      // 测试或部署层绕过 env 校验时仍然要在启动阶段失败，避免无密钥状态被误判为真实模型可用。
-      throw new Error("LANGCHAIN_MODEL_NOT_CONFIGURED");
-    }
-
-    return createModelProvider({
-      kind: "langchain",
-      langchain: {
-        providerName: "langchain-model",
-        model
-      }
-    });
-  }
-
-  if (effective.provider === "openai-responses") {
-    const client =
-      options.openAiResponsesClient ??
-      createOpenAiResponsesClient({
-        apiKey: effective.openAiApiKey ?? ""
-      });
-
-    return createModelProvider({
-      kind: "openai-responses",
-      openAiResponses: {
-        model: effective.model,
-        experimental: {
-          enabled: true
-        },
-        client
-      }
-    });
-  }
-
-  return createUnconfiguredModelProvider();
-}
-
 function buildModelProviderOptions(options: CreateProductionApiServicesOptions) {
   const modelProviderOptions: ProviderRuntimeOptions = {
     secretResolver: options.secretResolver ?? createSecretResolverFromEnv()
@@ -1299,19 +1182,21 @@ async function buildSavedModelProvider(input: {
   }
 
   // 在线保存的 HTTP / OpenAI-compatible 配置从非敏感 JSON 字段读取 endpoint、model 和 headers；
-  // apiKey 只通过 secretRefs 交给可插拔 resolver 解析，不从 provider config 明文字段读取。
+  // apiKey 优先从 secretRefs 解析（安全存储），若无则直接从 config 读取（数据库存储）。
   if (mode === "http" || mode === "openai-compatible") {
     const endpoint = readOptionalString(input.config.endpoint);
     if (!endpoint) {
       return null;
     }
-    const apiKey = await resolveSecretValue({
+    // 优先从 secretRefs 解析 apiKey
+    let apiKey = await resolveSecretValue({
       secretRefs: input.secretRefs,
       key: "apiKey",
       resolver: input.runtimeOptions.secretResolver
     });
-    if (apiKey === null) {
-      return null;
+    // 若 secretRefs 未配置或解析失败，尝试从 config 直接读取
+    if (apiKey === null || apiKey === undefined) {
+      apiKey = readOptionalString(input.config.apiKey);
     }
 
     return createModelProvider({
@@ -1384,18 +1269,6 @@ function buildStorageProvider(env: ProductionEnv): StorageProvider {
   return createLocalStorageProvider({
     rootDir: env.storage.localDir
   });
-}
-
-function getConfiguredOcrProviderKey(env: ProductionEnv) {
-  return env.providers.ocr.provider === "http" ? "http-ocr" : undefined;
-}
-
-function getConfiguredModelProviderKey(env: ProductionEnv) {
-  if (env.providers.llm.provider === "none") {
-    return undefined;
-  }
-
-  return env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`;
 }
 
 function createRealProviderNotConfiguredError(providerName: string) {
@@ -1660,11 +1533,8 @@ async function resolveProductionProviderRuntime(input: {
   const config = readPayloadRecord(input.providerConfig);
   const ocrProviderKey = readOptionalString(config.ocrProviderKey);
   const modelProviderKey = readOptionalString(config.providerKey);
-  const configuredOcrProviderKey = getConfiguredOcrProviderKey(input.env);
-  const configuredModelProviderKey = getConfiguredModelProviderKey(input.env);
   const effectiveOcrProviderKey =
     ocrProviderKey ??
-    configuredOcrProviderKey ??
     (await findDefaultSavedProviderKey({
       expectedKind: "ocr",
       providerRepository: input.providerRepository
@@ -1674,11 +1544,9 @@ async function resolveProductionProviderRuntime(input: {
     (await findDefaultSavedProviderKey({
       expectedKind: "llm",
       providerRepository: input.providerRepository
-    })) ??
-    configuredModelProviderKey;
+    }));
   const providers: ProductionProviderRuntimeSelection = {};
 
-  // 调用方选择 env 默认 key 时无需重新实例化；只有选择在线保存的非默认 key 时才读取数据库配置。
   if (effectiveOcrProviderKey === undefined) {
     return { available: false };
   }
@@ -1686,44 +1554,33 @@ async function resolveProductionProviderRuntime(input: {
     return { available: false };
   }
 
-  if (effectiveOcrProviderKey !== configuredOcrProviderKey) {
-    const provider = await resolveSavedProviderRuntime({
-      key: effectiveOcrProviderKey,
-      expectedKind: "ocr",
-      providerRepository: input.providerRepository,
-      runtimeOptions: input.runtimeOptions
-    });
-    if (!provider) {
-      return { available: false };
-    }
-    providers.ocrProvider = provider as OcrProvider;
+  const ocrProvider = await resolveSavedProviderRuntime({
+    key: effectiveOcrProviderKey,
+    expectedKind: "ocr",
+    providerRepository: input.providerRepository,
+    runtimeOptions: input.runtimeOptions
+  });
+  if (!ocrProvider) {
+    return { available: false };
   }
+  providers.ocrProvider = ocrProvider as OcrProvider;
 
-  if (effectiveModelProviderKey !== configuredModelProviderKey) {
-    const provider = await resolveSavedProviderRuntime({
-      key: effectiveModelProviderKey,
-      expectedKind: "llm",
-      providerRepository: input.providerRepository,
-      runtimeOptions: input.runtimeOptions
-    });
-    if (!provider) {
-      return { available: false };
-    }
-    providers.modelProvider = provider as ModelProvider;
+  const modelProvider = await resolveSavedProviderRuntime({
+    key: effectiveModelProviderKey,
+    expectedKind: "llm",
+    providerRepository: input.providerRepository,
+    runtimeOptions: input.runtimeOptions
+  });
+  if (!modelProvider) {
+    return { available: false };
   }
-
-  if (Object.keys(providers).length > 0) {
-    return {
-      available: true,
-      providers
-    };
-  }
+  providers.modelProvider = modelProvider as ModelProvider;
 
   return {
-    available: true
+    available: true,
+    providers
   };
 }
-
 function createProviderConfigAwareOrchestrator(input: {
   env: ProductionEnv;
   schemaRepository: ProductionSchemaRepository;
@@ -1995,100 +1852,9 @@ function createProviderRegistry(
   providerRepository: ProductionProviderRepository,
   secretResolver: SecretResolver
 ): ProviderRegistry {
-  const environmentProviders: EnvironmentProviderConfig[] = [
-    ...(env.providers.ocr.provider === "http"
-      ? [
-          {
-            key: "http-ocr",
-            kind: "ocr" as const,
-            displayName: "PaddleOCR 本地服务",
-            enabled: true,
-            isDefault: true,
-            isMock: false,
-            config: {
-              provider: env.providers.ocr.provider,
-              endpoint: env.providers.ocr.endpoint ?? null
-            },
-            secretRefs: env.providers.ocr.apiKey ? { apiKey: "configured" } : {}
-          }
-        ]
-      : []),
-    ...(env.providers.llm.provider !== "none"
-      ? [
-          {
-            key: env.providers.llm.provider === "openai-compatible" ? "openai-compatible-model" : `${env.providers.llm.provider}-model`,
-            kind: "llm" as const,
-            displayName: env.providers.llm.model ? `${env.providers.llm.model.toUpperCase()} (${env.providers.llm.provider})` : `${env.providers.llm.provider} Model Provider`,
-            enabled: true,
-            isDefault: true,
-            isMock: false,
-            config: {
-              provider: env.providers.llm.provider,
-              model: env.providers.llm.model,
-              baseUrl: env.providers.llm.baseUrl ?? null
-            },
-            secretRefs: env.providers.llm.apiKey || env.providers.llm.openAiApiKey ? { apiKey: "configured" } : {}
-          }
-        ]
-      : []),
-    ...(env.lims.baseUrl && env.lims.clinicalInfoEndpoint && env.lims.apiToken
-      ? [
-          {
-            key: "lims-writeback",
-            kind: "lims" as const,
-            displayName: "LIMS Writeback Adapter",
-            enabled: true,
-            isDefault: true,
-            isMock: false,
-            config: {
-              endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
-              timeoutMs: env.lims.timeoutMs
-            },
-            secretRefs: { apiToken: "configured" }
-          }
-        ]
-      : []),
-    ...(env.storage.driver === "s3"
-      ? [
-          {
-            key: "s3-storage",
-            kind: "storage" as const,
-            displayName: "S3 Storage Provider",
-            enabled: true,
-            isDefault: true,
-            isMock: false,
-            config: {
-              driver: env.storage.driver,
-              bucket: env.storage.s3.bucket ?? null,
-              localDir: null
-            },
-            secretRefs:
-              env.storage.s3.accessKeyId || env.storage.s3.secretAccessKey
-                ? { accessKeyId: "configured", secretAccessKey: "configured" }
-                : {}
-          }
-        ]
-      : env.storage.driver === "local"
-        ? [
-            {
-              key: "local-storage",
-              kind: "storage" as const,
-              displayName: "Local Storage Provider",
-              enabled: true,
-              isDefault: true,
-              isMock: false,
-              config: {
-                driver: env.storage.driver,
-                localDir: env.storage.localDir,
-                bucket: null
-              },
-              secretRefs: {}
-            }
-          ]
-        : [])
-  ];
-
-  const environmentProviderKeys = new Set(environmentProviders.map((p) => p.key));
+  const environmentProviders: EnvironmentProviderConfig[] = [];
+  
+  const environmentProviderKeys = new Set<string>();
 
   return {
     async list() {
@@ -2351,25 +2117,16 @@ function createProviderRegistry(
       }
 
       const missingConfig: string[] = [];
-      if (provider.kind === "ocr" && provider.key === "http-ocr" && !env.providers.ocr.endpoint) {
-        missingConfig.push("OCR_ENDPOINT");
-      }
-      if (provider.kind === "llm" && env.providers.llm.provider === "openai-compatible" && !env.providers.llm.baseUrl) {
-        missingConfig.push("LLM_BASE_URL");
-      }
-      if (provider.kind === "llm" && env.providers.llm.provider === "openai-responses" && !env.providers.llm.openAiApiKey) {
-        missingConfig.push("OPENAI_API_KEY");
-      }
       if (provider.kind === "lims" && (!env.lims.baseUrl || !env.lims.apiToken || !env.lims.clinicalInfoEndpoint)) {
         missingConfig.push("LIMS_BASE_URL", "LIMS_API_TOKEN", "LIMS_CLINICAL_INFO_ENDPOINT");
       }
       if (provider.kind === "storage" && env.storage.driver === "s3" && !env.storage.s3.bucket) {
         missingConfig.push("S3_BUCKET");
       }
-
+      
       if (provider.kind === "storage" && missingConfig.length === 0) {
         const probe = await runStorageHealthProbe(storageProvider, now);
-
+      
         return {
           key: provider.key,
           kind: provider.kind,
@@ -2381,29 +2138,7 @@ function createProviderRegistry(
           secretRefs: provider.secretRefs
         };
       }
-
-      if (provider.kind === "ocr" && provider.key === "http-ocr" && missingConfig.length === 0) {
-        const ocrProbeInput: Parameters<typeof runOcrHealthProbe>[0] = {
-          endpoint: env.providers.ocr.endpoint ?? "",
-          healthFetch: providerHealthFetch
-        };
-        if (env.providers.ocr.apiKey !== undefined) {
-          ocrProbeInput.apiKey = env.providers.ocr.apiKey;
-        }
-        const probe = await runOcrHealthProbe(ocrProbeInput);
-
-        return {
-          key: provider.key,
-          kind: provider.kind,
-          status: probe.status,
-          checkedAt: now().toISOString(),
-          message: probe.message,
-          latencyMs: probe.latencyMs,
-          probe: probe.probe,
-          secretRefs: provider.secretRefs
-        };
-      }
-
+      
       if (provider.kind === "lims" && missingConfig.length === 0 && env.lims.baseUrl && env.lims.clinicalInfoEndpoint && env.lims.apiToken) {
         const probe = await runLimsHealthProbe({
           endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
@@ -2443,6 +2178,11 @@ function createProviderRegistry(
           code: "PROVIDER_NOT_FOUND",
           statusCode: 404
         });
+      }
+
+      // 已删除的 provider 不能再次删除
+      if (persistedProvider.status === "deleted" || persistedProvider.status === "disabled") {
+        return { deleted: false, reason: "already_deleted" };
       }
 
       const normalizedProvider = normalizeProviderConfigRecord({
@@ -2843,8 +2583,8 @@ export function createProductionApiServices(options: CreateProductionApiServices
     createJobOrchestrator({
       repository: createPrismaJobTransitionRepository(jobsRepository, now),
       schema,
-      ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env, modelProviderOptions),
-      modelProvider: providers.modelProvider ?? buildModelProvider(options.env, modelProviderOptions),
+      ocrProvider: providers.ocrProvider ?? createUnconfiguredOcrProvider(),
+      modelProvider: providers.modelProvider ?? createUnconfiguredModelProvider(),
       knowledgeRetriever: createDatabaseKnowledgeRetriever(knowledgeRepository),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: true,
@@ -2869,10 +2609,10 @@ export function createProductionApiServices(options: CreateProductionApiServices
     createJobOrchestrator({
       repository: createPrismaJobTransitionRepository(jobsRepository, now),
       schema,
-      ocrProvider: providers.ocrProvider ?? buildOcrProvider(options.env, modelProviderOptions),
+      ocrProvider: providers.ocrProvider ?? createUnconfiguredOcrProvider(),
       modelProvider:
         providers.modelProvider ??
-        buildModelProvider(options.env, modelProviderOptions),
+        createUnconfiguredModelProvider(),
       knowledgeRetriever: createDatabaseKnowledgeRetriever(knowledgeRepository),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: false,

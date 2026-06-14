@@ -179,3 +179,26 @@ pnpm prisma studio                                # 数据库 GUI
 pnpm test                                         # 全量测试
 pnpm typecheck                                    # 类型检查
 ```
+
+## ⚠️ 已知 Bug 记录（必须阅读）
+
+### Bug：空字符串导致 Zod optionalNonEmptyString 校验失败（2026-06-15 已修复）
+
+**现象：** HTTP 环境下（非 HTTPS/localhost）上传文件返回 400 BAD_REQUEST
+**根因：** Zod 的 `optionalNonEmptyString`（`z.string().min(1).optional()`）只接受 `undefined`，不接受空字符串 `""`。前端在 HTTP 环境下 `crypto.subtle` 不可用，`checksumSha256` 被设为 `""` 而非省略
+**教训：**
+- 前端发送可选字段时必须用 `...(val ? { val } : {})` 条件展开，不能直接赋空字符串
+- `z.string().min(1).optional()` 与 `z.string().optional()` 行为不同：前者拒绝 `""`，后者接受
+- 浏览器 Web Crypto API（`crypto.subtle`）要求 HTTPS 或 localhost
+
+### Bug：env 双环境并存导致配置混乱（2026-06-15 已修复）
+
+**现象：** 业务配置同时存在于 `.env` 文件和数据库 ProviderConfig 表
+**教训：** 配置迁移到数据库后必须删除 env 中的业务配置，`.env` 只保留基础设施配置
+
+### Bug：Provider isDefault 未设置（2026-06-15 已修复）
+
+**现象：** 创建识别任务报 `PROVIDER_CONFIG_NOT_AVAILABLE`
+**教训：** 新增 Provider 后必须检查 `isDefault` 字段，系统只使用默认 Provider
+
+**详细修复记录：** 见 `FIX-RECORD-2026-06-15.md`

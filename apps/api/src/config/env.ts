@@ -22,16 +22,6 @@ const rawEnvSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1, "S3_ACCESS_KEY_ID 不能为空").optional(),
   S3_SECRET_ACCESS_KEY: z.string().min(1, "S3_SECRET_ACCESS_KEY 不能为空").optional(),
 
-  OCR_PROVIDER: z.enum(["none", "http"]).default("none"),
-  OCR_ENDPOINT: z.string().url("OCR_ENDPOINT 必须是合法 URL").optional(),
-  OCR_API_KEY: z.string().optional().transform(v => v || undefined),
-
-  LLM_PROVIDER: z.enum(["none", "langchain", "openai-compatible", "openai-responses"]).default("none"),
-  LLM_MODEL: z.string().min(1, "LLM_MODEL 不能为空").optional(),
-  LLM_BASE_URL: z.string().url("LLM_BASE_URL 必须是合法 URL").optional(),
-  LLM_API_KEY: z.string().optional().transform(v => v || undefined),
-  OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY 不能为空").optional(),
-
   LIMS_BASE_URL: z.string().url("LIMS_BASE_URL 必须是合法 URL").optional(),
   LIMS_CLINICAL_INFO_ENDPOINT: z.string().min(1, "LIMS_CLINICAL_INFO_ENDPOINT 不能为空").optional(),
   LIMS_API_TOKEN: z.string().min(1, "LIMS_API_TOKEN 不能为空").optional(),
@@ -50,49 +40,6 @@ const checkedEnvSchema = rawEnvSchema.superRefine((env, context) => {
         });
       }
     }
-  }
-
-  // 未配置真实 OCR provider 时保留 none 状态；真实 OCR provider 必须显式提供 endpoint，token 可按测试服务策略选填。
-  if (env.OCR_PROVIDER === "http" && !env.OCR_ENDPOINT) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["OCR_ENDPOINT"],
-      message: "OCR_PROVIDER=http 时必须配置 OCR_ENDPOINT"
-    });
-  }
-
-  if (env.LLM_PROVIDER !== "none" && !env.LLM_MODEL) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["LLM_MODEL"],
-      message: "配置真实 LLM provider 时必须配置 LLM_MODEL"
-    });
-  }
-
-  // 真实模型 provider 必须声明模型网关地址或 OpenAI key，防止启动后把请求发到不明确的目标。
-  if (env.LLM_PROVIDER === "openai-compatible" && (!env.LLM_BASE_URL || !env.LLM_API_KEY)) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["LLM_BASE_URL"],
-      message: "LLM_PROVIDER=openai-compatible 时必须配置 LLM_BASE_URL 和 LLM_API_KEY"
-    });
-  }
-
-  // LangChain 是真实模型调用链路，必须至少提供一个模型访问密钥；未配置状态不会进入识别主链路。
-  if (env.LLM_PROVIDER === "langchain" && !env.LLM_API_KEY && !env.OPENAI_API_KEY) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["LLM_API_KEY"],
-      message: "LLM_PROVIDER=langchain 时必须配置 LLM_API_KEY 或 OPENAI_API_KEY"
-    });
-  }
-
-  if (env.LLM_PROVIDER === "openai-responses" && !env.OPENAI_API_KEY) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["OPENAI_API_KEY"],
-      message: "LLM_PROVIDER=openai-responses 时必须配置 OPENAI_API_KEY"
-    });
   }
 });
 
@@ -133,20 +80,6 @@ export function parseEnv(input: NodeJS.ProcessEnv) {
         bucket: env.S3_BUCKET,
         accessKeyId: env.S3_ACCESS_KEY_ID,
         secretAccessKey: env.S3_SECRET_ACCESS_KEY
-      }
-    },
-    providers: {
-      ocr: {
-        provider: env.OCR_PROVIDER,
-        endpoint: env.OCR_ENDPOINT,
-        apiKey: env.OCR_API_KEY
-      },
-      llm: {
-        provider: env.LLM_PROVIDER,
-        model: env.LLM_MODEL ?? "unconfigured-real-model",
-        baseUrl: env.LLM_BASE_URL,
-        apiKey: env.LLM_API_KEY,
-        openAiApiKey: env.OPENAI_API_KEY
       }
     },
     lims: {

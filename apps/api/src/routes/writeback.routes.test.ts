@@ -193,10 +193,13 @@ describe("writeback routes", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json()).toEqual({
-      error: "BAD_REQUEST",
-      message: "Invalid writeback payload"
-    });
+    const body = response.json();
+    expect(body.error).toBe("BAD_REQUEST");
+    expect(body.message).toBe("Invalid writeback payload");
+    // API now includes validation details
+    if (body.details) {
+      expect(Array.isArray(body.details)).toBe(true);
+    }
     expect(writebackService.execute).not.toHaveBeenCalled();
   });
 
