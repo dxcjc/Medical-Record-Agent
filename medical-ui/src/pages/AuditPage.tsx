@@ -12,6 +12,7 @@ import {
   DatePicker,
   Grid,
   Spin,
+  Tooltip,
 } from '@arco-design/web-react';
 import { useQuery } from '@tanstack/react-query';
 import { auditApi, statsApi, schemasApi } from '../api/client';
@@ -39,6 +40,7 @@ const { Row, Col } = Grid;
 /* ------------------------------------------------------------------ */
 
 const ACTION_LABELS: Record<string, string> = {
+  // colon-separated (legacy)
   'auth:login': '登录',
   'auth:logout': '登出',
   'job:create': '创建任务',
@@ -63,6 +65,27 @@ const ACTION_LABELS: Record<string, string> = {
   'feedback:read': '查看反馈',
   'writeback:execute': '执行回写',
   'audit:read': '查看审计日志',
+  // dot-separated (task spec)
+  'schema.create': '创建 Schema',
+  'schema.update': '更新 Schema',
+  'schema.deactivate': '停用 Schema',
+  'schema.activate': '启用 Schema',
+  'schema.rollback': '回滚 Schema',
+  'provider.create': '创建 Provider',
+  'provider.update': '更新 Provider',
+  'provider.delete': '删除 Provider',
+  'provider.config.save': '保存 Provider 配置',
+  'result.view': '查看识别结果',
+  'result.export': '导出识别结果',
+  'feedback.submit': '提交反馈',
+  'feedback.review': '审核反馈',
+  'feedback.batch.review': '批量审核反馈',
+  'file.upload': '上传文件',
+  'file.download': '下载文件',
+  'job.create': '创建识别任务',
+  'job.rerun': '重跑识别任务',
+  'writeback.execute': '执行回写',
+  'auth.login': '用户登录',
 };
 
 /* ------------------------------------------------------------------ */
@@ -106,7 +129,12 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 function getActionLabel(action: string): string {
+  // Exact match
   if (ACTION_LABELS[action]) return ACTION_LABELS[action];
+  // Try converting between colon and dot formats
+  const altKey = action.includes('.') ? action.replace(/\./g, ':') : action.replace(/:/g, '.');
+  if (ACTION_LABELS[altKey]) return ACTION_LABELS[altKey];
+  // Fuzzy match as fallback
   for (const [key, label] of Object.entries(ACTION_LABELS)) {
     if (action.includes(key) || key.includes(action)) return label;
   }
@@ -489,11 +517,14 @@ function AuditLogTab() {
       title: '时间',
       dataIndex: 'createdAt',
       width: 160,
-      render: (t: string) => (
-        <Text title={new Date(t).toLocaleString('zh-CN')}>
-          {formatRelativeTime(t)}
-        </Text>
-      ),
+      render: (t: string) => {
+        if (!t) return '-';
+        const formatted = new Date(t).toLocaleString('zh-CN', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+        });
+        return <Text title={formatted}>{formatted}</Text>;
+      },
     },
     {
       title: '操作人',
@@ -525,29 +556,35 @@ function AuditLogTab() {
     {
       title: '对象ID',
       dataIndex: 'objectId',
-      width: 140,
+      width: 160,
       render: (id: string, record: AuditEntry) => {
         if (!id) return '-';
+        const truncated = id.length > 12 ? id.slice(0, 12) + '...' : id;
         const canClick = record.objectType === 'job' || record.objectType === 'schema';
-        return canClick ? (
+        const idEl = canClick ? (
           <Button
             type="text"
             size="mini"
             style={{ fontSize: 12, padding: '0 4px' }}
             onClick={() => handleObjectClick(record.objectType, id)}
           >
-            <Text code style={{ fontSize: 12 }}>{id.slice(0, 12)}</Text>
+            <Text code style={{ fontSize: 12 }}>{truncated}</Text>
           </Button>
         ) : (
-          <Text code style={{ fontSize: 12 }}>{id.slice(0, 12)}</Text>
+          <Text code style={{ fontSize: 12 }}>{truncated}</Text>
         );
+        return <Tooltip content={id}>{idEl}</Tooltip>;
       },
     },
     {
       title: '结果',
       dataIndex: 'result',
       width: 80,
-      render: (result: string) => <StatusTag status={result} />,
+      render: (result: string) => {
+        if (result === 'success') return <Tag color="green" size="small">成功</Tag>;
+        if (result === 'failure') return <Tag color="red" size="small">失败</Tag>;
+        return <Tag size="small">{result || '-'}</Tag>;
+      },
     },
     {
       title: 'IP 地址',

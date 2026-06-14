@@ -186,11 +186,10 @@ export default function JobListPage() {
     {
       title: '创建人',
       width: 100,
-      render: (_: unknown, record: RecognitionJob) => {
-        // Try to extract from metadata or fallback to createdById
-        const createdBy = record.createdById;
-        if (!createdBy) return <span style={{ color: '#999' }}>-</span>;
-        return <span>{createdBy.slice(0, 8)}</span>;
+      render: (_: unknown, record: RecognitionJob & { createdByName?: string }) => {
+        const name = record.createdByName || record.createdById;
+        if (!name) return <span style={{ color: '#999' }}>-</span>;
+        return <span>{name}</span>;
       },
     },
     {
@@ -217,6 +216,30 @@ export default function JobListPage() {
       ),
     },
   ];
+
+  // Filter out columns where all rows show '-'
+  const visibleColumns = useMemo(() => {
+    const HIDE_IF_EMPTY = ['整体置信度', '需复核'];
+    if (jobs.length === 0) return columns;
+    return columns.filter(col => {
+      if (!HIDE_IF_EMPTY.includes(col.title as string)) return true;
+      // Check if any row has non-empty data for this column
+      if (col.title === '整体置信度') {
+        return jobs.some(j => {
+          const conf = (j as any).confidence ?? j.result?.confidence;
+          return conf != null;
+        });
+      }
+      if (col.title === '需复核') {
+        return jobs.some(j => {
+          const nr = (j as any).needsReviewCount;
+          const rr = j.result?.reviewRequired;
+          return nr !== undefined || rr !== undefined;
+        });
+      }
+      return true;
+    });
+  }, [columns, jobs]);
 
   if (error) {
     return (
@@ -293,7 +316,7 @@ export default function JobListPage() {
           />
         ) : (
           <Table
-            columns={columns}
+            columns={visibleColumns}
             data={jobs}
             rowKey="id"
             pagination={{

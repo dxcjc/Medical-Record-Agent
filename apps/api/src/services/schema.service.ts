@@ -307,6 +307,36 @@ export function createSchemaService(options: CreateSchemaServiceOptions) {
       return deactivated;
     },
 
+    async activateVersion(input: { id: string; actor: AuthContext }) {
+      requirePermission(input.actor, PERMISSIONS.schemaPublish);
+
+      const version = await options.repository.findVersionById(input.id);
+      if (!version) {
+        throw new SchemaServiceError("SCHEMA_VERSION_NOT_FOUND", 404);
+      }
+
+      // Deactivate all active versions for this schemaKey
+      await options.repository.deactivateActiveVersions(version.schemaKey);
+      // Activate the target version
+      const activated = await options.repository.setVersionStatus({
+        id: version.id,
+        status: "active"
+      });
+      await recordAudit({
+        actorUserId: input.actor.actorUserId,
+        action: "schema.activate",
+        objectType: "schema",
+        objectId: version.id,
+        metadata: {
+          schemaKey: version.schemaKey,
+          version: version.version,
+          at: now().toISOString()
+        }
+      });
+
+      return activated;
+    },
+
     async compareVersions(input: {
       schemaKey: string;
       leftVersionId: string;

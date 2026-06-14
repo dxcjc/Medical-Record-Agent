@@ -1,3 +1,4 @@
+import { toast } from '../components/GlobalToast';
 import { getChineseErrorMessage } from './errorMessages';
 
 const API_BASE = '/api';
@@ -148,6 +149,7 @@ async function request<T>(
         await delay(RETRY_DELAY_MS * (attempt + 1));
         continue;
       }
+      toast.error('网络连接失败，请检查网络后重试');
       throw new NetworkError();
     }
 
@@ -180,6 +182,9 @@ async function request<T>(
         body = null;
       }
       const userMessage = getChineseErrorMessage(body, res.status);
+      if (res.status !== 401) {
+        toast.error(userMessage);
+      }
       throw new ApiError(res.status, body, userMessage);
     }
 
@@ -322,6 +327,10 @@ export const schemasApi = {
     }),
   deactivateVersion: (id: string) =>
     request<{ version: import('./types').SchemaVersion }>(`/schemas/versions/${id}/deactivate`, {
+      method: 'POST',
+    }),
+  activateVersion: (id: string) =>
+    request<{ version: import('./types').SchemaVersion }>(`/schemas/versions/${id}/activate`, {
       method: 'POST',
     }),
   rollbackVersion: (id: string) =>

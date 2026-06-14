@@ -15,6 +15,8 @@ import {
   Select,
   Switch,
   Popconfirm,
+  Tabs,
+  Tooltip,
 } from '@arco-design/web-react';
 import {
   useProviders,
@@ -35,6 +37,7 @@ const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 const FormItem = Form.Item;
 const Option = Select.Option;
+const TabPane = Tabs.TabPane;
 
 const KIND_OPTIONS: { value: ProviderKind; label: string }[] = [
   { value: 'ocr', label: 'OCR' },
@@ -48,6 +51,13 @@ const KIND_COLORS: Record<ProviderKind, string> = {
   llm: 'purple',
   storage: 'green',
   lims: 'orange',
+};
+
+const KIND_DESCRIPTIONS: Record<ProviderKind, string> = {
+  ocr: '用于识别文档中的文字内容',
+  llm: '用于智能提取和理解识别结果',
+  storage: '用于存储上传的文件和识别结果',
+  lims: '用于将识别结果回写到实验室信息系统',
 };
 
 interface ProviderFormData {
@@ -256,6 +266,132 @@ export default function ProviderPage() {
     }
   };
 
+  const isBuiltIn = (p: ProviderConfig) => !p.createdAt;
+
+  const renderProviderCard = (p: ProviderConfig) => {
+    const builtIn = isBuiltIn(p);
+    const endpoint = p.config?.endpoint;
+    const showEndpoint = endpoint && endpoint !== '-';
+
+    return (
+      <Col key={p.id} xs={24} sm={12} lg={8}>
+        <Card style={{ height: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Space>
+              <Title heading={6} style={{ margin: 0 }}>{p.displayName}</Title>
+              {builtIn && <Tag color="gray">系统内置</Tag>}
+              {p.isDefault && <Tag color="blue">默认</Tag>}
+            </Space>
+            {builtIn ? (
+              <Tooltip content="系统内置 Provider 不可切换状态">
+                <Switch
+                  checked={p.status === 'active'}
+                  disabled
+                  size="small"
+                  checkedText="启用"
+                  uncheckedText="禁用"
+                />
+              </Tooltip>
+            ) : (
+              <Switch
+                checked={p.status === 'active'}
+                onChange={() => handleToggleEnabled(p)}
+                loading={updateMutation.isPending}
+                size="small"
+                checkedText="启用"
+                uncheckedText="禁用"
+              />
+            )}
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <Tag
+              color={KIND_COLORS[p.kind] || 'gray'}
+              style={{ marginBottom: 8 }}
+            >
+              {p.kind.toUpperCase()}
+            </Tag>
+          </div>
+
+          <Descriptions
+            column={1}
+            data={[
+              { label: 'Key', value: p.key },
+              ...(showEndpoint ? [{ label: 'Endpoint', value: endpoint }] : []),
+              { label: '创建时间', value: p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN') : '-' },
+            ]}
+            style={{ marginBottom: 12 }}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Space size="small">
+              {!p.isDefault && (
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => handleSetDefault(p.key)}
+                  loading={setDefaultMutation.isPending}
+                >
+                  设为默认
+                </Button>
+              )}
+              <Button
+                size="small"
+                onClick={() => handleHealthCheck(p.key)}
+                loading={healthCheckMutation.isPending}
+              >
+                健康检查
+              </Button>
+            </Space>
+            <Space size="small">
+              {builtIn ? (
+                <Tooltip content="系统内置 Provider 不可编辑">
+                  <Button size="small" icon={<IconPencil />} disabled>
+                    编辑
+                  </Button>
+                </Tooltip>
+              ) : (
+                <Button size="small" icon={<IconPencil />} onClick={() => openEditModal(p)}>
+                  编辑
+                </Button>
+              )}
+              {builtIn ? (
+                <Tooltip content="系统内置 Provider 不可删除">
+                  <Button size="small" status="danger" icon={<IconTrash />} disabled>
+                    删除
+                  </Button>
+                </Tooltip>
+              ) : (
+                <Popconfirm
+                  title="确认删除此 Provider？删除后无法恢复。"
+                  onOk={() => handleDelete(p.key)}
+                  okText="删除"
+                  cancelText="取消"
+                  okButtonProps={{ status: 'danger' }}
+                >
+                  <Button
+                    size="small"
+                    status="danger"
+                    icon={<IconTrash />}
+                    loading={deleteMutation.isPending}
+                  >
+                    删除
+                  </Button>
+                </Popconfirm>
+              )}
+            </Space>
+          </div>
+        </Card>
+      </Col>
+    );
+  };
+
+  const renderProviderList = (list: ProviderConfig[]) => (
+    <Row gutter={[16, 16]}>
+      {list.map((p: ProviderConfig) => renderProviderCard(p))}
+    </Row>
+  );
+
   if (error) {
     return (
       <Card>
@@ -330,94 +466,33 @@ export default function ProviderPage() {
         onRefresh={() => refetch()}
       />
 
-      <Row gutter={[16, 16]}>
-        {providers.map((p: ProviderConfig) => (
-          <Col key={p.id} xs={24} sm={12} lg={8}>
-            <Card style={{ height: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <Space>
-                  <Title heading={6} style={{ margin: 0 }}>{p.displayName}</Title>
-                  {p.isDefault && <Tag color="blue">默认</Tag>}
-                </Space>
-                <Switch
-                  checked={p.status === 'active'}
-                  onChange={() => handleToggleEnabled(p)}
-                  loading={updateMutation.isPending}
-                  size="small"
-                  checkedText="启用"
-                  uncheckedText="禁用"
-                />
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <Tag
-                  color={KIND_COLORS[p.kind] || 'gray'}
-                  style={{ marginBottom: 8 }}
-                >
-                  {p.kind.toUpperCase()}
-                </Tag>
-              </div>
-
-              <Descriptions
-                column={1}
-                data={[
-                  { label: 'Key', value: p.key },
-                  { label: 'Endpoint', value: p.config?.endpoint || '-' },
-                  { label: '创建时间', value: new Date(p.createdAt).toLocaleString('zh-CN') },
-                ]}
-                style={{ marginBottom: 12 }}
-              />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Space size="small">
-                  {!p.isDefault && (
-                    <Button
-                      size="small"
-                      type="primary"
-                      onClick={() => handleSetDefault(p.key)}
-                      loading={setDefaultMutation.isPending}
-                    >
-                      设为默认
-                    </Button>
-                  )}
-                  <Button
-                    size="small"
-                    onClick={() => handleHealthCheck(p.key)}
-                    loading={healthCheckMutation.isPending}
-                  >
-                    健康检查
-                  </Button>
-                </Space>
-                <Space size="small">
-                  <Button
-                    size="small"
-                    icon={<IconPencil />}
-                    onClick={() => openEditModal(p)}
-                  >
-                    编辑
-                  </Button>
-                  <Popconfirm
-                    title="确认删除此 Provider？删除后无法恢复。"
-                    onOk={() => handleDelete(p.key)}
-                    okText="删除"
-                    cancelText="取消"
-                    okButtonProps={{ status: 'danger' }}
-                  >
-                    <Button
-                      size="small"
-                      status="danger"
-                      icon={<IconTrash />}
-                      loading={deleteMutation.isPending}
-                    >
-                      删除
-                    </Button>
-                  </Popconfirm>
-                </Space>
-              </div>
-            </Card>
-          </Col>
+      <Tabs defaultActiveTab="all">
+        <TabPane
+          key="all"
+          title="全部"
+        >
+          <div style={{ paddingTop: 16 }}>
+            {renderProviderList(providers)}
+          </div>
+        </TabPane>
+        {KIND_OPTIONS.map((opt) => (
+          <TabPane
+            key={opt.value}
+            title={
+              <span>
+                {opt.label}
+                <Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>
+                  {KIND_DESCRIPTIONS[opt.value]}
+                </Text>
+              </span>
+            }
+          >
+            <div style={{ paddingTop: 16 }}>
+              {renderProviderList(providers.filter((p: ProviderConfig) => p.kind === opt.value))}
+            </div>
+          </TabPane>
         ))}
-      </Row>
+      </Tabs>
 
       <Modal
         title={editingProvider ? '编辑 Provider' : '新建 Provider'}

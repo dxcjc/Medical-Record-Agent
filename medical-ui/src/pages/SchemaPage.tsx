@@ -21,7 +21,7 @@ import {
   Divider,
 } from '@arco-design/web-react';
 import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown, IconSwap, IconClockCircle } from '@arco-design/web-react/icon';
-import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
+import { useSchemas, useDeactivateSchemaVersion, useActivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -269,6 +269,7 @@ function SchemaDiffModal({ visible, onClose, oldVersion, newVersion }: SchemaDif
 export default function SchemaPage() {
   const { data, isLoading, error, refetch } = useSchemas();
   const deactivateMutation = useDeactivateSchemaVersion();
+  const activateMutation = useActivateSchemaVersion();
   const rollbackMutation = useRollbackSchemaVersion();
   const createDraftMutation = useCreateSchemaDraft();
   const publishDraftMutation = usePublishSchemaDraft();
@@ -332,6 +333,15 @@ export default function SchemaPage() {
     try {
       await deactivateMutation.mutateAsync(id);
       Message.success('已停用');
+    } catch {
+      Message.error('操作失败');
+    }
+  };
+
+  const handleActivate = async (id: string) => {
+    try {
+      await activateMutation.mutateAsync(id);
+      Message.success('已启用');
     } catch {
       Message.error('操作失败');
     }
@@ -537,15 +547,25 @@ export default function SchemaPage() {
             返回列表
           </Button>
           <Space>
-            <Button
-              size="small"
-              status="warning"
-              loading={deactivateMutation.isPending}
-              onClick={() => handleDeactivate(selected.id)}
-              disabled={selected.status === 'inactive'}
-            >
-              停用
-            </Button>
+            {selected.status === 'active' ? (
+              <Button
+                size="small"
+                status="warning"
+                loading={deactivateMutation.isPending}
+                onClick={() => handleDeactivate(selected.id)}
+              >
+                停用
+              </Button>
+            ) : (
+              <Button
+                size="small"
+                type="primary"
+                loading={activateMutation.isPending}
+                onClick={() => handleActivate(selected.id)}
+              >
+                启用
+              </Button>
+            )}
             <Button
               size="small"
               loading={rollbackMutation.isPending}
@@ -746,6 +766,34 @@ export default function SchemaPage() {
                     {s.changelog}
                   </Text>
                 )}
+
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  {s.status === 'active' ? (
+                    <Button
+                      size="mini"
+                      status="warning"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeactivate(s.id);
+                      }}
+                      loading={deactivateMutation.isPending}
+                    >
+                      停用
+                    </Button>
+                  ) : (
+                    <Button
+                      size="mini"
+                      type="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleActivate(s.id);
+                      }}
+                      loading={activateMutation.isPending}
+                    >
+                      启用
+                    </Button>
+                  )}
+                </div>
               </Card>
             </Col>
           );

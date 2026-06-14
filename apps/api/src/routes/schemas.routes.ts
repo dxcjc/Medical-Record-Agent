@@ -36,6 +36,10 @@ export interface SchemaRouteService {
     id: string;
     actor: AuthContext;
   }): Promise<ApiRouteResponseObject>;
+  activateVersion(input: {
+    id: string;
+    actor: AuthContext;
+  }): Promise<ApiRouteResponseObject>;
   rollbackVersion(input: {
     id: string;
     actor: AuthContext;
@@ -205,6 +209,27 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
     async (request) => {
       const params = request.params as { id: string };
       const version = await dependencies.schemaService.deactivateVersion({
+        id: params.id,
+        actor: request.auth as AuthContext
+      });
+
+      return {
+        version: assertRouteResponseObject(version, "SCHEMA_VERSION_RESPONSE_INVALID")
+      };
+    }
+  );
+
+  server.post(
+    "/schemas/versions/:id/activate",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.schemaPublish)
+      ]
+    },
+    async (request) => {
+      const params = request.params as { id: string };
+      const version = await dependencies.schemaService.activateVersion({
         id: params.id,
         actor: request.auth as AuthContext
       });

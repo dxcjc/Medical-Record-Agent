@@ -48,6 +48,16 @@ export function useDeactivateSchemaVersion() {
   });
 }
 
+export function useActivateSchemaVersion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => schemasApi.activateVersion(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schemas'] });
+    },
+  });
+}
+
 export function useRollbackSchemaVersion() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -6,6 +6,7 @@ import { ConfigProvider, Spin } from '@arco-design/web-react';
 import AppThemeProvider from './theme/AppThemeProvider';
 import AppLayout from './layout/AppLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import GlobalToast from './components/GlobalToast';
 import NetworkStatus from './components/NetworkStatus';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -53,6 +54,7 @@ export default function App() {
       <AppThemeProvider>
         <BrowserRouter>
           <ErrorBoundary>
+            <GlobalToast />
             <NetworkStatus />
             <Routes>
               <Route path="/login" element={<LoginPage />} />

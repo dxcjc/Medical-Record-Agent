@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Tabs,
   Table,
@@ -995,14 +995,22 @@ function CreateRunModal({
   datasets,
   onClose,
   onSuccess,
+  preselectedDatasetId,
 }: {
   visible: boolean;
   datasets: EvaluationDataset[];
   onClose: () => void;
   onSuccess: () => void;
+  preselectedDatasetId?: string | null;
 }) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (visible && preselectedDatasetId) {
+      form.setFieldValue('datasetId', preselectedDatasetId);
+    }
+  }, [visible, preselectedDatasetId, form]);
 
   const { data: providersData } = useQuery({
     queryKey: ['providers'],
@@ -1276,6 +1284,7 @@ export default function EvaluationPage() {
   const [showCreateDataset, setShowCreateDataset] = useState(false);
   const [showImportSamples, setShowImportSamples] = useState<string | null>(null);
   const [showCreateRun, setShowCreateRun] = useState(false);
+  const [preselectedDatasetId, setPreselectedDatasetId] = useState<string | null>(null);
 
   const datasets = datasetsData?.items || [];
   const runs = runsData?.items || [];
@@ -1342,15 +1351,27 @@ export default function EvaluationPage() {
     },
     {
       title: '操作',
-      width: 120,
+      width: 200,
       render: (_: unknown, record: EvaluationDataset) => (
-        <Button
-          type="text"
-          size="small"
-          onClick={() => setShowImportSamples(record.id)}
-        >
-          导入样本
-        </Button>
+        <Space>
+          <Button
+            type="text"
+            size="small"
+            onClick={() => setShowImportSamples(record.id)}
+          >
+            导入样本
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            onClick={() => {
+              setPreselectedDatasetId(record.id);
+              setShowCreateRun(true);
+            }}
+          >
+            运行评测
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -1552,8 +1573,9 @@ export default function EvaluationPage() {
       <CreateRunModal
         visible={showCreateRun}
         datasets={datasets}
-        onClose={() => setShowCreateRun(false)}
-        onSuccess={() => setShowCreateRun(false)}
+        onClose={() => { setShowCreateRun(false); setPreselectedDatasetId(null); }}
+        onSuccess={() => { setShowCreateRun(false); setPreselectedDatasetId(null); }}
+        preselectedDatasetId={preselectedDatasetId}
       />
     </div>
   );
