@@ -23,6 +23,7 @@ import {
   type OcrDocumentInput,
   type OcrTextBlock,
   type LimsWritebackAdapter,
+  type LimsWritebackExecutionResult,
   type LangChainModelLike,
   type OpenAiResponsesClientLike,
   type ModelProvider,
@@ -1024,13 +1025,41 @@ function readRequestedByUserId(body: Record<string, unknown>) {
   return readString(body.requestedByUserId, readString(actor.actorUserId, "system"));
 }
 
-function buildOcrProvider(env: ProductionEnv, runtimeOptions: ProviderRuntimeOptions) {
-  if (env.providers.ocr.provider === "http") {
+type ProviderConfigRecord = {
+  config: Record<string, unknown>;
+  secretRefs: Record<string, unknown>;
+};
+
+/**
+ * 从数据库 ProviderConfig 提取配置值，fallback 到 env。
+ * 数据库配置优先级高于环境变量。
+ */
+function mergeOcrEnvWithDbConfig(env: ProductionEnv, dbConfig?: ProviderConfigRecord) {
+  return {
+    provider: (dbConfig?.config?.provider as string) ?? env.providers.ocr.provider,
+    endpoint: (dbConfig?.config?.endpoint as string) ?? env.providers.ocr.endpoint,
+    apiKey: (dbConfig?.config?.apiKey as string) ?? env.providers.ocr.apiKey
+  };
+}
+
+function mergeLlmEnvWithDbConfig(env: ProductionEnv, dbConfig?: ProviderConfigRecord) {
+  return {
+    provider: (dbConfig?.config?.provider as string) ?? env.providers.llm.provider,
+    model: (dbConfig?.config?.model as string) ?? env.providers.llm.model,
+    baseUrl: (dbConfig?.config?.endpoint as string) ?? env.providers.llm.baseUrl,
+    apiKey: (dbConfig?.config?.apiKey as string) ?? env.providers.llm.apiKey,
+    openAiApiKey: (dbConfig?.config?.openAiApiKey as string) ?? env.providers.llm.openAiApiKey
+  };
+}
+
+function buildOcrProvider(env: ProductionEnv, runtimeOptions: ProviderRuntimeOptions, dbConfig?: ProviderConfigRecord) {
+  const effective = mergeOcrEnvWithDbConfig(env, dbConfig);
+  if (effective.provider === "http") {
     return createOcrProvider({
       kind: "http",
       http: {
-        endpoint: env.providers.ocr.endpoint ?? "",
-        headers: env.providers.ocr.apiKey ? { Authorization: `Bearer ${env.providers.ocr.apiKey}` } : {},
+        endpoint: effective.endpoint ?? "",
+        headers: effective.apiKey ? { Authorization: `Bearer ${effective.apiKey}` } : {},
         ...(runtimeOptions.providerRuntimeFetch ? { fetchFn: runtimeOptions.providerRuntimeFetch } : {}),
         timeoutMs: 30_000
       }
@@ -1045,20 +1074,23 @@ function buildModelProvider(
   options: {
     langChainModel?: LangChainModelLike;
     openAiResponsesClient?: OpenAiResponsesClientLike;
-  } = {}
+  } = {},
+  dbConfig?: ProviderConfigRecord
 ) {
-  if (env.providers.llm.provider === "openai-compatible") {
+  const effective = mergeLlmEnvWithDbConfig(env, dbConfig);
+
+  if (effective.provider === "openai-compatible") {
     const httpConfig: Parameters<typeof createModelProvider>[0] = {
       kind: "http",
       http: {
-        endpoint: env.providers.llm.baseUrl ?? "",
-        model: env.providers.llm.model,
+        endpoint: effective.baseUrl ?? "",
+        model: effective.model,
         timeoutMs: 90_000
       }
     };
 
-    if (env.providers.llm.apiKey) {
-      httpConfig.http.apiKey = env.providers.llm.apiKey;
+    if (effective.apiKey) {
+      httpConfig.http.apiKey = effective.apiKey;
     }
 
     return createModelProvider({
@@ -1066,17 +1098,17 @@ function buildModelProvider(
     });
   }
 
-  if (env.providers.llm.provider === "langchain") {
-    const apiKey = env.providers.llm.openAiApiKey ?? env.providers.llm.apiKey;
+  if (effective.provider === "langchain") {
+    const apiKey = effective.openAiApiKey ?? effective.apiKey;
     const openAiLangChainConfig: Parameters<typeof createOpenAiLangChainModel>[0] | undefined = apiKey
       ? {
           apiKey,
-          model: env.providers.llm.model
+          model: effective.model
         }
       : undefined;
 
-    if (openAiLangChainConfig && env.providers.llm.baseUrl) {
-      openAiLangChainConfig.baseUrl = env.providers.llm.baseUrl;
+    if (openAiLangChainConfig && effective.baseUrl) {
+      openAiLangChainConfig.baseUrl = effective.baseUrl;
     }
 
     const model =
@@ -1097,17 +1129,17 @@ function buildModelProvider(
     });
   }
 
-  if (env.providers.llm.provider === "openai-responses") {
+  if (effective.provider === "openai-responses") {
     const client =
       options.openAiResponsesClient ??
       createOpenAiResponsesClient({
-        apiKey: env.providers.llm.openAiApiKey ?? ""
+        apiKey: effective.openAiApiKey ?? ""
       });
 
     return createModelProvider({
       kind: "openai-responses",
       openAiResponses: {
-        model: env.providers.llm.model,
+        model: effective.model,
         experimental: {
           enabled: true
         },
@@ -1999,19 +2031,23 @@ function createProviderRegistry(
           }
         ]
       : []),
-    {
-      key: "lims-writeback",
-      kind: "lims",
-      displayName: "LIMS Writeback Adapter",
-      enabled: true,
-      isDefault: true,
-      isMock: false,
-      config: {
-        endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
-        timeoutMs: env.lims.timeoutMs
-      },
-      secretRefs: env.lims.apiToken ? { apiToken: "configured" } : {}
-    },
+    ...(env.lims.baseUrl && env.lims.clinicalInfoEndpoint && env.lims.apiToken
+      ? [
+          {
+            key: "lims-writeback",
+            kind: "lims" as const,
+            displayName: "LIMS Writeback Adapter",
+            enabled: true,
+            isDefault: true,
+            isMock: false,
+            config: {
+              endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
+              timeoutMs: env.lims.timeoutMs
+            },
+            secretRefs: { apiToken: "configured" }
+          }
+        ]
+      : []),
     {
       key: env.storage.driver === "s3" ? "s3-storage" : "local-storage",
       kind: "storage",
@@ -2293,8 +2329,8 @@ function createProviderRegistry(
       if (provider.kind === "llm" && env.providers.llm.provider === "openai-responses" && !env.providers.llm.openAiApiKey) {
         missingConfig.push("OPENAI_API_KEY");
       }
-      if (provider.kind === "lims" && (!env.lims.baseUrl || !env.lims.apiToken)) {
-        missingConfig.push("LIMS_BASE_URL", "LIMS_API_TOKEN");
+      if (provider.kind === "lims" && (!env.lims.baseUrl || !env.lims.apiToken || !env.lims.clinicalInfoEndpoint)) {
+        missingConfig.push("LIMS_BASE_URL", "LIMS_API_TOKEN", "LIMS_CLINICAL_INFO_ENDPOINT");
       }
       if (provider.kind === "storage" && env.storage.driver === "s3" && !env.storage.s3.bucket) {
         missingConfig.push("S3_BUCKET");
@@ -2337,7 +2373,7 @@ function createProviderRegistry(
         };
       }
 
-      if (provider.kind === "lims" && missingConfig.length === 0) {
+      if (provider.kind === "lims" && missingConfig.length === 0 && env.lims.baseUrl && env.lims.clinicalInfoEndpoint && env.lims.apiToken) {
         const probe = await runLimsHealthProbe({
           endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
           apiToken: env.lims.apiToken,
@@ -2414,7 +2450,21 @@ function createProviderRegistry(
   };
 }
 
-function createConfiguredLimsWritebackAdapter(env: ProductionEnv) {
+function createConfiguredLimsWritebackAdapter(env: ProductionEnv): LimsWritebackAdapter {
+  if (!env.lims.baseUrl || !env.lims.clinicalInfoEndpoint || !env.lims.apiToken) {
+    return {
+      async execute(): Promise<LimsWritebackExecutionResult> {
+        return {
+          id: "lims-not-configured",
+          requestId: "lims-not-configured",
+          status: "failed",
+          retryable: false,
+          errorMessage: "LIMS 环境变量未配置，且数据库中无 LIMS ProviderConfig"
+        };
+      }
+    };
+  }
+
   return createLimsWritebackAdapter({
     endpoint: new URL(env.lims.clinicalInfoEndpoint, env.lims.baseUrl).toString(),
     headers: {
@@ -2984,6 +3034,9 @@ export function createProductionWritebackExecutor(
       value: field.value
     }));
     const idempotencyKey = readString(body.idempotencyKey, `${jobId}:${now().toISOString()}`);
+    if (!env.lims.baseUrl || !env.lims.clinicalInfoEndpoint) {
+      throw createProductionWritebackError("LIMS_NOT_CONFIGURED", 503);
+    }
     const attempt = await repository.create({
       jobId,
       targetSystem: "lims",

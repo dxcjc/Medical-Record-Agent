@@ -32,9 +32,9 @@ const rawEnvSchema = z.object({
   LLM_API_KEY: z.string().optional().transform(v => v || undefined),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY 不能为空").optional(),
 
-  LIMS_BASE_URL: z.string().url("LIMS_BASE_URL 必须是合法 URL"),
-  LIMS_CLINICAL_INFO_ENDPOINT: z.string().min(1, "LIMS_CLINICAL_INFO_ENDPOINT 不能为空"),
-  LIMS_API_TOKEN: z.string().min(1, "LIMS_API_TOKEN 不能为空"),
+  LIMS_BASE_URL: z.string().url("LIMS_BASE_URL 必须是合法 URL").optional(),
+  LIMS_CLINICAL_INFO_ENDPOINT: z.string().min(1, "LIMS_CLINICAL_INFO_ENDPOINT 不能为空").optional(),
+  LIMS_API_TOKEN: z.string().min(1, "LIMS_API_TOKEN 不能为空").optional(),
   LIMS_TIMEOUT_MS: z.coerce.number().int().positive().default(10000)
 });
 

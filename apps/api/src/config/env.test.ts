@@ -70,4 +70,18 @@ describe("parseEnv", () => {
     expect(env.providers.llm.provider).toBe("langchain");
     expect(env.providers.llm.openAiApiKey).toBe("replace-with-openai-api-key");
   });
+
+  it("LIMS 配置可省略，数据库配置优先时 env 仅作 fallback", () => {
+    const env = parseEnv({
+      DATABASE_URL: "postgresql://medical_record_agent:change_me@localhost:5432/medical_record_agent?schema=public",
+      JWT_SECRET: "replace-with-a-long-random-development-secret"
+    });
+
+    expect(env.lims.baseUrl).toBeUndefined();
+    expect(env.lims.clinicalInfoEndpoint).toBeUndefined();
+    expect(env.lims.apiToken).toBeUndefined();
+    expect(env.lims.timeoutMs).toBe(10000);
+    expect(env.providers.ocr.provider).toBe("none");
+    expect(env.providers.llm.provider).toBe("none");
+  });
 });
