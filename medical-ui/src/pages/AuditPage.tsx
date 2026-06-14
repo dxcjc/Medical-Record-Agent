@@ -111,9 +111,10 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 function formatRelativeTime(dateStr: string): string {
+  if (!dateStr || typeof dateStr !== 'string') return '-';
   const now = Date.now();
-  if (!dateStr) return '-';
   const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return '-';
   const diff = now - then;
 
   const seconds = Math.floor(diff / 1000);
@@ -518,8 +519,10 @@ function AuditLogTab() {
       dataIndex: 'createdAt',
       width: 160,
       render: (t: string) => {
-        if (!t) return '-';
-        const formatted = new Date(t).toLocaleString('zh-CN', {
+        if (!t || typeof t !== 'string') return '-';
+        const date = new Date(t);
+        if (isNaN(date.getTime())) return '-';
+        const formatted = date.toLocaleString('zh-CN', {
           year: 'numeric', month: '2-digit', day: '2-digit',
           hour: '2-digit', minute: '2-digit', second: '2-digit',
         });

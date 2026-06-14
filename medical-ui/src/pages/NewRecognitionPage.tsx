@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Select, Button, Upload, Message, Tag, Notification } from '@arco-design/web-react';
+import { Card, Form, Select, Button, Upload, Message, Tag } from '@arco-design/web-react';
 import type { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useSchemas } from '../hooks/useSchemas';
 import { useCreateJob } from '../hooks/useJobs';
@@ -22,8 +22,10 @@ export default function NewRecognitionPage() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [useExample, setUseExample] = useState(false);
+  const [exampleFile, setExampleFile] = useState<File | null>(null);
+  const [exampleLoading, setExampleLoading] = useState(false);
   const [schemaKey, setSchemaKey] = useState<string>('');
-  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [progressText, setProgressText] = useState('');
   const [filePreviews, setFilePreviews] = useState<Map<string, string>>(new Map());
 
@@ -56,168 +58,11 @@ export default function NewRecognitionPage() {
 
   const handleRemoveExample = () => {
     setUseExample(false);
+    setExampleFile(null);
   };
 
-  const handleSubmit = async () => {
-    if (files.length === 0 && !useExample) {
-      Message.warning('请至少上传一个文件');
-      return;
-    }
-    if (!schemaKey) {
-      Message.warning('请选择识别 Schema');
-      return;
-    }
-
-    // Pre-check file sizes
-    for (const f of files) {
-      if (f.size > MAX_FILE_SIZE) {
-        Message.error(`文件 ${f.name} 超过 20MB 限制`);
-        return;
-      }
-    }
-    // If user clicked "使用示例", fetch the example file
-    if (useExample && files.length === 0) {
-      setProgressText('正在加载示例文件...');
-      try {
-        const resp = await fetch('/example-tumor-gene-test.png');
-        if (!resp.ok) throw new Error('示例文件加载失败');
-        const blob = await resp.blob();
-        const exampleFile = new File([blob], '肿瘤基因检测申请单示例.png', { type: 'image/png' });
-        setFiles([exampleFile]);
-        // Continue with the upload using the fetched file
-        files.length = 0; // won't be used, we'll use a local array
-        const filesToUpload = [exampleFile];
-        
-        setUploading(true);
-        setProgressText('正在创建任务...');
-        
-        const notifKey = `creating-${Date.now()}`;
-        Notification.info({
-          id: notifKey,
-          title: '创建识别任务',
-          content: '正在创建任务，请稍候...',
-          duration: 0,
-          closable: false,
-        });
-
-        let createdCount = 0;
-        const errors: string[] = [];
-
-        try {
-          for (let i = 0; i < filesToUpload.length; i++) {
-            setProgressText(`正在处理 ${i + 1}/${filesToUpload.length}...`);
-            try {
-              const storedFile = await filesApi.upload(filesToUpload[i]);
-              await createJob.mutateAsync({
-                schemaKey,
-                sourceFileId: storedFile.id,
-              });
-              createdCount++;
-            } catch (e) {
-              errors.push(`文件 ${filesToUpload[i].name} 处理失败`);
-            }
-          }
-
-          Notification.remove(notifKey);
-          setFiles([]);
-          setUseExample(false);
-
-          if (createdCount > 0) {
-            Notification.success({
-              title: '创建成功',
-              content: `成功创建 ${createdCount} 个识别任务，正在跳转...`,
-              duration: 5000,
-            });
-            setTimeout(() => navigate('/jobs'), 1500);
-          } else {
-            Notification.error({
-              title: '创建失败',
-              content: errors.join('；') || '未知错误',
-              duration: 5000,
-            });
-          }
-        } catch (err: unknown) {
-          Notification.remove(notifKey);
-          const msg = err instanceof Error ? err.message : '创建失败，请重试';
-          Notification.error({ title: '创建失败', content: msg, duration: 5000 });
-        } finally {
-          setUploading(false);
-          setProgressText('');
-        }
-        return;
-      } catch (e) {
-        Message.error('示例文件加载失败，请直接上传文件');
-        setUploading(false);
-        setProgressText('');
-        return;
-      }
-    }
-
-    setUploading(true);
-    setProgressText('正在创建任务...');
-
-    const notifKey = `creating-${Date.now()}`;
-    Notification.info({
-      id: notifKey,
-      title: '创建识别任务',
-      content: '正在创建任务，请稍候...',
-      duration: 0,
-      closable: false,
-    });
-
-    let createdCount = 0;
-    const errors: string[] = [];
-
-    try {
-      // Upload and create tasks for user files
-      for (let i = 0; i < files.length; i++) {
-        setProgressText(`正在处理 ${i + 1}/${files.length}...`);
-        try {
-          const storedFile = await filesApi.upload(files[i]);
-          await createJob.mutateAsync({
-            schemaKey,
-            sourceFileId: storedFile.id,
-          });
-          createdCount++;
-        } catch (e) {
-          errors.push(`文件 ${files[i].name} 处理失败`);
-        }
-      }
-
-      Notification.remove(notifKey);
-
-      setFiles([]);
-      setUseExample(false);
-
-      if (createdCount > 0) {
-        Notification.success({
-          title: '创建成功',
-          content: `成功创建 ${createdCount} 个识别任务，正在跳转...`,
-          duration: 5000,
-        });
-        setTimeout(() => navigate('/jobs'), 1500);
-      } else {
-        Notification.error({
-          title: '创建失败',
-          content: errors.join('；') || '未知错误',
-          duration: 5000,
-        });
-      }
-    } catch (err: unknown) {
-      Notification.remove(notifKey);
-      const msg = err instanceof Error ? err.message : '创建失败，请重试';
-      Notification.error({
-        title: '创建失败',
-        content: msg,
-        duration: 5000,
-      });
-    } finally {
-      setUploading(false);
-      setProgressText('');
-    }
-  };
-
-  const handleUseExample = () => {
+  /** Fetch example file eagerly and add to file list */
+  const handleUseExample = async () => {
     if (useExample) {
       Message.info('示例文件已选中');
       return;
@@ -231,15 +76,104 @@ export default function NewRecognitionPage() {
       setSchemaKey(targetSchema.schemaKey);
     }
 
-    setUseExample(true);
-    Message.success('已选中示例文件，请点击"开始识别"');
+    // If already fetched, reuse
+    if (exampleFile) {
+      setUseExample(true);
+      Message.success('已选中示例文件');
+      return;
+    }
+
+    // Fetch immediately
+    setExampleLoading(true);
+    try {
+      const resp = await fetch('/example-tumor-gene-test.png');
+      if (!resp.ok) throw new Error('示例文件加载失败');
+      const blob = await resp.blob();
+      const file = new File([blob], '肿瘤基因检测申请单示例.png', { type: 'image/png' });
+      setExampleFile(file);
+      setUseExample(true);
+      Message.success('已加载示例文件');
+    } catch {
+      Message.error('示例文件加载失败，请直接上传文件');
+    } finally {
+      setExampleLoading(false);
+    }
+  };
+
+  /** Upload a single file and create a job, returns true on success */
+  const uploadAndCreateJob = async (file: File): Promise<boolean> => {
+    const storedFile = await filesApi.upload(file);
+    await createJob.mutateAsync({
+      schemaKey,
+      sourceFileId: storedFile.id,
+    });
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    const filesToUpload = useExample && exampleFile ? [exampleFile] : files;
+
+    if (filesToUpload.length === 0) {
+      Message.warning('请至少上传一个文件');
+      return;
+    }
+    if (!schemaKey) {
+      Message.warning('请选择识别 Schema');
+      return;
+    }
+
+    // Pre-check file sizes
+    for (const f of filesToUpload) {
+      if (f.size > MAX_FILE_SIZE) {
+        Message.error(`文件 ${f.name} 超过 20MB 限制`);
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    let createdCount = 0;
+    const totalFiles = filesToUpload.length;
+
+    try {
+      for (let i = 0; i < totalFiles; i++) {
+        setProgressText(`正在上传文件 (${i + 1}/${totalFiles})...`);
+        try {
+          setProgressText(`正在创建识别任务 (${i + 1}/${totalFiles})...`);
+          await uploadAndCreateJob(filesToUpload[i]);
+          createdCount++;
+        } catch (e: unknown) {
+          const errMsg = e instanceof Error ? e.message : '未知错误';
+          Message.error(`文件 ${filesToUpload[i].name} 处理失败: ${errMsg}`);
+        }
+      }
+
+      if (createdCount > 0) {
+        setProgressText('✅ 任务创建成功，正在跳转...');
+        Message.success(`成功创建 ${createdCount} 个识别任务`);
+        setFiles([]);
+        setUseExample(false);
+        setTimeout(() => navigate('/jobs'), 2000);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '创建失败，请重试';
+      Message.error(msg);
+    } finally {
+      // Only reset submitting if no successful jobs (since we navigate away on success)
+      if (createdCount === 0) {
+        setSubmitting(false);
+        setProgressText('');
+      }
+    }
   };
 
   const isImageFile = (f: File) => f.type.startsWith('image/');
   const previewSrc = (f: File) => filePreviews.get(`${f.name}-${f.size}`) || '';
 
-  const submitDisabled =
-    uploading || (files.length === 0 && !useExample) || !schemaKey;
+  // All files to display (user files + example)
+  const displayFiles = useExample && exampleFile ? [...files, exampleFile] : files;
+  const hasFiles = files.length > 0 || (useExample && exampleFile !== null);
+
+  const submitDisabled = submitting || !hasFiles || !schemaKey;
 
   return (
     <div>
@@ -250,7 +184,8 @@ export default function NewRecognitionPage() {
       />
 
       <div style={{ maxWidth: 860 }}>
-        {uploading && (
+        {/* 进度提示卡片 */}
+        {submitting && (
           <Card style={{ marginBottom: 12, background: 'var(--color-primary-light-1)', border: '1px solid var(--color-primary-light-3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 14, color: 'var(--color-primary)' }}>⏳</span>
@@ -267,6 +202,7 @@ export default function NewRecognitionPage() {
                 accept="image/*,.pdf"
                 showUploadList={false}
                 fileList={[]}
+                disabled={submitting}
                 style={{ width: '100%' }}
                 onChange={(fileList: UploadItem[]) => {
                   const incoming = fileList
@@ -308,9 +244,11 @@ export default function NewRecognitionPage() {
                     border: '2px dashed var(--color-border)',
                     borderRadius: 8,
                     transition: 'border-color 0.2s, background 0.2s',
-                    cursor: 'pointer',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.6 : 1,
                   }}
                   onMouseEnter={(e) => {
+                    if (submitting) return;
                     e.currentTarget.style.borderColor = 'var(--color-primary)';
                     e.currentTarget.style.background = 'var(--color-primary-light-1)';
                   }}
@@ -328,7 +266,7 @@ export default function NewRecognitionPage() {
               </Upload>
 
               {/* File list */}
-              {files.length > 0 && (
+              {displayFiles.length > 0 && (
                 <div style={{ marginTop: 12, border: '1px solid var(--color-border)', borderRadius: 6, padding: '8px 0' }}>
                   {files.map((f, index) => (
                     <div
@@ -364,47 +302,50 @@ export default function NewRecognitionPage() {
                           ? `${(f.size / (1024 * 1024)).toFixed(1)} MB`
                           : `${(f.size / 1024).toFixed(1)} KB`}
                       </span>
-                      <Button
-                        type="text"
-                        size="mini"
-                        icon={<IconXCircle />}
-                        onClick={() => handleRemoveFile(index)}
-                        style={{ flexShrink: 0 }}
-                      />
+                      {!submitting && (
+                        <Button
+                          type="text"
+                          size="mini"
+                          icon={<IconXCircle />}
+                          onClick={() => handleRemoveFile(index)}
+                          style={{ flexShrink: 0 }}
+                        />
+                      )}
                     </div>
                   ))}
-                </div>
-              )}
 
-              {/* Example file in list when selected */}
-              {useExample && (
-                <div style={{ marginTop: files.length > 0 ? 0 : 12, border: '1px solid var(--color-border)', borderRadius: 6, borderTop: files.length > 0 ? 'none' : undefined, padding: '8px 0' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '6px 12px',
-                      gap: 8,
-                    }}
-                  >
-                    <IconImage size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {EXAMPLE_FILE_NAME}
-                    </span>
-                    <Tag color="blue" size="small" style={{ flexShrink: 0 }}>示例文件</Tag>
-                    <Button
-                      type="text"
-                      size="mini"
-                      icon={<IconXCircle />}
-                      onClick={handleRemoveExample}
-                      style={{ flexShrink: 0 }}
-                    />
-                  </div>
+                  {/* Example file in list */}
+                  {useExample && exampleFile && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '6px 12px',
+                        gap: 8,
+                        borderTop: files.length > 0 ? '1px solid var(--color-border)' : undefined,
+                      }}
+                    >
+                      <IconImage size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {EXAMPLE_FILE_NAME}
+                      </span>
+                      <Tag color="blue" size="small" style={{ flexShrink: 0 }}>示例文件</Tag>
+                      {!submitting && (
+                        <Button
+                          type="text"
+                          size="mini"
+                          icon={<IconXCircle />}
+                          onClick={handleRemoveExample}
+                          style={{ flexShrink: 0 }}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </FormItem>
 
-            {/* Example button — separate section with clear visual hierarchy */}
+            {/* Example button */}
             <FormItem>
               <div
                 style={{
@@ -428,7 +369,8 @@ export default function NewRecognitionPage() {
                   type="outline"
                   size="small"
                   onClick={handleUseExample}
-                  disabled={useExample}
+                  disabled={useExample || exampleLoading || submitting}
+                  loading={exampleLoading}
                 >
                   {useExample ? '已选中' : '使用示例'}
                 </Button>
@@ -442,6 +384,7 @@ export default function NewRecognitionPage() {
                 onChange={(v) => setSchemaKey(v as string)}
                 style={{ width: '100%' }}
                 loading={schemasLoading}
+                disabled={submitting}
               >
                 {schemas.map((s) => (
                   <Option key={s.schemaKey} value={s.schemaKey}>
@@ -454,7 +397,7 @@ export default function NewRecognitionPage() {
             <FormItem>
               <Button
                 type="primary"
-                loading={uploading}
+                loading={submitting}
                 disabled={submitDisabled}
                 onClick={handleSubmit}
                 long

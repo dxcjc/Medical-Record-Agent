@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Grid, Card, Table, Button, Spin, Typography, Select, Space } from '@arco-design/web-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   IconActivity,
   IconAlertTriangle,
@@ -145,6 +145,13 @@ export default function DashboardPage() {
   const jobs = jobsData?.items || [];
   const providers = providersData?.items || [];
   const schemas = schemasData?.items || [];
+
+  // Auto-select schema if only one exists
+  useEffect(() => {
+    if (schemas.length === 1 && !trendSchemaKey) {
+      setTrendSchemaKey(schemas[0].schemaKey);
+    }
+  }, [schemas, trendSchemaKey]);
 
   const useStatsApi = !!statsData && !statsError;
 

@@ -45,7 +45,8 @@ describe("audit.repository", () => {
         action: true,
         objectType: true,
         objectId: true,
-        result: true
+        result: true,
+        createdAt: true
       }
     });
   });

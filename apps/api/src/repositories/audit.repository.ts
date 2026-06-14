@@ -32,7 +32,8 @@ const auditCreateSelection = {
   action: true,
   objectType: true,
   objectId: true,
-  result: true
+  result: true,
+  createdAt: true
 } as const;
 
 /**

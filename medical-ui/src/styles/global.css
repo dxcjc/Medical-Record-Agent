@@ -43,3 +43,25 @@ body {
     min-width: 32px;
   }
 }
+
+/* 表格单元格文本截断 */
+.arco-table-td-content {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arco-table-td {
+  max-width: 0;
+}
+
+/* 表格中 code 标签截断 */
+.arco-table-td .arco-typography-code {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
