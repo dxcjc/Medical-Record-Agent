@@ -136,6 +136,30 @@ export function createSchemaRepository(dependencies: SchemaRepositoryDependencie
       return { items, total, page, pageSize };
     },
 
+    async listAll(input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = Math.min(input?.pageSize ?? 50, 100);
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.schemaVersion.findMany({
+          orderBy: [
+            {
+              schemaKey: "asc"
+            },
+            {
+              version: "desc"
+            }
+          ],
+          skip,
+          take: pageSize
+        }),
+        dependencies.schemaVersion.count()
+      ]);
+
+      return { items, total, page, pageSize };
+    },
+
     async listVersions(schemaKey: string) {
       return dependencies.schemaVersion.findMany({
         where: { schemaKey },

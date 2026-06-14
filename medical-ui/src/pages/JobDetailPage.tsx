@@ -284,20 +284,22 @@ function parseTestItems(raw: string | string[] | undefined | null): { all: strin
 
 function calculateDisplayStatus(
   backendStatus: string,
-  normalizedFields: Array<{ confidence?: number }>
+  normalizedFields: Array<{ confidence?: number; value?: string }>
 ): string {
   // 只在后端状态为 partial_completed 时重新计算
   if (backendStatus !== 'partial_completed' && backendStatus !== 'needs_review') return backendStatus;
 
-  // 计算有效置信度字段
-  const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
-  
+  // 计算有效置信度字段（排除空值字段）
+  const fieldsWithConfidence = normalizedFields.filter(
+    (f) => f.value !== '-' && f.confidence != null && f.confidence > 0
+  );
+
   // 如果没有有效置信度字段，保持后端状态
   if (fieldsWithConfidence.length === 0) return backendStatus;
 
   // 检查是否所有有效置信度字段都 >= 80%
   const allHighConfidence = fieldsWithConfidence.every((f) => (f.confidence || 0) >= 0.8);
-  
+
   // 如果所有有效置信度字段都 >= 80%，显示"已完成"
   if (allHighConfidence) return 'completed';
 
@@ -600,7 +602,10 @@ export default function JobDetailPage() {
   const ocrText = extractOcrText(result);
   const ocrBlocks = extractOcrBlocks(result);
   const confidenceStr = result?.confidence;
-  const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
+  // 只统计有值字段的置信度，空值字段不参与计算（空值 = 识别置信度 100%）
+  const fieldsWithConfidence = normalizedFields.filter(
+    (f) => f.value !== '-' && f.confidence != null && f.confidence > 0
+  );
   const confidenceNum = confidenceStr
     ? parseFloat(confidenceStr)
     : fieldsWithConfidence.length > 0

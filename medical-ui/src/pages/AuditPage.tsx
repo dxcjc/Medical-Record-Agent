@@ -35,6 +35,11 @@ const { Text } = Typography;
 const { Option } = Select;
 const { Row, Col } = Grid;
 
+/** 将 schemaKey（如 lims-clinical-info）转为可读名称 */
+function formatSchemaKey(key: string): string {
+  return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 /* ------------------------------------------------------------------ */
 /*  操作类型中文映射                                                     */
 /* ------------------------------------------------------------------ */
@@ -202,7 +207,7 @@ function QualityReportTab({ schemas }: { schemas: SchemaVersion[] }) {
         >
           {schemas.map(s => (
             <Option key={s.schemaKey} value={s.schemaKey}>
-              {s.displayName || s.schemaKey}
+              {s.displayName || formatSchemaKey(s.schemaKey)}
             </Option>
           ))}
         </Select>
@@ -352,7 +357,7 @@ function QualityReportTab({ schemas }: { schemas: SchemaVersion[] }) {
                     }}
                   >
                     <Tag color="blue" size="small">{schema.schemaKey}</Tag>
-                    <Text style={{ flex: 1 }}>{schema.displayName}</Text>
+                    <Text style={{ flex: 1 }}>{schema.displayName || formatSchemaKey(schema.schemaKey)}</Text>
                     <Tag size="small" color={schema.status === 'active' ? 'green' : 'gray'}>
                       {schema.status === 'active' ? '活跃' : schema.status}
                     </Tag>

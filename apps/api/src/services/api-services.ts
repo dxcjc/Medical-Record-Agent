@@ -71,6 +71,7 @@ export interface ApiRecognitionOrchestrator {
 export interface ApiServiceRepositories {
   schemaRepository: {
     listActive(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
+    listAll(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
   };
   fileRepository: {
     create(input: {
@@ -179,6 +180,7 @@ export interface ApiServiceRepositories {
       metadata?: Prisma.InputJsonValue;
     }): Promise<unknown>;
     listRunsByDataset(datasetId: string, input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
+    listAllRuns?(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
     createRun(input: {
       datasetId: string;
       createdById?: string | null;
@@ -1523,6 +1525,14 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         );
       }
 
+      if (repositories.evaluationRepository.listAllRuns) {
+        const result = await repositories.evaluationRepository.listAllRuns();
+        return assertRouteRecordList(
+          result.items,
+          "EVALUATION_RUN_RESPONSE_INVALID"
+        );
+      }
+
       return [];
     },
     async createRun(input: CreateEvaluationRunInput) {
@@ -2003,6 +2013,12 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             item.provider = providerKey;
           }
 
+          // 列数据补全：createdByName
+          const createdBy = job.createdBy as Record<string, unknown> | undefined;
+          if (createdBy?.displayName && typeof createdBy.displayName === "string") {
+            item.createdByName = createdBy.displayName;
+          }
+
           return item;
         });
 
@@ -2092,6 +2108,12 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       },
       async getFieldStats() {
         return repositories.feedbackRepository.getFieldStats();
+      },
+      async updateStatus(id: string, status: 'approved' | 'rejected') {
+        const prismaStatus = status === 'approved' ? 'accepted' : 'rejected';
+        // 基础实现：直接更新状态，生产环境会被 production-services 覆盖
+        const updated = await (repositories.feedbackRepository as { markReviewed?: (id: string, reviewedAt: Date, status: string) => Promise<unknown> }).markReviewed?.(id, new Date(), prismaStatus);
+        return assertRouteRecord(updated ?? { id, status: prismaStatus }, "FEEDBACK_RESPONSE_INVALID");
       }
     },
     writebackService: {

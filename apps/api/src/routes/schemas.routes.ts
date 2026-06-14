@@ -16,6 +16,7 @@ import {
 
 export interface SchemaRouteService {
   listActive(input?: { page?: number; pageSize?: number }): Promise<ApiRouteResponseObject[]>;
+  listAll?(input?: { page?: number; pageSize?: number }): Promise<ApiRouteResponseObject[]>;
   createDraft(input: CreateSchemaDraftRouteInput & {
     actor: AuthContext;
   }): Promise<ApiRouteResponseObject>;
@@ -71,9 +72,10 @@ export async function registerSchemaRoutes(server: FastifyInstance, dependencies
       ]
     },
     async () => {
+      const listFn = dependencies.schemaService.listAll ?? dependencies.schemaService.listActive;
       return {
         items: assertRouteResponseObjectList(
-          await dependencies.schemaService.listActive(),
+          await listFn(),
           "SCHEMA_LIST_RESPONSE_INVALID"
         )
       };

@@ -51,6 +51,8 @@ export interface SchemaServiceRepository {
     validationReport: Prisma.InputJsonValue;
   }): Promise<ApiRouteResponseObject>;
   findActiveVersionBySchemaKey(schemaKey: string): Promise<SchemaVersionSnapshot | null>;
+  listActive(input?: { page?: number; pageSize?: number }): Promise<{ items: SchemaVersionSnapshot[]; total: number; page: number; pageSize: number }>;
+  listAll(input?: { page?: number; pageSize?: number }): Promise<{ items: SchemaVersionSnapshot[]; total: number; page: number; pageSize: number }>;
   listVersions(schemaKey: string): Promise<SchemaVersionSnapshot[]>;
   createVersion(input: {
     schemaKey: string;

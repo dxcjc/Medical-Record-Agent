@@ -102,7 +102,7 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
         dependencies.authHooks.requirePermission(PERMISSIONS.feedbackCreate)
       ]
     },
-    async (request) => {
+    async (request, reply) => {
       const parsed = feedbackAllQuerySchema.safeParse(request.query);
       const data = parsed.success ? parsed.data : {};
       const input: { fieldKey?: string; jobId?: string; status?: string; page?: number; pageSize?: number } = {};
@@ -112,13 +112,21 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
       if (data.page !== undefined) input.page = data.page;
       if (data.pageSize !== undefined) input.pageSize = data.pageSize;
 
-      const result = await dependencies.feedbackService.listAll(input);
-      return {
-        items: result.items.map((item) => assertRouteResponseObject(item, "FEEDBACK_RESPONSE_INVALID")),
-        total: result.total,
-        page: result.page,
-        pageSize: result.pageSize
-      };
+      try {
+        const result = await dependencies.feedbackService.listAll(input);
+        return {
+          items: result.items.map((item) => assertRouteResponseObject(item, "FEEDBACK_RESPONSE_INVALID")),
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize
+        };
+      } catch (error: unknown) {
+        request.log.error({ err: error }, "feedback listAll failed");
+        return reply.status(500).send({
+          error: "FEEDBACK_LIST_FAILED",
+          message: "查询反馈列表失败"
+        });
+      }
     }
   );
 

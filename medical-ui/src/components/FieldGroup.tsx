@@ -20,8 +20,9 @@ interface FieldGroupProps {
   onFieldClick?: (fieldKey: string) => void;
 }
 
-function ConfidenceBadge({ confidence, source }: { confidence?: number; source?: string }) {
-  if (confidence == null) return null;
+function ConfidenceBadge({ confidence, source, isEmpty }: { confidence?: number; source?: string; isEmpty?: boolean }) {
+  // 空值字段不显示置信度标记 — 空值代表识别置信度 100%
+  if (confidence == null || isEmpty) return null;
 
   const isLow = confidence < 0.7;
   const color = confidence >= 0.8 ? 'green' : confidence >= 0.5 ? 'orange' : 'red';
@@ -101,6 +102,7 @@ export default function FieldGroup({ title, icon, fields, columns = 2, onFieldCl
                 <ConfidenceBadge
                   confidence={field.confidence}
                   source={field.source}
+                  isEmpty={formatFieldValue(field.value) === '-'}
                 />
               </div>
             </div>

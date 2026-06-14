@@ -58,6 +58,32 @@ function createRepository(): SchemaServiceRepository {
       definition: limsClinicalInfoSchema,
       status: "active"
     })),
+    listActive: vi.fn(async () => ({
+      items: [{
+        id: "version-001",
+        schemaKey: "lims-clinical-info",
+        version: 1,
+        displayName: "LIMS 临床信息",
+        definition: limsClinicalInfoSchema,
+        status: "active"
+      }],
+      total: 1,
+      page: 1,
+      pageSize: 50
+    })),
+    listAll: vi.fn(async () => ({
+      items: [{
+        id: "version-001",
+        schemaKey: "lims-clinical-info",
+        version: 1,
+        displayName: "LIMS 临床信息",
+        definition: limsClinicalInfoSchema,
+        status: "active"
+      }],
+      total: 1,
+      page: 1,
+      pageSize: 50
+    })),
     listVersions: vi.fn(async () => [
       {
         id: "version-002",

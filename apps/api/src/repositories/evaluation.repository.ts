@@ -250,6 +250,28 @@ export function createEvaluationRepository(dependencies: EvaluationRepositoryDep
       ]);
 
       return { items, total, page, pageSize };
+    },
+
+    async listAllRuns(input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = Math.min(input?.pageSize ?? 50, 100);
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.evaluationRun.findMany({
+          orderBy: {
+            createdAt: "desc"
+          },
+          include: {
+            dataset: true
+          },
+          skip,
+          take: pageSize
+        }),
+        dependencies.evaluationRun.count()
+      ]);
+
+      return { items, total, page, pageSize };
     }
   };
 }

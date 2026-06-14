@@ -61,7 +61,8 @@ function createRedisClientMock(): RedisJobQueueClient {
 function createRepositories(): ApiServiceRepositories {
   return {
     schemaRepository: {
-      listActive: vi.fn(async () => ({ items: [{ schemaKey: "lims-clinical-info", version: 1 }], total: 1, page: 1, pageSize: 50 }))
+      listActive: vi.fn(async () => ({ items: [{ schemaKey: "lims-clinical-info", version: 1 }], total: 1, page: 1, pageSize: 50 })),
+      listAll: vi.fn(async () => ({ items: [{ schemaKey: "lims-clinical-info", version: 1 }], total: 1, page: 1, pageSize: 50 }))
     },
     fileRepository: {
       create: vi.fn(async (input) => ({ id: "file-001", ...input })),

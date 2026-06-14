@@ -2743,6 +2743,10 @@ export function createProductionApiServices(options: CreateProductionApiServices
       const result = await schemaRepository.listActive(input);
       return result.items;
     },
+    listAll: async (input?: { page?: number; pageSize?: number }) => {
+      const result = await schemaRepository.listAll(input);
+      return result.items;
+    },
     ...schemaService
   };
   const productionWritebackExecutor = createProductionWritebackExecutor(

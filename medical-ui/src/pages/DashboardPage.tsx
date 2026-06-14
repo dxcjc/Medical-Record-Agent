@@ -27,6 +27,11 @@ const { Row, Col } = Grid;
 const { Text } = Typography;
 const { Option } = Select;
 
+/** 将 schemaKey（如 lims-clinical-info）转为可读名称 */
+function formatSchemaKey(key: string): string {
+  return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 /* ------------------------------------------------------------------ */
 /*  SVG 折线图组件                                                       */
 /* ------------------------------------------------------------------ */
@@ -150,7 +155,7 @@ export default function DashboardPage() {
   const schemaNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     schemas.forEach((s) => {
-      map[s.schemaKey] = s.displayName || s.schemaKey;
+      map[s.schemaKey] = s.displayName || formatSchemaKey(s.schemaKey);
     });
     return map;
   }, [schemas]);
@@ -224,7 +229,7 @@ export default function DashboardPage() {
       title: 'Schema',
       dataIndex: 'schemaKey',
       width: 150,
-      render: (key: string) => schemaNameMap[key] || key,
+      render: (key: string) => schemaNameMap[key] || formatSchemaKey(key),
     },
     {
       title: '状态',

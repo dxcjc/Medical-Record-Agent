@@ -14,6 +14,11 @@ import type { RecognitionJob } from '../api/types';
 const { Option } = Select;
 const { Text } = Typography;
 
+/** 将 schemaKey（如 lims-clinical-info）转为可读名称 */
+function formatSchemaKey(key: string): string {
+  return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'queued', label: '排队中' },
@@ -62,7 +67,7 @@ export default function JobListPage() {
   const schemaNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     schemasData?.items?.forEach((s) => {
-      map[s.schemaKey] = s.displayName || s.schemaKey;
+      map[s.schemaKey] = s.displayName || formatSchemaKey(s.schemaKey);
     });
     return map;
   }, [schemasData]);
@@ -97,7 +102,7 @@ export default function JobListPage() {
       title: 'Schema',
       dataIndex: 'schemaKey',
       width: 160,
-      render: (key: string) => schemaNameMap[key] || key,
+      render: (key: string) => schemaNameMap[key] || formatSchemaKey(key),
     },
     {
       title: '文件名',

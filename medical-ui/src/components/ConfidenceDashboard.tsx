@@ -140,21 +140,26 @@ export default function ConfidenceDashboard({
       (f) => f.value != null && f.value !== '' && f.value !== '-',
     ).length;
     const empty = total - filled;
-    const needReview = fields.filter((f) => f.confidence != null && f.confidence < 0.7).length;
+    // 只统计有值字段中置信度低于 0.7 的，空值字段不算需复核
+    const needReview = fields.filter(
+      (f) => f.value != null && f.value !== '' && f.value !== '-' && f.confidence != null && f.confidence < 0.7,
+    ).length;
     return { total, filled, empty, needReview };
   }, [fields]);
 
   const distribution = useMemo(() => {
-    const high = fields.filter((f) => f.confidence != null && f.confidence >= 0.8).length;
-    const medium = fields.filter((f) => f.confidence != null && f.confidence >= 0.5 && f.confidence < 0.8).length;
-    const low = fields.filter((f) => f.confidence != null && f.confidence < 0.5).length;
-    return { high, medium, low };
+    // 只统计有值字段的置信度分布，空值字段不参与
+    const nonEmpty = fields.filter((f) => f.value != null && f.value !== '' && f.value !== '-');
+    const high = nonEmpty.filter((f) => f.confidence != null && f.confidence >= 0.8).length;
+    const medium = nonEmpty.filter((f) => f.confidence != null && f.confidence >= 0.5 && f.confidence < 0.8).length;
+    const low = nonEmpty.filter((f) => f.confidence != null && f.confidence < 0.5).length;
+    return { high, medium, low, total: nonEmpty.length };
   }, [fields]);
 
   const lowConfidenceFields = useMemo(
     () =>
       fields
-        .filter((f) => f.confidence != null && f.confidence < 0.7)
+        .filter((f) => f.value != null && f.value !== '' && f.value !== '-' && f.confidence != null && f.confidence < 0.7)
         .sort((a, b) => (a.confidence || 0) - (b.confidence || 0)),
     [fields],
   );
@@ -254,19 +259,19 @@ export default function ConfidenceDashboard({
               <DistributionBar
                 label="高 ≥80"
                 count={distribution.high}
-                total={fields.length}
+                total={distribution.total}
                 color="#00B42A"
               />
               <DistributionBar
                 label="中 50-80"
                 count={distribution.medium}
-                total={fields.length}
+                total={distribution.total}
                 color="#FF7D00"
               />
               <DistributionBar
                 label="低 <50"
                 count={distribution.low}
-                total={fields.length}
+                total={distribution.total}
                 color="#F53F3F"
               />
             </div>

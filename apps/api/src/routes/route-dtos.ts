@@ -214,6 +214,10 @@ export function redactSensitiveRouteValue(value: unknown, path: string[] = []): 
     return value.replace(bearerValuePattern, "[redacted]");
   }
 
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
   if (!isRecord(value)) {
     return value;
   }

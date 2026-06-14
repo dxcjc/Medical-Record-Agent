@@ -59,7 +59,8 @@ function formatTime(t?: string): string {
 function statusTabToApiParam(tab: StatusTab): string | undefined {
   if (tab === 'all') return undefined;
   if (tab === 'approved') return 'reviewed';
-  return tab; // 'pending' or 'rejected'
+  if (tab === 'pending') return 'open';
+  return tab; // 'rejected'
 }
 
 /** Render status tag for a feedback item */
