@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import type { FastifyRequest, preHandlerHookHandler } from "fastify";
 
 import type { AuthLayerService } from "./middleware/auth.middleware";
@@ -20,6 +22,7 @@ import { registerWritebackRoutes, type WritebackRouteService } from "./routes/wr
 import { registerKnowledgeRoutes, type KnowledgeRouteService } from "./routes/knowledge.routes";
 import { registerV1Routes, type V1RouteService } from "./routes/v1.routes";
 import { registerStatsRoutes, type StatsRouteService } from "./routes/stats.routes";
+import { openApiDocument } from "./openapi";
 
 export interface ApiServerServices {
   authService: AuthLayerService & AuthRouteService;
@@ -211,6 +214,18 @@ export async function createApiServer(options: CreateApiServerOptions) {
     allowedHeaders: ["authorization", "content-type", "x-api-token"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  });
+
+  // Swagger / OpenAPI 文档
+  await server.register(swagger, {
+    openapi: openApiDocument as any
+  });
+  await server.register(swaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list" as const,
+      deepLinking: true
+    }
   });
 
   await registerSecurityHeaders(server);

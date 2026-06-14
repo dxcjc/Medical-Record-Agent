@@ -36,6 +36,15 @@ export interface TraceStep {
   [key: string]: unknown;
 }
 
+/** 识别任务选项 */
+export interface RecognitionJobOptions {
+  skipOcr?: boolean;
+  skipNormalization?: boolean;
+  dryRun?: boolean;
+  timeoutMs?: number;
+  [key: string]: unknown;
+}
+
 export interface RecognitionJob {
   id: string;
   status: RecognitionJobStatus;
@@ -43,8 +52,8 @@ export interface RecognitionJob {
   schemaVersionId?: string;
   sourceFileId?: string;
   createdById?: string;
-  providerConfig: Record<string, unknown>;
-  options: Record<string, unknown>;
+  providerConfig: ProviderConfigMap;
+  options: RecognitionJobOptions;
   trace: TraceStep[];
   warnings: unknown[];
   error?: unknown;
@@ -56,17 +65,66 @@ export interface RecognitionJob {
   result?: RecognitionResult;
 }
 
+/** 字段抽取值（支持多种类型） */
+export type ExtractedFieldValue = string | number | boolean | string[] | null;
+
+/** 字段抽取结果映射 */
+export type FieldExtractionMap = Record<string, ExtractedFieldValue>;
+
 export interface RecognitionResult {
   id: string;
   jobId: string;
-  fields: Record<string, unknown>;
-  normalizedFields: Record<string, unknown>;
+  fields: FieldExtractionMap;
+  normalizedFields: FieldExtractionMap;
   evidence: EvidenceItem[];
-  payload: Record<string, unknown>;
+  payload: RecognitionResultPayload;
   confidence?: string;
   reviewRequired: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/** 识别结果 payload 结构 */
+export interface RecognitionResultPayload {
+  providerName?: string;
+  ocrPages?: number;
+  extractedFieldCount?: number;
+  schemaKey?: string;
+  ocr?: {
+    provider?: string;
+    pages?: Array<{ page: number; text: string }>;
+    blocks?: Array<{ text: string; confidence: number; page: number; blockId?: string; coordinates?: OcrCoordinates }>;
+    [key: string]: unknown;
+  };
+  extraction?: {
+    provider?: string;
+    model?: string;
+    tokenUsage?: { total?: number; prompt?: number; completion?: number; [key: string]: unknown };
+    [key: string]: unknown;
+  };
+  validation?: {
+    fieldResults?: Array<{ fieldKey?: string; decision?: string; issues?: string[]; confidence?: number }>;
+    [key: string]: unknown;
+  };
+  rag?: {
+    query?: string;
+    hits?: Array<{ title?: string; score?: number; content?: string }>;
+    misses?: string[];
+    [key: string]: unknown;
+  };
+  text?: string;
+  ocrText?: string;
+  ocr_text?: string;
+  rawText?: string;
+  [key: string]: unknown;
+}
+
+/** OCR 坐标 */
+export interface OcrCoordinates {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface EvidenceItem {
@@ -115,18 +173,46 @@ export interface SchemaField {
   [key: string]: unknown;
 }
 
+/** Draft 验证报告 */
+export interface ValidationReport {
+  valid: boolean;
+  errors?: Array<{ path: string; message: string }>;
+  warnings?: Array<{ path: string; message: string }>;
+  [key: string]: unknown;
+}
+
 export interface SchemaDraft {
   id: string;
   schemaKey: string;
   displayName: string;
   status: 'draft' | 'validating' | 'invalid' | 'ready' | 'published' | 'archived';
   definition: SchemaDefinition;
-  validationReport: Record<string, unknown>;
+  validationReport: ValidationReport;
   createdAt: string;
   updatedAt: string;
 }
 
 export type ProviderKind = 'ocr' | 'llm' | 'storage' | 'lims';
+
+/** Provider 配置参数映射 */
+export interface ProviderConfigMap {
+  endpoint?: string;
+  model?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+  maxRetries?: number;
+  providerKey?: string;
+  ocrProviderKey?: string;
+  [key: string]: unknown;
+}
+
+/** Provider 密钥引用映射 */
+export interface ProviderSecretRefs {
+  apiKeyRef?: string;
+  endpointRef?: string;
+  [key: string]: string | undefined;
+}
 
 export interface ProviderConfig {
   id: string;
@@ -135,8 +221,8 @@ export interface ProviderConfig {
   displayName: string;
   status: 'active' | 'disabled';
   isDefault: boolean;
-  config: Record<string, unknown>;
-  secretRefs: Record<string, unknown>;
+  config: ProviderConfigMap;
+  secretRefs: ProviderSecretRefs;
   createdAt: string;
   updatedAt: string;
 }
@@ -156,10 +242,19 @@ export interface EvaluationDataset {
   description?: string;
   status: 'draft' | 'ready' | 'archived';
   deidentified: boolean;
-  metadata: Record<string, unknown>;
+  metadata: EvaluationDatasetMetadata;
   createdAt: string;
   updatedAt: string;
   _count?: { samples: number };
+}
+
+/** 评测数据集元数据 */
+export interface EvaluationDatasetMetadata {
+  source?: string;
+  language?: string;
+  tags?: string[];
+  schemaKey?: string;
+  [key: string]: unknown;
 }
 
 export interface EvaluationSample {
@@ -168,9 +263,17 @@ export interface EvaluationSample {
   fileId?: string;
   recognitionJobId?: string;
   externalId?: string;
-  groundTruth: Record<string, unknown>;
-  metadata: Record<string, unknown>;
+  groundTruth: FieldExtractionMap;
+  metadata: EvaluationSampleMetadata;
   createdAt: string;
+}
+
+/** 评测样本元数据 */
+export interface EvaluationSampleMetadata {
+  source?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  tags?: string[];
+  [key: string]: unknown;
 }
 
 export interface EvaluationRun {
@@ -191,8 +294,22 @@ export interface EvaluationMetric {
   runId: string;
   metricName: string;
   value: number;
-  metadata: Record<string, unknown>;
+  metadata: EvaluationMetricMetadata;
   createdAt: string;
+}
+
+/** 评测指标元数据 */
+export interface EvaluationMetricMetadata {
+  fieldKey?: string;
+  sampleCount?: number;
+  correctCount?: number;
+  breakdown?: Record<string, {
+    precision?: number;
+    recall?: number;
+    f1?: number;
+    accuracy?: number;
+  }>;
+  [key: string]: unknown;
 }
 
 export interface AuditEntry {
@@ -203,9 +320,18 @@ export interface AuditEntry {
   objectId?: string;
   result: 'success' | 'failure';
   ipAddress?: string;
-  metadata: Record<string, unknown>;
+  metadata: AuditEntryMetadata;
   createdAt: string;
   actorUser?: { id: string; email: string; displayName: string };
+}
+
+/** 审计条目元数据 */
+export interface AuditEntryMetadata {
+  method?: string;
+  path?: string;
+  statusCode?: number;
+  duration?: number;
+  [key: string]: unknown;
 }
 
 export interface PaginatedResponse<T> {
@@ -280,6 +406,16 @@ export interface FeedbackSubmission {
   reviewedAt?: string;
 }
 
+/** 反馈提交请求体 */
+export interface FeedbackSubmitRequest {
+  jobId: string;
+  schemaVersionId?: string;
+  fieldKey: string;
+  originalValue?: unknown;
+  correctedValue: unknown;
+  comment?: string;
+}
+
 export interface WritebackAttempt {
   id: string;
   jobId: string;
@@ -292,6 +428,24 @@ export interface WritebackAttempt {
   error?: unknown;
   attemptedAt: string;
   completedAt?: string;
+}
+
+/** 可回写条目 */
+export interface WritebackEligibleItem {
+  id?: string;
+  jobId: string;
+  schemaKey: string;
+  status: RecognitionJobStatus;
+  createdAt: string;
+  result?: RecognitionResult;
+  readyFields?: Array<{ fieldKey: string; value: unknown }>;
+}
+
+/** 回写执行结果 */
+export interface WritebackExecuteResult {
+  attemptId: string;
+  status: 'succeeded' | 'failed' | 'skipped';
+  message?: string;
 }
 
 export interface FeedbackFieldStat {

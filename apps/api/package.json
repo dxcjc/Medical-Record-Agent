@@ -13,6 +13,8 @@
     "@fastify/cors": "^10.0.2",
     "@fastify/jwt": "^9.0.2",
     "@fastify/multipart": "^10.0.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^6.0.0",
     "@medical-record-agent/core": "workspace:*",
     "@medical-record-agent/shared": "workspace:*",
     "@prisma/client": "^6.1.0",

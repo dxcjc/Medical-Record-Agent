@@ -47,6 +47,8 @@ function formatTime(t?: string): string {
 /*  回写确认弹窗                                                       */
 /* ------------------------------------------------------------------ */
 
+type WritebackConfirmTarget = Pick<import('../api/types').WritebackEligibleItem, 'jobId'> & Partial<import('../api/types').WritebackEligibleItem> & { id?: string };
+
 function WritebackConfirmModal({
   visible,
   job,
@@ -55,7 +57,7 @@ function WritebackConfirmModal({
   onSuccess,
 }: {
   visible: boolean;
-  job: Record<string, unknown> | null;
+  job: WritebackConfirmTarget | null;
   isRetry?: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -84,8 +86,8 @@ function WritebackConfirmModal({
 
   if (!job) return null;
 
-  const jobId = job.jobId || job.id;
-  const readyFields = (job.readyFields as Array<{ fieldKey: string; value: unknown }>) || [];
+  const jobId = job.jobId || job.id || '';
+  const readyFields = job.readyFields || [];
 
   return (
     <Modal
@@ -129,7 +131,7 @@ function WritebackConfirmModal({
 
 export default function WritebackPage() {
   const navigate = useNavigate();
-  const [confirmJob, setConfirmJob] = useState<Record<string, unknown> | null>(null);
+  const [confirmJob, setConfirmJob] = useState<WritebackConfirmTarget | null>(null);
   const [isRetry, setIsRetry] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
@@ -165,7 +167,7 @@ export default function WritebackPage() {
     {
       title: '任务 ID',
       width: 200,
-      render: (_: unknown, record: Record<string, unknown>) => (
+      render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => (
         <Button
           type="text"
           size="small"
@@ -178,15 +180,15 @@ export default function WritebackPage() {
     {
       title: 'Schema',
       width: 150,
-      render: (_: unknown, record: Record<string, unknown>) => (
+      render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => (
         <Tag size="small" color="blue">{String(record.schemaKey || '-')}</Tag>
       ),
     },
     {
       title: '识别结果摘要',
       width: 300,
-      render: (_: unknown, record: Record<string, unknown>) => {
-        const readyFields = (record.readyFields as Array<{ fieldKey: string; value: unknown }>) || [];
+      render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => {
+        const readyFields = record.readyFields || [];
         if (readyFields.length === 0) return <Text type="secondary">-</Text>;
         return (
           <Space size={4} wrap>
@@ -201,7 +203,7 @@ export default function WritebackPage() {
     {
       title: '操作',
       width: 180,
-      render: (_: unknown, record: Record<string, unknown>) => (
+      render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => (
         <Space>
           <Button
             type="primary"

@@ -1,6 +1,9 @@
 const API_BASE = '/api';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
 
 function getToken(): string | null {
   return localStorage.getItem('accessToken');
@@ -24,6 +27,21 @@ export class ApiError extends Error {
   }
 }
 
+export class NetworkError extends Error {
+  constructor(message = '网络连接失败，请检查网络后重试') {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status: number): boolean {
+  return RETRYABLE_STATUS_CODES.has(status);
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -42,34 +60,58 @@ async function request<T>(
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  let lastError: unknown;
 
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = '/login';
-    throw new ApiError(401, null, 'Unauthorized');
-  }
-
-  if (!res.ok) {
-    let body: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let res: Response;
     try {
-      body = await res.json();
-    } catch {
-      body = null;
+      res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+      });
+    } catch (error) {
+      lastError = error;
+      // Network errors (DNS failure, connection refused, offline, AbortError)
+      if (attempt < MAX_RETRIES) {
+        await delay(RETRY_DELAY_MS * (attempt + 1));
+        continue;
+      }
+      throw new NetworkError();
     }
-    throw new ApiError(res.status, body);
+
+    if (res.status === 401) {
+      clearToken();
+      window.location.href = '/login';
+      throw new ApiError(401, null, 'Unauthorized');
+    }
+
+    if (!res.ok) {
+      // Retry on transient server/network errors
+      if (isRetryableStatus(res.status) && attempt < MAX_RETRIES) {
+        await delay(RETRYABLE_STATUS_CODES.has(res.status) ? RETRY_DELAY_MS * (attempt + 1) : 0);
+        continue;
+      }
+
+      let body: unknown;
+      try {
+        body = await res.json();
+      } catch {
+        body = null;
+      }
+      throw new ApiError(res.status, body);
+    }
+
+    // Handle binary responses
+    const contentType = res.headers.get('content-type');
+    if (contentType && !contentType.includes('application/json')) {
+      return res as unknown as T;
+    }
+
+    return res.json();
   }
 
-  // Handle binary responses
-  const contentType = res.headers.get('content-type');
-  if (contentType && !contentType.includes('application/json')) {
-    return res as unknown as T;
-  }
-
-  return res.json();
+  // Should never reach here, but TypeScript needs it
+  throw lastError instanceof Error ? lastError : new NetworkError();
 }
 
 /** Convert a Uint8Array to base64 string without stack overflow */
@@ -112,7 +154,7 @@ export const jobsApi = {
   },
   get: (id: string) =>
     request<import('./types').RecognitionJob>(`/jobs/${id}`),
-  create: (body: { schemaKey: string; sourceFileId?: string; schemaVersionId?: string; providerConfig?: Record<string, unknown> }) =>
+  create: (body: { schemaKey: string; sourceFileId?: string; schemaVersionId?: string; providerConfig?: import('./types').ProviderConfigMap }) =>
     request<import('./types').RecognitionJob>('/jobs', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -173,13 +215,13 @@ export const schemasApi = {
     request<{ items: import('./types').SchemaVersion[] }>('/schemas'),
   listDrafts: () =>
     request<import('./types').SchemaDraft[]>('/schemas/drafts'),
-  createDraft: (body: { schemaKey: string; displayName: string; definition: Record<string, unknown> }) =>
+  createDraft: (body: { schemaKey: string; displayName: string; definition: import('./types').SchemaDefinition }) =>
     request<{ draft: import('./types').SchemaDraft }>('/schemas/drafts', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  validateDraft: (id: string, definition: Record<string, unknown>) =>
-    request<{ validation: Record<string, unknown> }>(`/schemas/drafts/${id}/validate`, {
+  validateDraft: (id: string, definition: import('./types').SchemaDefinition) =>
+    request<{ validation: import('./types').ValidationReport }>(`/schemas/drafts/${id}/validate`, {
       method: 'POST',
       body: JSON.stringify({ definition }),
     }),
@@ -210,7 +252,7 @@ export const providersApi = {
     request<{ provider: import('./types').ProviderConfig }>(`/providers/${key}/default`, {
       method: 'POST',
     }),
-  update: (key: string, body: Record<string, unknown>) =>
+  update: (key: string, body: Partial<import('./types').ProviderConfigMap>) =>
     request<{ provider: import('./types').ProviderConfig }>(`/providers/${key}`, {
       method: 'PUT',
       body: JSON.stringify(body),
@@ -228,7 +270,7 @@ export const evaluationApi = {
     }),
   listSamples: (datasetId: string) =>
     request<{ items: import('./types').EvaluationSample[] }>(`/evaluations/datasets/${datasetId}/samples`),
-  importSamples: (datasetId: string, samples: Record<string, unknown>[]) =>
+  importSamples: (datasetId: string, samples: import('./types').FieldExtractionMap[]) =>
     request<{ samples: import('./types').EvaluationSample[] }>(
       `/evaluations/datasets/${datasetId}/samples`,
       { method: 'POST', body: JSON.stringify({ samples }) }
@@ -246,13 +288,13 @@ export const evaluationApi = {
 
 // Feedback
 export const feedbackApi = {
-  submit: (body: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/feedback', {
+  submit: (body: import('./types').FeedbackSubmitRequest) =>
+    request<import('./types').FeedbackSubmission>('/feedback', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
   listByJob: (jobId: string) =>
-    request<{ items: Record<string, unknown>[] }>(`/feedback?jobId=${jobId}`),
+    request<{ items: import('./types').FeedbackSubmission[] }>(`/feedback?jobId=${jobId}`),
   listAll: (params?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }) => {
     const p = new URLSearchParams();
     if (params?.fieldKey) p.set('fieldKey', params.fieldKey);
@@ -335,9 +377,9 @@ export const statsApi = {
 // Writeback
 export const writebackApi = {
   eligible: (limit = 20) =>
-    request<{ items: Array<Record<string, unknown>> }>(`/writeback/eligible?limit=${limit}`),
+    request<{ items: import('./types').WritebackEligibleItem[] }>(`/writeback/eligible?limit=${limit}`),
   execute: (body: { jobId: string; confirmed: true; idempotencyKey?: string }) =>
-    request<Record<string, unknown>>('/writeback', {
+    request<import('./types').WritebackExecuteResult>('/writeback', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

@@ -130,7 +130,7 @@ export default function JobListPage() {
       render: (_: unknown, record: RecognitionJob) => {
         const fields = record.result?.fields;
         if (!fields) return <span style={{ color: '#999' }}>-</span>;
-        const count = Array.isArray(fields) ? fields.length : Object.keys(fields).length;
+        const count = Object.keys(fields).length;
         return <span>{count}</span>;
       },
     },
@@ -149,8 +149,8 @@ export default function JobListPage() {
       title: 'Provider',
       width: 140,
       render: (_: unknown, record: RecognitionJob) => {
-        const cfg = record.providerConfig as Record<string, unknown>;
-        const providerKey = (cfg?.providerKey as string) || (cfg?.ocrProviderKey as string) || '';
+        const cfg = record.providerConfig;
+        const providerKey = cfg?.providerKey || cfg?.ocrProviderKey || '';
         return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : '-'}</span>;
       },
     },

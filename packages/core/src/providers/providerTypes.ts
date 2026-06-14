@@ -190,6 +190,8 @@ export interface HttpLlmProviderConfig {
   apiKey?: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  maxRetries?: number;
+  retryDelayMs?: number;
   fetchFn?: FetchLike;
 }
 

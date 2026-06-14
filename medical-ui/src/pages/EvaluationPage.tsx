@@ -171,7 +171,7 @@ function ImportSamplesModal({
   const [parseError, setParseError] = useState('');
 
   const mutation = useMutation({
-    mutationFn: (samples: Record<string, unknown>[]) =>
+    mutationFn: (samples: import('../api/types').FieldExtractionMap[]) =>
       evaluationApi.importSamples(datasetId, samples),
     onSuccess: (data) => {
       const count = data.samples?.length || 0;
@@ -340,12 +340,7 @@ function MetricsDetailModal({
     const fieldRecall = metrics.find(m => m.metricName === 'field_recall');
     const fieldF1 = metrics.find(m => m.metricName === 'field_f1');
 
-    const breakdown = fieldAccuracy?.metadata?.breakdown as Record<string, {
-      precision?: number;
-      recall?: number;
-      f1?: number;
-      accuracy?: number;
-    }> | undefined;
+    const breakdown = fieldAccuracy?.metadata?.breakdown;
 
     if (breakdown && Object.keys(breakdown).length > 0) {
       return Object.entries(breakdown).map(([fieldKey, values]) => ({
@@ -566,8 +561,7 @@ export default function EvaluationPage() {
       title: '关联 Schema',
       width: 150,
       render: (_: unknown, record: EvaluationDataset) => {
-        const meta = record.metadata as Record<string, unknown>;
-        const schemaKey = meta?.schemaKey as string;
+        const schemaKey = record.metadata?.schemaKey;
         return schemaKey ? <Tag size="small" color="blue">{schemaKey}</Tag> : <span style={{ color: '#999' }}>-</span>;
       },
     },

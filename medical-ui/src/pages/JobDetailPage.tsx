@@ -127,14 +127,14 @@ function confidenceColor(c: number): string {
   return 'red';
 }
 
-function extractOcrText(result: Record<string, unknown> | null | undefined): string | null {
+function extractOcrText(result: import('../api/types').RecognitionResult | null | undefined): string | null {
   if (!result) return null;
-  const payload = result.payload as Record<string, unknown> | undefined;
+  const payload = result.payload;
   if (!payload) return null;
 
-  const ocr = payload.ocr as Record<string, unknown> | undefined;
+  const ocr = payload.ocr;
   if (ocr) {
-    const pages = ocr.pages as Array<{ page: number; text: string }> | undefined;
+    const pages = ocr.pages;
     if (pages && pages.length > 0) {
       return pages.map((p) => p.text).filter(Boolean).join('\n\n');
     }
@@ -147,42 +147,40 @@ function extractOcrText(result: Record<string, unknown> | null | undefined): str
 }
 
 function extractOcrBlocks(
-  result: Record<string, unknown> | null | undefined,
+  result: import('../api/types').RecognitionResult | null | undefined,
 ): Array<{ text: string; confidence: number; page: number; blockId?: string; coordinates?: { x: number; y: number; width: number; height: number } }> {
   if (!result) return [];
-  const payload = result.payload as Record<string, unknown> | undefined;
+  const payload = result.payload;
   if (!payload) return [];
-  const ocr = payload.ocr as Record<string, unknown> | undefined;
+  const ocr = payload.ocr;
   if (!ocr) return [];
-  const blocks = ocr.blocks as Array<{ text: string; confidence: number; page: number; blockId?: string; coordinates?: { x: number; y: number; width: number; height: number } }> | undefined;
-  return blocks || [];
+  return ocr.blocks || [];
 }
 
-function normalizeFields(result: Record<string, unknown> | null | undefined) {
+function normalizeFields(result: import('../api/types').RecognitionResult | null | undefined) {
   if (!result) return [];
-  const fields = result.fields;
 
-  if (Array.isArray(fields)) {
-    return fields.map((f: Record<string, unknown>) => ({
-      key: String(f.fieldKey || f.key || '-'),
-      value: f.value != null ? String(f.value) : '-',
-      rawValue: f.rawValue != null ? String(f.rawValue) : '',
-      confidence: typeof f.confidence === 'number' && f.confidence > 0 ? f.confidence : undefined,
-      evidence: (Array.isArray(f.evidence) ? f.evidence : []) as EvidenceItem[],
-    }));
+  // 优先使用 normalizedFields（已经过规范化）
+  const fields = result.normalizedFields || result.fields;
+  if (!fields || typeof fields !== 'object') return [];
+
+  // 按 fieldKey 分组 evidence
+  const evidenceByField = new Map<string, import('../api/types').EvidenceItem[]>();
+  for (const ev of result.evidence || []) {
+    if (ev.fieldKey) {
+      const list = evidenceByField.get(ev.fieldKey) || [];
+      list.push(ev);
+      evidenceByField.set(ev.fieldKey, list);
+    }
   }
 
-  if (fields && typeof fields === 'object') {
-    return Object.entries(fields).map(([key, val]) => ({
-      key,
-      value: val != null ? String(val) : '-',
-      rawValue: '',
-      confidence: undefined,
-      evidence: [],
-    }));
-  }
-
-  return [];
+  return Object.entries(fields).map(([key, val]) => ({
+    key,
+    value: val != null ? String(val) : '-',
+    rawValue: '',
+    confidence: undefined,
+    evidence: evidenceByField.get(key) || [],
+  }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -357,11 +355,11 @@ function TraceView({
   result: RecognitionResult | null | undefined;
 }) {
   const trace = job.trace || [];
-  const payload = (result?.payload as Record<string, unknown>) || {};
-  const extraction = (payload.extraction as Record<string, unknown>) || {};
-  const validation = (payload.validation as Record<string, unknown>) || {};
-  const rag = (payload.rag as Record<string, unknown>) || {};
-  const ocr = (payload.ocr as Record<string, unknown>) || {};
+  const payload = result?.payload || {};
+  const extraction = payload.extraction || {};
+  const validation = payload.validation || {};
+  const rag = payload.rag || {};
+  const ocr = payload.ocr || {};
 
   // 构建追溯节点
   const nodes: TraceNode[] = [];
@@ -382,14 +380,14 @@ function TraceView({
 
   // 2. OCR 识别
   const ocrStep = trace.find((s: TraceStep) => (s.node || s.step) === 'ocr');
-  const ocrBlocks = (ocr.blocks as unknown[]) || [];
+  const ocrBlocks = ocr.blocks || [];
   nodes.push({
     id: 'ocr',
     title: 'OCR 识别',
     icon: <IconEye size={16} style={{ color: '#3370FF' }} />,
     status: ocrStep?.status === 'completed' ? 'completed' : ocrStep?.status === 'failed' ? 'failed' : ocrStep?.status === 'running' ? 'running' : 'pending',
     details: [
-      { label: 'Provider', value: (ocr.provider as string) || (job.providerConfig?.ocrProviderKey as string) || '-' },
+      { label: 'Provider', value: ocr.provider || job.providerConfig?.ocrProviderKey || '-' },
       { label: '耗时', value: ocrStep?.duration ? formatDuration(ocrStep.duration) : '-' },
       { label: '输出 blocks', value: ocrBlocks.length > 0 ? String(ocrBlocks.length) : '-' },
     ],
@@ -397,9 +395,9 @@ function TraceView({
 
   // 3. RAG 知识检索
   const ragStep = trace.find((s: TraceStep) => (s.node || s.step) === 'rag');
-  const ragHits = (rag.hits as Array<{ title?: string; score?: number; content?: string }>) || [];
-  const ragMisses = (rag.misses as string[]) || [];
-  const ragQuery = (rag.query as string) || '';
+  const ragHits = rag.hits || [];
+  const ragMisses = rag.misses || [];
+  const ragQuery = rag.query || '';
   nodes.push({
     id: 'rag',
     title: 'RAG 知识检索',
@@ -425,15 +423,15 @@ function TraceView({
 
   // 4. LLM 抽取
   const extractionStep = trace.find((s: TraceStep) => (s.node || s.step) === 'extraction');
-  const tokenUsage = (extraction.tokenUsage as Record<string, unknown>) || {};
+  const tokenUsage = extraction.tokenUsage || {};
   nodes.push({
     id: 'extraction',
     title: 'LLM 抽取',
     icon: <IconCode size={16} style={{ color: '#3370FF' }} />,
     status: extractionStep?.status === 'completed' ? 'completed' : extractionStep?.status === 'failed' ? 'failed' : 'pending',
     details: [
-      { label: 'Provider', value: (extraction.provider as string) || (job.providerConfig?.providerKey as string) || '-' },
-      { label: '模型', value: (extraction.model as string) || '-' },
+      { label: 'Provider', value: extraction.provider || job.providerConfig?.providerKey || '-' },
+      { label: '模型', value: extraction.model || '-' },
       { label: 'Token 用量', value: tokenUsage.total ? `${tokenUsage.total} (prompt: ${tokenUsage.prompt || '-'}, completion: ${tokenUsage.completion || '-'})` : '-' },
       { label: '耗时', value: extractionStep?.duration ? formatDuration(extractionStep.duration) : '-' },
     ],
@@ -441,12 +439,7 @@ function TraceView({
 
   // 5. 校验 & 决策
   const validationStep = trace.find((s: TraceStep) => (s.node || s.step) === 'validation' || (s.node || s.step) === 'autoDecision');
-  const fieldResults = (validation.fieldResults as Array<{
-    fieldKey?: string;
-    decision?: string;
-    issues?: string[];
-    confidence?: number;
-  }>) || [];
+  const fieldResults = validation.fieldResults || [];
   nodes.push({
     id: 'validation',
     title: '校验 & 决策',
@@ -550,12 +543,12 @@ export default function JobDetailPage() {
   const [testItemSelections, setTestItemSelections] = useState<Record<string, string[]>>({});
 
   // 计算派生数据（在 early returns 之前，遵循 Rules of Hooks）
-  const normalizedFields = normalizeFields(result as Record<string, unknown> | null | undefined);
+  const normalizedFields = normalizeFields(result);
   const evidence = result?.evidence || [];
   const trace = job?.trace || [];
   const isRunning = job ? ['queued', 'running'].includes(job.status) : false;
-  const ocrText = extractOcrText(result as Record<string, unknown> | null | undefined);
-  const ocrBlocks = extractOcrBlocks(result as Record<string, unknown> | null | undefined);
+  const ocrText = extractOcrText(result);
+  const ocrBlocks = extractOcrBlocks(result);
   const confidenceStr = result?.confidence;
   const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
   const confidenceNum = confidenceStr
@@ -589,9 +582,9 @@ export default function JobDetailPage() {
     setFeedbackLoading(true);
     try {
       await feedbackApi.submit({
-        jobId: id,
+        jobId: id!,
         fieldKey: feedbackField,
-        correction: feedbackCorrection,
+        correctedValue: feedbackCorrection,
         comment: feedbackComment,
       });
       Message.success('反馈提交成功');
@@ -718,8 +711,8 @@ export default function JobDetailPage() {
             {
               label: 'Provider',
               value:
-                (job.providerConfig?.providerKey as string) ||
-                (job.providerConfig?.ocrProviderKey as string) ||
+                job.providerConfig?.providerKey ||
+                job.providerConfig?.ocrProviderKey ||
                 '-',
             },
             { label: '状态', value: <StatusTag status={displayStatus} /> },
