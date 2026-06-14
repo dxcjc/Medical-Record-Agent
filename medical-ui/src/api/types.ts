@@ -401,6 +401,7 @@ export interface FeedbackSubmission {
   correctedValue?: unknown;
   comment?: string;
   status: string;
+  reviewNote?: string;
   createdAt: string;
   updatedAt: string;
   reviewedAt?: string;

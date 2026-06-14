@@ -291,6 +291,10 @@ export const providersApi = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+  delete: (key: string) =>
+    request<{ deleted: boolean }>(`/providers/${key}`, {
+      method: 'DELETE',
+    }),
 };
 
 // Evaluation
@@ -329,10 +333,11 @@ export const feedbackApi = {
     }),
   listByJob: (jobId: string) =>
     request<{ items: import('./types').FeedbackSubmission[] }>(`/feedback?jobId=${jobId}`),
-  listAll: (params?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }) => {
+  listAll: (params?: { fieldKey?: string; jobId?: string; status?: string; page?: number; pageSize?: number }) => {
     const p = new URLSearchParams();
     if (params?.fieldKey) p.set('fieldKey', params.fieldKey);
     if (params?.jobId) p.set('jobId', params.jobId);
+    if (params?.status) p.set('status', params.status);
     if (params?.page) p.set('page', String(params.page));
     if (params?.pageSize) p.set('pageSize', String(params.pageSize));
     const qs = p.toString();
@@ -342,10 +347,15 @@ export const feedbackApi = {
   },
   getFieldStats: () =>
     request<{ stats: import('./types').FeedbackFieldStat[] }>('/feedback/stats'),
-  updateStatus: (id: string, status: 'approved' | 'rejected') =>
+  updateStatus: (id: string, status: 'approved' | 'rejected', reviewNote?: string) =>
     request<import('./types').FeedbackSubmission>(`/feedback/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reviewNote }),
+    }),
+  batchUpdateStatus: (ids: string[], status: 'approved' | 'rejected') =>
+    request<{ updated: number }>('/feedback/batch', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, status }),
     }),
 };
 

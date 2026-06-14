@@ -53,6 +53,7 @@ export function createFeedbackRepository(dependencies: FeedbackRepositoryDepende
     async listAll(input?: {
       fieldKey?: string;
       jobId?: string;
+      status?: string;
       page?: number;
       pageSize?: number;
       createdFrom?: Date;
@@ -61,11 +62,13 @@ export function createFeedbackRepository(dependencies: FeedbackRepositoryDepende
       const where: {
         fieldKey?: string;
         jobId?: string;
+        status?: string;
         createdAt?: { gte?: Date; lte?: Date };
       } = {};
 
       if (input?.fieldKey) where.fieldKey = input.fieldKey;
       if (input?.jobId) where.jobId = input.jobId;
+      if (input?.status) where.status = input.status;
       if (input?.createdFrom || input?.createdTo) {
         where.createdAt = {};
         if (input.createdFrom) where.createdAt.gte = input.createdFrom;

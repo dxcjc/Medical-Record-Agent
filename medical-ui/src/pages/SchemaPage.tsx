@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Card,
   Tag,
@@ -9,9 +9,16 @@ import {
   Descriptions,
   Typography,
   Space,
+  Drawer,
+  Form,
+  Input,
+  Select,
+  Switch,
+  Table,
+  Popconfirm,
 } from '@arco-design/web-react';
-import { IconLeft, IconSettings } from '@arco-design/web-react/icon';
-import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion } from '../hooks/useSchemas';
+import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown } from '@arco-design/web-react/icon';
+import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -23,13 +30,74 @@ import type { SchemaVersion, SchemaField } from '../api/types';
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 
+/** UUID v4 generator (no external dep) */
+function uuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+type FieldType = 'string' | 'number' | 'boolean' | 'date';
+
+const FIELD_TYPE_OPTIONS: { label: string; value: FieldType }[] = [
+  { label: 'string', value: 'string' },
+  { label: 'number', value: 'number' },
+  { label: 'boolean', value: 'boolean' },
+  { label: 'date', value: 'date' },
+];
+
+/** Editable row used inside the drawer field editor table */
+interface EditableField {
+  _rowId: string;
+  key: string;
+  type: FieldType;
+  description: string;
+  required: boolean;
+  enumMapStr: string;
+}
+
+function fromEditable(rows: EditableField[]): SchemaField[] {
+  return rows.map((r) => {
+    const field: SchemaField = {
+      key: r.key,
+      type: r.type,
+      description: r.description || undefined,
+      required: r.required || undefined,
+    };
+    if (r.enumMapStr.trim()) {
+      const map: Record<string, string> = {};
+      for (const part of r.enumMapStr.split(',')) {
+        const trimmed = part.trim();
+        if (!trimmed) continue;
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx > 0) {
+          map[trimmed.slice(0, colonIdx).trim()] = trimmed.slice(colonIdx + 1).trim();
+        } else {
+          map[trimmed] = trimmed;
+        }
+      }
+      field.enumMap = map;
+    }
+    return field;
+  });
+}
+
 export default function SchemaPage() {
   const { data, isLoading, error, refetch } = useSchemas();
   const deactivateMutation = useDeactivateSchemaVersion();
   const rollbackMutation = useRollbackSchemaVersion();
+  const createDraftMutation = useCreateSchemaDraft();
+  const publishDraftMutation = usePublishSchemaDraft();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [localFields, setLocalFields] = useState<SchemaField[] | null>(null);
+
+  // Drawer state
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [form] = Form.useForm();
+  const [fieldRows, setFieldRows] = useState<EditableField[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const schemas = data?.items || [];
   const selected = schemas.find((s) => s.id === selectedId) || null;
@@ -74,6 +142,100 @@ export default function SchemaPage() {
     }
   };
 
+  // ── Drawer helpers ──────────────────────────────────────────────
+
+  const openDrawer = useCallback(() => {
+    form.resetFields();
+    setFieldRows([]);
+    setDrawerVisible(true);
+  }, [form]);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerVisible(false);
+    form.resetFields();
+    setFieldRows([]);
+  }, [form]);
+
+  const addFieldRow = useCallback(() => {
+    setFieldRows((prev) => [
+      ...prev,
+      { _rowId: uuid(), key: '', type: 'string', description: '', required: false, enumMapStr: '' },
+    ]);
+  }, []);
+
+  const removeFieldRow = useCallback((rowId: string) => {
+    setFieldRows((prev) => prev.filter((r) => r._rowId !== rowId));
+  }, []);
+
+  const moveFieldRow = useCallback((rowId: string, direction: 'up' | 'down') => {
+    setFieldRows((prev) => {
+      const idx = prev.findIndex((r) => r._rowId === rowId);
+      if (idx < 0) return prev;
+      const target = direction === 'up' ? idx - 1 : idx + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  }, []);
+
+  const updateFieldRow = useCallback((rowId: string, field: keyof EditableField, value: unknown) => {
+    setFieldRows((prev) =>
+      prev.map((r) => (r._rowId === rowId ? { ...r, [field]: value } : r))
+    );
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    try {
+      await form.validate();
+    } catch {
+      return;
+    }
+
+    const values = form.getFieldsValue() as { schemaKey: string; displayName: string; description?: string };
+
+    // Validate field keys are non-empty
+    const emptyKeyRow = fieldRows.find((r) => !r.key.trim());
+    if (emptyKeyRow) {
+      Message.warning('所有字段的"字段名"不能为空');
+      return;
+    }
+
+    // Check for duplicate field keys
+    const keys = fieldRows.map((r) => r.key.trim());
+    const dupKey = keys.find((k, i) => keys.indexOf(k) !== i);
+    if (dupKey) {
+      Message.warning(`字段名 "${dupKey}" 重复，请修改`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const definition = { fields: fromEditable(fieldRows) };
+      const { draft } = await createDraftMutation.mutateAsync({
+        schemaKey: values.schemaKey,
+        displayName: values.displayName,
+        definition,
+      });
+
+      // Auto-publish the draft
+      await publishDraftMutation.mutateAsync({
+        id: draft.id,
+        changelog: values.description || `初始版本 - ${values.displayName}`,
+      });
+
+      Message.success('Schema 创建并发布成功');
+      closeDrawer();
+      refetch();
+    } catch {
+      Message.error('创建失败，请重试');
+    } finally {
+      setSaving(false);
+    }
+  }, [form, fieldRows, createDraftMutation, publishDraftMutation, closeDrawer, refetch]);
+
+  // ── Loading / Error / Empty states ─────────────────────────────
+
   if (error) {
     return (
       <Card>
@@ -102,20 +264,35 @@ export default function SchemaPage() {
           eyebrow="配置管理"
           title="Schema 管理"
           subtitle="管理识别 Schema 版本"
+          action="新建 Schema"
+          onAction={openDrawer}
           onRefresh={() => refetch()}
         />
         <Card>
           <EmptyState
             title="暂无 Schema"
-            description="请联系管理员配置识别 Schema"
-            action={{ label: '刷新', onClick: () => refetch() }}
+            description="点击右上角按钮创建第一个 Schema"
+            action={{ label: '新建 Schema', onClick: openDrawer }}
           />
         </Card>
+        <CreateSchemaDrawer
+          visible={drawerVisible}
+          onClose={closeDrawer}
+          onSave={handleSave}
+          form={form}
+          fieldRows={fieldRows}
+          addFieldRow={addFieldRow}
+          removeFieldRow={removeFieldRow}
+          moveFieldRow={moveFieldRow}
+          updateFieldRow={updateFieldRow}
+          saving={saving}
+        />
       </div>
     );
   }
 
-  // Detail view
+  // ── Detail view ────────────────────────────────────────────────
+
   if (selected) {
     return (
       <div>
@@ -222,13 +399,16 @@ export default function SchemaPage() {
     );
   }
 
-  // List view - schema cards, 2 per row
+  // ── List view ──────────────────────────────────────────────────
+
   return (
     <div>
       <PageHeader
         eyebrow="配置管理"
         title="Schema 管理"
         subtitle={`共 ${schemas.length} 个 Schema 版本`}
+        action="新建 Schema"
+        onAction={openDrawer}
         onRefresh={() => refetch()}
       />
 
@@ -286,6 +466,212 @@ export default function SchemaPage() {
           );
         })}
       </Row>
+
+      <CreateSchemaDrawer
+        visible={drawerVisible}
+        onClose={closeDrawer}
+        onSave={handleSave}
+        form={form}
+        fieldRows={fieldRows}
+        addFieldRow={addFieldRow}
+        removeFieldRow={removeFieldRow}
+        moveFieldRow={moveFieldRow}
+        updateFieldRow={updateFieldRow}
+        saving={saving}
+      />
     </div>
+  );
+}
+
+// ── Drawer sub-component ────────────────────────────────────────
+
+interface CreateSchemaDrawerProps {
+  visible: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  form: ReturnType<typeof Form.useForm>[0];
+  fieldRows: EditableField[];
+  addFieldRow: () => void;
+  removeFieldRow: (rowId: string) => void;
+  moveFieldRow: (rowId: string, dir: 'up' | 'down') => void;
+  updateFieldRow: (rowId: string, field: keyof EditableField, value: unknown) => void;
+  saving: boolean;
+}
+
+function CreateSchemaDrawer({
+  visible,
+  onClose,
+  onSave,
+  form,
+  fieldRows,
+  addFieldRow,
+  removeFieldRow,
+  moveFieldRow,
+  updateFieldRow,
+  saving,
+}: CreateSchemaDrawerProps) {
+  return (
+    <Drawer
+      title="新建 Schema"
+      visible={visible}
+      onCancel={onClose}
+      width={780}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+          <Button onClick={onClose}>取消</Button>
+          <Button type="primary" loading={saving} onClick={onSave}>
+            保存
+          </Button>
+        </div>
+      }
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item
+          field="schemaKey"
+          label="Schema Key"
+          rules={[{ required: true, message: '请输入 Schema Key（英文标识符）' }]}
+        >
+          <Input placeholder="例: cbc_report" />
+        </Form.Item>
+        <Form.Item
+          field="displayName"
+          label="Display Name"
+          rules={[{ required: true, message: '请输入显示名称' }]}
+        >
+          <Input placeholder="例: 血常规报告" />
+        </Form.Item>
+        <Form.Item field="description" label="Description">
+          <Input.TextArea placeholder="Schema 描述（可选）" rows={2} />
+        </Form.Item>
+      </Form>
+
+      {/* Field editor section */}
+      <div style={{ marginTop: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Title heading={6} style={{ margin: 0 }}>字段定义</Title>
+          <Button type="outline" size="small" icon={<IconPlus />} onClick={addFieldRow}>
+            添加字段
+          </Button>
+        </div>
+
+        {fieldRows.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-text-3)' }}>
+            暂无字段，点击"添加字段"开始定义
+          </div>
+        ) : (
+          <Table
+            data={fieldRows}
+            rowKey="_rowId"
+            border
+            size="small"
+            pagination={false}
+            scroll={{ x: 640 }}
+            columns={[
+              {
+                title: '排序',
+                width: 70,
+                align: 'center',
+                render: (_: unknown, _record: EditableField, idx: number) => (
+                  <Space size={2}>
+                    <Button
+                      type="text"
+                      size="mini"
+                      icon={<IconUp />}
+                      disabled={idx === 0}
+                      onClick={() => moveFieldRow(_record._rowId, 'up')}
+                    />
+                    <Button
+                      type="text"
+                      size="mini"
+                      icon={<IconDown />}
+                      disabled={idx === fieldRows.length - 1}
+                      onClick={() => moveFieldRow(_record._rowId, 'down')}
+                    />
+                  </Space>
+                ),
+              },
+              {
+                title: '字段名 (key)',
+                dataIndex: 'key',
+                width: 140,
+                render: (_: unknown, record: EditableField) => (
+                  <Input
+                    size="small"
+                    value={record.key}
+                    placeholder="english_key"
+                    onChange={(val) => updateFieldRow(record._rowId, 'key', val)}
+                  />
+                ),
+              },
+              {
+                title: '类型',
+                dataIndex: 'type',
+                width: 110,
+                render: (_: unknown, record: EditableField) => (
+                  <Select
+                    size="small"
+                    value={record.type}
+                    options={FIELD_TYPE_OPTIONS}
+                    onChange={(val) => updateFieldRow(record._rowId, 'type', val as FieldType)}
+                  />
+                ),
+              },
+              {
+                title: '描述',
+                dataIndex: 'description',
+                width: 180,
+                render: (_: unknown, record: EditableField) => (
+                  <Input
+                    size="small"
+                    value={record.description}
+                    placeholder="字段描述"
+                    onChange={(val) => updateFieldRow(record._rowId, 'description', val)}
+                  />
+                ),
+              },
+              {
+                title: '必填',
+                dataIndex: 'required',
+                width: 60,
+                align: 'center',
+                render: (_: unknown, record: EditableField) => (
+                  <Switch
+                    size="small"
+                    checked={record.required}
+                    onChange={(val) => updateFieldRow(record._rowId, 'required', val)}
+                  />
+                ),
+              },
+              {
+                title: '枚举值',
+                dataIndex: 'enumMapStr',
+                width: 160,
+                render: (_: unknown, record: EditableField) => (
+                  <Input
+                    size="small"
+                    value={record.enumMapStr}
+                    placeholder="k1:v1, k2:v2"
+                    onChange={(val) => updateFieldRow(record._rowId, 'enumMapStr', val)}
+                  />
+                ),
+              },
+              {
+                title: '操作',
+                width: 50,
+                align: 'center',
+                render: (_: unknown, record: EditableField) => (
+                  <Popconfirm
+                    title="确定删除该字段？"
+                    onOk={() => removeFieldRow(record._rowId)}
+                  >
+                    <Button type="text" size="mini" status="danger" icon={<IconDelete />} />
+                  </Popconfirm>
+                ),
+              },
+            ]}
+          />
+        )}
+      </div>
+    </Drawer>
   );
 }

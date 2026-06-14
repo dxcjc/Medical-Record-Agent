@@ -2368,6 +2368,48 @@ function createProviderRegistry(
         latencyMs: 0,
         secretRefs: provider.secretRefs
       };
+    },
+    async deleteProvider({ key, actor }) {
+      const persistedProvider = await providerRepository.findByKey(key);
+      if (!persistedProvider) {
+        throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+          code: "PROVIDER_NOT_FOUND",
+          statusCode: 404
+        });
+      }
+
+      const normalizedProvider = normalizeProviderConfigRecord({
+        ...persistedProvider,
+        enabled: persistedProvider.status !== "disabled"
+      });
+
+      if (normalizedProvider.isMock) {
+        throw Object.assign(new Error("PROVIDER_NOT_FOUND"), {
+          code: "PROVIDER_NOT_FOUND",
+          statusCode: 404
+        });
+      }
+
+      // 不能删除当前默认 Provider
+      if (normalizedProvider.isDefault) {
+        throw Object.assign(new Error("CANNOT_DELETE_DEFAULT_PROVIDER"), {
+          code: "CANNOT_DELETE_DEFAULT_PROVIDER",
+          statusCode: 409
+        });
+      }
+
+      await providerRepository.save({
+        key,
+        kind: persistedProvider.kind as "ocr" | "llm" | "storage" | "lims",
+        displayName: persistedProvider.displayName,
+        status: "deleted",
+        isDefault: false,
+        config: {},
+        secretRefs: {},
+        updatedById: actor.actorUserId
+      });
+
+      return { deleted: true };
     }
   };
 }
@@ -2822,7 +2864,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
     statsService,
     feedbackService: {
       ...originalFeedbackService,
-      async updateStatus(id: string, status: 'approved' | 'rejected') {
+      async updateStatus(id: string, status: 'approved' | 'rejected', reviewNote?: string) {
         const prismaStatus = status === 'approved' ? 'accepted' : 'rejected';
         const now = new Date();
 
@@ -2855,7 +2897,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
               await knowledgeRepository.create({
                 kind: 'field_description',
                 title: `纠偏: ${feedback.fieldKey}`,
-                content: `字段 "${feedback.fieldKey}" 从 "${originalStr}" 纠正为 "${correctedStr}"${feedback.comment ? `，原因: ${feedback.comment}` : ''}`,
+                content: `字段 "${feedback.fieldKey}" 从 "${originalStr}" 纠正为 "${correctedStr}"${reviewNote ? `，审核备注: ${reviewNote}` : (feedback.comment ? `，原因: ${feedback.comment}` : '')}`,
                 keywords: [feedback.fieldKey],
                 fieldKeys: [feedback.fieldKey],
                 enabled: true,

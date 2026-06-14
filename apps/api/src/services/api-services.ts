@@ -208,6 +208,7 @@ export interface ProviderRegistry {
   save?(input: SaveProviderConfigInput): Promise<ApiRouteResponseObject>;
   setDefault(key: string, input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
   checkHealth?(key: string, input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
+  deleteProvider?(input: SetDefaultProviderInput): Promise<{ deleted: boolean }>;
 }
 
 type ProviderAvailability = {
@@ -1445,6 +1446,15 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         checkedAt: now().toISOString(),
         message: "Provider 配置已加载；当前 registry 未提供专用健康检查实现。"
       };
+    },
+    async deleteProvider(input) {
+      if (!options.providerRegistry.deleteProvider) {
+        throw Object.assign(new Error("PROVIDER_DELETE_NOT_SUPPORTED"), {
+          code: "PROVIDER_DELETE_NOT_SUPPORTED",
+          statusCode: 501
+        });
+      }
+      return options.providerRegistry.deleteProvider(input);
     }
   };
 

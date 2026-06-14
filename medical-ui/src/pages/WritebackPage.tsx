@@ -11,12 +11,14 @@ import {
   Modal,
   Message,
   Spin,
+  Tooltip,
+  Badge,
 } from '@arco-design/web-react';
+import { IconQuestionCircle, IconSettings } from '@arco-design/web-react/icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { writebackApi } from '../api/client';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
-import StatusTag from '../components/StatusTag';
 import type { WritebackAttempt } from '../api/types';
 import type { ApiError } from '../api/client';
 
@@ -41,6 +43,15 @@ const WRITEBACK_STATUS_LABELS: Record<string, string> = {
 function formatTime(t?: string): string {
   if (!t) return '-';
   return new Date(t).toLocaleString('zh-CN');
+}
+
+function extractErrorMessage(err: unknown): string {
+  const apiErr = err as ApiError;
+  if (apiErr?.body && typeof apiErr.body === 'object') {
+    const body = apiErr.body as Record<string, unknown>;
+    return String(body.message || body.error || apiErr.status || '网络错误');
+  }
+  return String(apiErr?.status || '网络错误');
 }
 
 /* ------------------------------------------------------------------ */
@@ -162,11 +173,20 @@ export default function WritebackPage() {
   const historyItems = historyData?.items || [];
   const historyTotal = historyData?.total || 0;
 
+  // Build a map of last error per jobId from history for retry tooltip
+  const lastErrorMap: Record<string, string> = {};
+  historyItems.forEach((item) => {
+    if (item.status === 'failed' && item.error) {
+      const msg = typeof item.error === 'string' ? item.error : JSON.stringify(item.error);
+      lastErrorMap[item.jobId] = msg;
+    }
+  });
+
   // 可回写任务表格列
   const eligibleColumns = [
     {
       title: '任务 ID',
-      width: 200,
+      width: 180,
       render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => (
         <Button
           type="text"
@@ -179,14 +199,23 @@ export default function WritebackPage() {
     },
     {
       title: 'Schema',
-      width: 150,
+      width: 130,
       render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => (
-        <Tag size="small" color="blue">{String(record.schemaKey || '-')}</Tag>
+        <Space size={4}>
+          <Tag size="small" color="blue">{String(record.schemaKey || '-')}</Tag>
+        </Space>
+      ),
+    },
+    {
+      title: '完成时间',
+      width: 180,
+      render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => (
+        <Text style={{ fontSize: 13 }}>{formatTime(record.createdAt)}</Text>
       ),
     },
     {
       title: '识别结果摘要',
-      width: 300,
+      width: 280,
       render: (_: unknown, record: import('../api/types').WritebackEligibleItem) => {
         const readyFields = record.readyFields || [];
         if (readyFields.length === 0) return <Text type="secondary">-</Text>;
@@ -283,27 +312,79 @@ export default function WritebackPage() {
       width: 100,
       render: (_: unknown, record: WritebackAttempt) => {
         if (record.status !== 'failed') return null;
+        const errorMsg = record.error
+          ? (typeof record.error === 'string' ? record.error : JSON.stringify(record.error))
+          : '未知错误';
         return (
-          <Button
-            type="text"
-            size="small"
-            status="warning"
-            onClick={() => {
-              setConfirmJob({ jobId: record.jobId, id: record.id });
-              setIsRetry(true);
-            }}
+          <Tooltip
+            content={
+              <div style={{ maxWidth: 320 }}>
+                <Text style={{ color: '#fff', fontSize: 12 }}>失败原因：{errorMsg}</Text>
+              </div>
+            }
+            position="left"
           >
-            重试
-          </Button>
+            <Button
+              type="text"
+              size="small"
+              status="warning"
+              onClick={() => {
+                setConfirmJob({ jobId: record.jobId, id: record.id });
+                setIsRetry(true);
+              }}
+            >
+              重试
+            </Button>
+          </Tooltip>
         );
       },
     },
   ];
 
+  // Eligible tab title with badge
+  const eligibleTabTitle = (
+    <Space size={6}>
+      <span>可回写任务</span>
+      {eligibleJobs.length > 0 && (
+        <Badge
+          count={eligibleJobs.length}
+          style={{ backgroundColor: 'var(--color-primary-6)' }}
+        />
+      )}
+    </Space>
+  );
+
   const renderError = (err: unknown, retryFn: () => void) => (
     <div style={{ textAlign: 'center', padding: 40 }}>
       <p style={{ color: 'var(--color-danger)', marginBottom: 16 }}>加载失败</p>
       <Button onClick={retryFn}>重试</Button>
+    </div>
+  );
+
+  // Empty state for eligible tab with configuration guidance
+  const renderEligibleEmpty = () => (
+    <div style={{ textAlign: 'center', padding: '60px 0' }}>
+      <div style={{ marginBottom: 16 }}>
+        <IconQuestionCircle style={{ fontSize: 48, color: 'var(--color-text-4)' }} />
+      </div>
+      <Typography.Title heading={5} style={{ marginBottom: 8 }}>
+        暂无可回写任务
+      </Typography.Title>
+      <Text type="secondary" style={{ display: 'block', marginBottom: 24, maxWidth: 400, margin: '0 auto 24px' }}>
+        已完成的识别任务将在此显示。请确保已完成识别任务且配置了回写目标。
+      </Text>
+      <Space>
+        <Button
+          type="primary"
+          icon={<IconSettings />}
+          onClick={() => navigate('/providers')}
+        >
+          前往 Provider 配置
+        </Button>
+        <Button onClick={() => refetchEligible()}>
+          刷新列表
+        </Button>
+      </Space>
     </div>
   );
 
@@ -317,20 +398,16 @@ export default function WritebackPage() {
 
       <Card>
         <Tabs defaultActiveTab="eligible">
-          <Tabs.TabPane key="eligible" title="可回写任务">
+          <Tabs.TabPane key="eligible" title={eligibleTabTitle}>
             <div style={{ padding: '16px 0' }}>
               {eligibleError ? (
-                renderError(eligibleError, refetchEligible)
+                renderError(eligibleError, () => refetchEligible())
               ) : eligibleLoading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>
                   <Spin />
                 </div>
               ) : eligibleJobs.length === 0 ? (
-                <EmptyState
-                  title="暂无可回写任务"
-                  description="没有待回写的识别结果"
-                  action={{ label: '刷新', onClick: refetchEligible }}
-                />
+                renderEligibleEmpty()
               ) : (
                 <Table
                   columns={eligibleColumns}

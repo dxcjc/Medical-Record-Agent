@@ -33,6 +33,7 @@ export interface ProviderRouteService {
   saveProviderConfig?(input: SaveProviderConfigInput): Promise<ApiRouteResponseObject>;
   setDefaultProvider(input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
   checkProviderHealth(input: SetDefaultProviderInput): Promise<ApiRouteResponseObject>;
+  deleteProvider?(input: SetDefaultProviderInput): Promise<{ deleted: boolean }>;
 }
 
 export interface ProviderRoutesDependencies {
@@ -264,6 +265,45 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
         return {
           health: redactSensitiveRouteValue(assertRouteResponseObject(health, "PROVIDER_HEALTH_RESPONSE_INVALID"))
         };
+      } catch (error) {
+        return sendStructuredProviderError(reply, error);
+      }
+    }
+  );
+
+  server.delete(
+    "/providers/:key",
+    {
+      preHandler: [
+        ...preHandler,
+        ...(dependencies.auditHooks
+          ? [
+              dependencies.auditHooks.audit({
+                action: "provider.delete",
+                objectType: "provider",
+                objectId: (request) => (request.params as { key?: string }).key
+              })
+            ]
+          : [])
+      ]
+    },
+    async (request, reply) => {
+      const params = request.params as { key: string };
+
+      try {
+        if (!dependencies.providerService.deleteProvider) {
+          throw Object.assign(new Error("PROVIDER_DELETE_NOT_SUPPORTED"), {
+            code: "PROVIDER_DELETE_NOT_SUPPORTED",
+            statusCode: 501
+          });
+        }
+
+        const result = await dependencies.providerService.deleteProvider({
+          key: params.key,
+          actor: request.auth as AuthContext
+        });
+
+        return result;
       } catch (error) {
         return sendStructuredProviderError(reply, error);
       }

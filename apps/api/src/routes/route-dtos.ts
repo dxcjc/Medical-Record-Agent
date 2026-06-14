@@ -536,6 +536,7 @@ export const feedbackAllQuerySchema = z
   .object({
     fieldKey: optionalNonEmptyString,
     jobId: optionalNonEmptyString,
+    status: optionalNonEmptyString,
     page: z.union([z.string(), z.number()]).optional().transform(paginationPageTransform),
     pageSize: z.union([z.string(), z.number()]).optional().transform(paginationPageSizeTransform)
   })

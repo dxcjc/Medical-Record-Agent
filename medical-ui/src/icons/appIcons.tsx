@@ -44,6 +44,9 @@ import {
   GitBranch,
   ChevronRight,
   ChevronDown,
+  Plus,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 export type AppIcon = (props: LucideProps) => ReactElement;
@@ -97,3 +100,6 @@ export const IconRepeat = createAppIcon(Repeat);
 export const IconGitBranch = createAppIcon(GitBranch);
 export const IconChevronRight = createAppIcon(ChevronRight);
 export const IconChevronDown = createAppIcon(ChevronDown);
+export const IconPlus = createAppIcon(Plus);
+export const IconPencil = createAppIcon(Pencil);
+export const IconTrash = createAppIcon(Trash2);

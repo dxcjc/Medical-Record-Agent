@@ -15,9 +15,10 @@ import {
 export interface FeedbackRouteService {
   create(input: CreateFeedbackRouteInput): Promise<ApiRouteResponseObject>;
   listByJobId(jobId: string): Promise<ApiRouteResponseObject[]>;
-  listAll(input?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }): Promise<{ items: ApiRouteResponseObject[]; total: number; page: number; pageSize: number }>;
+  listAll(input?: { fieldKey?: string; jobId?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: ApiRouteResponseObject[]; total: number; page: number; pageSize: number }>;
   getFieldStats(): Promise<Array<{ fieldKey: string; count: number }>>;
-  updateStatus(id: string, status: 'approved' | 'rejected'): Promise<ApiRouteResponseObject>;
+  updateStatus(id: string, status: 'approved' | 'rejected', reviewNote?: string): Promise<ApiRouteResponseObject>;
+  batchUpdateStatus?(ids: string[], status: 'approved' | 'rejected'): Promise<{ updated: number }>;
 }
 
 export interface FeedbackRoutesDependencies {
@@ -104,9 +105,10 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
     async (request) => {
       const parsed = feedbackAllQuerySchema.safeParse(request.query);
       const data = parsed.success ? parsed.data : {};
-      const input: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number } = {};
+      const input: { fieldKey?: string; jobId?: string; status?: string; page?: number; pageSize?: number } = {};
       if (data.fieldKey) input.fieldKey = data.fieldKey;
       if (data.jobId) input.jobId = data.jobId;
+      if (data.status) input.status = data.status;
       if (data.page !== undefined) input.page = data.page;
       if (data.pageSize !== undefined) input.pageSize = data.pageSize;
 
@@ -155,7 +157,7 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
     },
     async (request, reply) => {
       const params = request.params as { id: string };
-      const body = request.body as { status?: string };
+      const body = request.body as { status?: string; reviewNote?: string };
 
       if (!body.status || !['approved', 'rejected'].includes(body.status)) {
         return reply.status(400).send({
@@ -167,7 +169,8 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
       try {
         const feedback = await dependencies.feedbackService.updateStatus(
           params.id,
-          body.status as 'approved' | 'rejected'
+          body.status as 'approved' | 'rejected',
+          body.reviewNote
         );
         return assertRouteResponseObject(feedback, "FEEDBACK_RESPONSE_INVALID");
       } catch (error: unknown) {
@@ -177,6 +180,62 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
         }
         throw error;
       }
+    }
+  );
+
+  // PATCH /feedback/batch - 批量审核
+  server.patch(
+    "/feedback/batch",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.feedbackCreate),
+        ...(dependencies.auditHooks
+          ? [
+              dependencies.auditHooks.audit({
+                action: "feedback.batch.review",
+                objectType: "feedback"
+              })
+            ]
+          : [])
+      ]
+    },
+    async (request, reply) => {
+      const body = request.body as { ids?: string[]; status?: string };
+
+      if (!Array.isArray(body.ids) || body.ids.length === 0) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "ids must be a non-empty array"
+        });
+      }
+
+      if (!body.status || !['approved', 'rejected'].includes(body.status)) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "status must be 'approved' or 'rejected'"
+        });
+      }
+
+      if (dependencies.feedbackService.batchUpdateStatus) {
+        const result = await dependencies.feedbackService.batchUpdateStatus(
+          body.ids,
+          body.status as 'approved' | 'rejected'
+        );
+        return result;
+      }
+
+      // 回退：逐条更新
+      let updated = 0;
+      for (const id of body.ids) {
+        try {
+          await dependencies.feedbackService.updateStatus(id, body.status as 'approved' | 'rejected');
+          updated++;
+        } catch {
+          // skip failed items
+        }
+      }
+      return { updated };
     }
   );
 }
