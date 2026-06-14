@@ -52,6 +52,7 @@ export interface RecognitionJob {
   schemaVersionId?: string;
   sourceFileId?: string;
   createdById?: string;
+  createdByName?: string;
   providerConfig: ProviderConfigMap;
   options: RecognitionJobOptions;
   trace: TraceStep[];

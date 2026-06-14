@@ -186,7 +186,7 @@ export default function JobListPage() {
     {
       title: '创建人',
       width: 100,
-      render: (_: unknown, record: RecognitionJob & { createdByName?: string }) => {
+      render: (_: unknown, record: RecognitionJob) => {
         const name = record.createdByName || record.createdById;
         if (!name) return <span style={{ color: '#999' }}>-</span>;
         return <span>{name}</span>;

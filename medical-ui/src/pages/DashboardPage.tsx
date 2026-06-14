@@ -146,9 +146,18 @@ export default function DashboardPage() {
   const providers = providersData?.items || [];
   const schemas = schemasData?.items || [];
 
-  // Auto-select schema if only one exists
+  // Build schema display name map
+  const schemaNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    schemas.forEach((s) => {
+      map[s.schemaKey] = s.displayName || s.schemaKey;
+    });
+    return map;
+  }, [schemas]);
+
+  // Auto-select schema for trend chart
   useEffect(() => {
-    if (schemas.length === 1 && !trendSchemaKey) {
+    if (schemas.length > 0 && !trendSchemaKey) {
       setTrendSchemaKey(schemas[0].schemaKey);
     }
   }, [schemas, trendSchemaKey]);
@@ -215,6 +224,7 @@ export default function DashboardPage() {
       title: 'Schema',
       dataIndex: 'schemaKey',
       width: 150,
+      render: (key: string) => schemaNameMap[key] || key,
     },
     {
       title: '状态',
