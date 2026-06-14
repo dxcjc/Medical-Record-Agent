@@ -6,6 +6,8 @@ import type { createAuditHooks } from "../middleware/audit.middleware";
 import {
   assertRouteResponseObject,
   feedbackRouteInputSchema,
+  feedbackListQuerySchema,
+  feedbackAllQuerySchema,
   type ApiRouteResponseObject,
   type CreateFeedbackRouteInput
 } from "./route-dtos";
@@ -73,15 +75,15 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
       ]
     },
     async (request, reply) => {
-      const query = request.query as { jobId?: string };
-      if (!query.jobId || typeof query.jobId !== "string") {
+      const parsed = feedbackListQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
         return reply.status(400).send({
           error: "BAD_REQUEST",
           message: "jobId query parameter is required"
         });
       }
 
-      const items = await dependencies.feedbackService.listByJobId(query.jobId);
+      const items = await dependencies.feedbackService.listByJobId(parsed.data.jobId);
 
       return {
         items: items.map((item) => assertRouteResponseObject(item, "FEEDBACK_RESPONSE_INVALID"))
@@ -99,17 +101,13 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
       ]
     },
     async (request) => {
-      const query = request.query as {
-        fieldKey?: string;
-        jobId?: string;
-        page?: string;
-        pageSize?: string;
-      };
+      const parsed = feedbackAllQuerySchema.safeParse(request.query);
+      const data = parsed.success ? parsed.data : {};
       const input: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number } = {};
-      if (query.fieldKey) input.fieldKey = query.fieldKey;
-      if (query.jobId) input.jobId = query.jobId;
-      if (query.page) input.page = Math.max(1, parseInt(query.page, 10) || 1);
-      if (query.pageSize) input.pageSize = Math.min(100, Math.max(1, parseInt(query.pageSize, 10) || 20));
+      if (data.fieldKey) input.fieldKey = data.fieldKey;
+      if (data.jobId) input.jobId = data.jobId;
+      if (data.page !== undefined) input.page = data.page;
+      if (data.pageSize !== undefined) input.pageSize = data.pageSize;
 
       const result = await dependencies.feedbackService.listAll(input);
       return {

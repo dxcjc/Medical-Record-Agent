@@ -15,7 +15,7 @@ import {
 } from "./route-dtos";
 
 export interface SchemaRouteService {
-  listActive(): Promise<ApiRouteResponseObject[]>;
+  listActive(input?: { page?: number; pageSize?: number }): Promise<ApiRouteResponseObject[]>;
   createDraft(input: CreateSchemaDraftRouteInput & {
     actor: AuthContext;
   }): Promise<ApiRouteResponseObject>;

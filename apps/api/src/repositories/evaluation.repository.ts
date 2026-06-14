@@ -58,21 +58,32 @@ export interface UpsertEvaluationMetricInput {
  */
 export function createEvaluationRepository(dependencies: EvaluationRepositoryDependencies) {
   return {
-    async listDatasets() {
-      return dependencies.evaluationDataset.findMany({
-        include: {
-          _count: {
-            select: {
-              samples: true,
-              runs: true
+    async listDatasets(input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = Math.min(input?.pageSize ?? 50, 100);
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.evaluationDataset.findMany({
+          include: {
+            _count: {
+              select: {
+                samples: true,
+                runs: true
+              }
             }
-          }
-        },
-        orderBy: [
-          { updatedAt: "desc" },
-          { createdAt: "desc" }
-        ]
-      });
+          },
+          orderBy: [
+            { updatedAt: "desc" },
+            { createdAt: "desc" }
+          ],
+          skip,
+          take: pageSize
+        }),
+        dependencies.evaluationDataset.count()
+      ]);
+
+      return { items, total, page, pageSize };
     },
 
     async findDatasetById(id: string) {
@@ -219,13 +230,26 @@ export function createEvaluationRepository(dependencies: EvaluationRepositoryDep
       });
     },
 
-    async listRunsByDataset(datasetId: string) {
-      return dependencies.evaluationRun.findMany({
-        where: { datasetId },
-        orderBy: {
-          createdAt: "desc"
-        }
-      });
+    async listRunsByDataset(datasetId: string, input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = Math.min(input?.pageSize ?? 50, 100);
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.evaluationRun.findMany({
+          where: { datasetId },
+          orderBy: {
+            createdAt: "desc"
+          },
+          skip,
+          take: pageSize
+        }),
+        dependencies.evaluationRun.count({
+          where: { datasetId }
+        })
+      ]);
+
+      return { items, total, page, pageSize };
     }
   };
 }

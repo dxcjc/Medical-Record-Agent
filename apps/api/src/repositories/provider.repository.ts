@@ -1,6 +1,8 @@
 import type { Prisma, PrismaClient, ProviderConfigStatus, ProviderKind } from "@prisma/client";
 
-type ProviderRepositoryDependencies = Pick<PrismaClient, "providerConfig">;
+type ProviderRepositoryDependencies = Pick<PrismaClient, "providerConfig"> & {
+  $transaction: PrismaClient["$transaction"];
+};
 
 const providerConfigSelect = {
   id: true,
@@ -33,7 +35,7 @@ export interface SaveProviderConfigRepositoryInput {
  * KMS 或部署平台托管，避免管理页面把生产凭据直接落库。
  */
 export function createProviderRepository(dependencies: ProviderRepositoryDependencies) {
-  const { providerConfig } = dependencies;
+  const { providerConfig, $transaction } = dependencies;
 
   async function clearDefaultProviderOfSameKind(input: { key: string; kind: ProviderKind }) {
     await providerConfig.updateMany({
@@ -73,13 +75,6 @@ export function createProviderRepository(dependencies: ProviderRepositoryDepende
     },
 
     async save(input: SaveProviderConfigRepositoryInput) {
-      if (input.isDefault) {
-        await clearDefaultProviderOfSameKind({
-          key: input.key,
-          kind: input.kind
-        });
-      }
-
       const data = {
         kind: input.kind,
         displayName: input.displayName,
@@ -90,15 +85,32 @@ export function createProviderRepository(dependencies: ProviderRepositoryDepende
         updatedById: input.updatedById ?? null
       };
 
+      if (input.isDefault) {
+        const result = await $transaction(async (tx) => {
+          await tx.providerConfig.updateMany({
+            where: {
+              kind: input.kind,
+              key: { not: input.key },
+              isDefault: true
+            },
+            data: { isDefault: false }
+          });
+
+          return tx.providerConfig.upsert({
+            where: { key: input.key },
+            update: data,
+            create: { key: input.key, ...data },
+            select: providerConfigSelect
+          });
+        });
+
+        return result;
+      }
+
       return providerConfig.upsert({
-        where: {
-          key: input.key
-        },
+        where: { key: input.key },
         update: data,
-        create: {
-          key: input.key,
-          ...data
-        },
+        create: { key: input.key, ...data },
         select: providerConfigSelect
       });
     },
@@ -106,27 +118,28 @@ export function createProviderRepository(dependencies: ProviderRepositoryDepende
     async setDefault(key: string) {
       const provider = await providerConfig.findUnique({
         where: { key },
-        select: {
-          key: true,
-          kind: true
-        }
+        select: { key: true, kind: true }
       });
 
       if (!provider) {
         return null;
       }
 
-      await clearDefaultProviderOfSameKind({
-        key: provider.key,
-        kind: provider.kind
-      });
+      return $transaction(async (tx) => {
+        await tx.providerConfig.updateMany({
+          where: {
+            kind: provider.kind,
+            key: { not: provider.key },
+            isDefault: true
+          },
+          data: { isDefault: false }
+        });
 
-      return providerConfig.update({
-        where: { key },
-        data: {
-          isDefault: true
-        },
-        select: providerConfigSelect
+        return tx.providerConfig.update({
+          where: { key },
+          data: { isDefault: true },
+          select: providerConfigSelect
+        });
       });
     }
   };

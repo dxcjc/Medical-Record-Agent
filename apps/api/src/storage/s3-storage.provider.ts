@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
 
-import type { PutFileInput, StorageProvider, StoredFile } from "./storage.types";
+import type { PutFileInput, StorageProvider, StoredFile, StoredFileStream } from "./storage.types";
 
 export interface S3StorageClientLike {
   /**
@@ -101,6 +101,29 @@ export function createS3StorageProvider(options: S3StorageProviderOptions): Stor
           key,
           body,
           size: response.ContentLength ?? body.byteLength,
+          ...(response.ContentType ? { contentType: response.ContentType } : {})
+        };
+      } catch (error) {
+        if (error instanceof NoSuchKey || (error as { name?: string }).name === "NoSuchKey") {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+
+    async getStream(key: string): Promise<StoredFileStream | null> {
+      try {
+        const response = (await options.client.send(
+          new GetObjectCommand({ Bucket: options.bucket, Key: key })
+        )) as { Body?: Readable; ContentType?: string; ContentLength?: number };
+
+        if (!response.Body) return null;
+
+        return {
+          key,
+          stream: response.Body instanceof Readable ? response.Body : Readable.from(response.Body as any),
+          size: response.ContentLength ?? 0,
           ...(response.ContentType ? { contentType: response.ContentType } : {})
         };
       } catch (error) {

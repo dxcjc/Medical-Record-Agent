@@ -61,7 +61,7 @@ function createRedisClientMock(): RedisJobQueueClient {
 function createRepositories(): ApiServiceRepositories {
   return {
     schemaRepository: {
-      listActive: vi.fn(async () => [{ schemaKey: "lims-clinical-info", version: 1 }])
+      listActive: vi.fn(async () => ({ items: [{ schemaKey: "lims-clinical-info", version: 1 }], total: 1, page: 1, pageSize: 50 }))
     },
     fileRepository: {
       create: vi.fn(async (input) => ({ id: "file-001", ...input })),
@@ -98,7 +98,7 @@ function createRepositories(): ApiServiceRepositories {
       listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     },
     evaluationRepository: {
-      listDatasets: vi.fn(async () => [{ id: "dataset-001", displayName: "评估集" }]),
+      listDatasets: vi.fn(async () => ({ items: [{ id: "dataset-001", displayName: "评估集" }], total: 1, page: 1, pageSize: 50 })),
       createDataset: vi.fn(async (input) => ({ id: "dataset-001", ...input })),
       findDatasetById: vi.fn(async () => ({ id: "dataset-001", deidentified: true })),
       addSample: vi.fn(async (input) => ({ id: "sample-001", ...input })),
@@ -123,7 +123,7 @@ function createRepositories(): ApiServiceRepositories {
           }
         }
       ]),
-      listRunsByDataset: vi.fn(async () => [{ id: "run-001", datasetId: "dataset-001" }]),
+      listRunsByDataset: vi.fn(async () => ({ items: [{ id: "run-001", datasetId: "dataset-001" }], total: 1, page: 1, pageSize: 50 })),
       createRun: vi.fn(async (input) => ({ id: "run-001", status: "queued", ...input })),
       markRunStarted: vi.fn(async (id, startedAt) => ({ id, status: "running", startedAt })),
       completeRun: vi.fn(async (id, input) => ({ id, ...input })),
@@ -264,7 +264,8 @@ describe("api service composition", () => {
       },
       policy: {
         maxAttempts: 2,
-        heartbeatIntervalMs: 5000
+        heartbeatIntervalMs: 5000,
+        maxConcurrent: 3
       }
     });
   });

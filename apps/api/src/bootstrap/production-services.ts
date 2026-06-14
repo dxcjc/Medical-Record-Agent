@@ -727,8 +727,11 @@ export function buildProductionSessionInvalidationStoreContract(
       "login-rotation-cross-instance-smoke"
     ]
   };
+  const explicitModeValue = readSessionInvalidationEnvValue(env, "SESSION_INVALIDATION_STORE_MODE");
+  const hasDatabaseUrl = readSessionInvalidationEnvValue(env, "DATABASE_URL") !== undefined;
+  const defaultToRepository = explicitModeValue === undefined && hasDatabaseUrl;
   const mode: ProductionSessionInvalidationStoreMode =
-    readSessionInvalidationEnvValue(env, "SESSION_INVALIDATION_STORE_MODE") === "repository"
+    explicitModeValue === "repository" || defaultToRepository
       ? "repository"
       : "in-memory";
 
@@ -792,6 +795,10 @@ export function createProductionSessionInvalidationStore(
 ): SessionInvalidationStore | undefined {
   const env = options.env ?? process.env;
   const contract = buildProductionSessionInvalidationStoreContract(env);
+
+  if (contract.mode === "in-memory") {
+    console.warn("[session-invalidation] ⚠️ 使用内存模式，多实例部署下 session 失效将不可靠。设置 SESSION_INVALIDATION_STORE_MODE=repository 以启用持久化。");
+  }
 
   if (contract.mode !== "repository" || !contract.configReady) {
     return undefined;
@@ -2690,7 +2697,10 @@ export function createProductionApiServices(options: CreateProductionApiServices
     now
   });
   const schemaRouteService = {
-    listActive: () => schemaRepository.listActive(),
+    listActive: async (input?: { page?: number; pageSize?: number }) => {
+      const result = await schemaRepository.listActive(input);
+      return result.items;
+    },
     ...schemaService
   };
   const productionWritebackExecutor = createProductionWritebackExecutor(

@@ -105,20 +105,35 @@ export function createSchemaRepository(dependencies: SchemaRepositoryDependencie
       });
     },
 
-    async listActive() {
-      return dependencies.schemaVersion.findMany({
-        where: {
-          status: "active"
-        },
-        orderBy: [
-          {
-            schemaKey: "asc"
+    async listActive(input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = Math.min(input?.pageSize ?? 50, 100);
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.schemaVersion.findMany({
+          where: {
+            status: "active"
           },
-          {
-            version: "desc"
+          orderBy: [
+            {
+              schemaKey: "asc"
+            },
+            {
+              version: "desc"
+            }
+          ],
+          skip,
+          take: pageSize
+        }),
+        dependencies.schemaVersion.count({
+          where: {
+            status: "active"
           }
-        ]
-      });
+        })
+      ]);
+
+      return { items, total, page, pageSize };
     },
 
     async listVersions(schemaKey: string) {

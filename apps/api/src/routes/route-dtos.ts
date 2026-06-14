@@ -475,6 +475,72 @@ export const confirmedWritebackRouteInputSchema = z
   })
   .strip();
 
+// ─── Evaluation run / dataset DTOs ───────────────────────────────────────────
+
+export const createEvaluationRunRouteInputSchema = z
+  .object({
+    datasetId: nonEmptyString,
+    schemaKey: optionalNonEmptyString,
+    schemaVersionId: optionalNonEmptyString,
+    providerKey: nonEmptyString,
+    sampleLimit: z.number().int().positive().finite().optional()
+  })
+  .strip();
+
+export const createEvaluationDatasetRouteInputSchema = z
+  .object({
+    key: nonEmptyString,
+    displayName: nonEmptyString,
+    description: z.string().optional(),
+    deidentified: z.boolean(),
+    metadata: jsonObjectSchema.optional()
+  })
+  .strip();
+
+export type CreateEvaluationRunRouteInput = z.infer<typeof createEvaluationRunRouteInputSchema>;
+export type CreateEvaluationDatasetRouteInput = z.infer<typeof createEvaluationDatasetRouteInputSchema>;
+
+// ─── Query list DTOs ─────────────────────────────────────────────────────────
+
+const paginationPageTransform = (value: string | number | undefined) => {
+  if (value === undefined || value === "") return undefined;
+  const parsed = parsePositiveIntegerQueryValue(value);
+  return parsed ?? undefined;
+};
+
+const paginationPageSizeTransform = (value: string | number | undefined) => {
+  if (value === undefined || value === "") return undefined;
+  const parsed = parsePositiveIntegerQueryValue(value);
+  return parsed ? Math.min(parsed, 100) : undefined;
+};
+
+export const jobListQuerySchema = z
+  .object({
+    page: z.union([z.string(), z.number()]).optional().transform(paginationPageTransform),
+    pageSize: z.union([z.string(), z.number()]).optional().transform(paginationPageSizeTransform),
+    status: optionalNonEmptyString,
+    schemaKey: optionalNonEmptyString,
+    search: z.string().max(200).optional()
+  })
+  .strip();
+
+export const feedbackListQuerySchema = z
+  .object({
+    jobId: nonEmptyString,
+    page: z.union([z.string(), z.number()]).optional().transform(paginationPageTransform),
+    pageSize: z.union([z.string(), z.number()]).optional().transform(paginationPageSizeTransform)
+  })
+  .strip();
+
+export const feedbackAllQuerySchema = z
+  .object({
+    fieldKey: optionalNonEmptyString,
+    jobId: optionalNonEmptyString,
+    page: z.union([z.string(), z.number()]).optional().transform(paginationPageTransform),
+    pageSize: z.union([z.string(), z.number()]).optional().transform(paginationPageSizeTransform)
+  })
+  .strip();
+
 export type CreateFileUploadRouteInput = z.infer<typeof fileUploadRouteInputSchema>;
 export type CreateRecognitionJobRouteInput = z.infer<typeof recognitionJobRouteInputSchema>;
 export type CreateFeedbackRouteInput = z.infer<typeof feedbackRouteInputSchema>;
@@ -487,6 +553,9 @@ export type CompareSchemaVersionsRouteQuery = z.infer<typeof compareSchemaVersio
 export type ProviderConfigRouteInput = z.infer<typeof providerConfigRouteInputSchema>;
 export type AuditListRouteQuery = z.infer<typeof auditListQuerySchema>;
 export type ConfirmedWritebackRouteInput = z.infer<typeof confirmedWritebackRouteInputSchema>;
+export type JobListRouteQuery = z.infer<typeof jobListQuerySchema>;
+export type FeedbackListRouteQuery = z.infer<typeof feedbackListQuerySchema>;
+export type FeedbackAllRouteQuery = z.infer<typeof feedbackAllQuerySchema>;
 
 // ─── Webhook subscription DTOs ───────────────────────────────────────────────
 

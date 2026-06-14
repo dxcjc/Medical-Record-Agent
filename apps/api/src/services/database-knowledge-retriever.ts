@@ -31,14 +31,27 @@ function scoreEntry(entry: { title: string; keywords: string[]; fieldKeys: strin
 
 /**
  * 数据库驱动的知识检索器。
- * 每次检索从数据库读取启用的条目，用与 InMemoryKnowledgeRetriever 相同的评分算法排序。
- * 条目变更后无需重启服务即可生效。
+ * 使用 5 分钟 TTL 缓存减少数据库查询频率。
+ * 条目变更后无需重启服务即可在缓存过期后生效。
  */
 export function createDatabaseKnowledgeRetriever(repository: KnowledgeRepositoryLike): KnowledgeRetriever {
+  let cachedEntries: KnowledgeRepositoryLike["getAllEnabled"] extends () => Promise<infer T> ? Awaited<T> : never[] = [];
+  let cacheExpiresAt = 0;
+  const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  async function getEntriesWithCache() {
+    const now = Date.now();
+    if (now >= cacheExpiresAt) {
+      cachedEntries = await repository.getAllEnabled();
+      cacheExpiresAt = now + CACHE_TTL_MS;
+    }
+    return cachedEntries;
+  }
+
   return {
     async retrieve(request: KnowledgeRetrieveRequest): Promise<KnowledgeRetrieveResult> {
       const limit = request.limit ?? 5;
-      const allEntries = await repository.getAllEnabled();
+      const allEntries = await getEntriesWithCache();
 
       const scored = allEntries
         .map((entry, index) => ({ entry, index, score: scoreEntry(entry, request) }))

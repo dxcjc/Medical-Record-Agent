@@ -131,7 +131,9 @@ function createPrismaClientStub() {
         metadata: {
           sourceType: "synthetic"
         }
-      }))
+      })),
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0)
     },
     evaluationSample: {
       findMany: vi.fn(async () => [
@@ -167,7 +169,9 @@ function createPrismaClientStub() {
       update: vi.fn(async (input) => ({
         id: input.where.id,
         ...input.data
-      }))
+      })),
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0)
     },
     evaluationMetric: {
       upsert: vi.fn(async (input) => ({

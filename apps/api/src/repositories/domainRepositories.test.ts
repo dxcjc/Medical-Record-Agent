@@ -259,6 +259,7 @@ describe("domain repositories", () => {
           }
         }
       ]),
+      count: vi.fn().mockResolvedValue(1),
       findUnique: vi.fn().mockResolvedValue({ id: "dataset-001", displayName: "评估集" })
     };
     const evaluationSample = {
@@ -269,7 +270,8 @@ describe("domain repositories", () => {
       create: vi.fn().mockResolvedValue({ id: "run-001" }),
       update: vi.fn().mockResolvedValue({ id: "run-001", status: "completed" }),
       findUnique: vi.fn().mockResolvedValue({ id: "run-001", createdById: "user-001" }),
-      findMany: vi.fn().mockResolvedValue([])
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0)
     };
     const evaluationMetric = {
       upsert: vi.fn().mockResolvedValue({ id: "metric-001", runId: "run-001", name: "accuracy" }),
@@ -315,7 +317,9 @@ describe("domain repositories", () => {
       where: { datasetId: "dataset-001" },
       orderBy: {
         createdAt: "desc"
-      }
+      },
+      skip: 0,
+      take: 50
     });
 
     await evaluationRepository.listDatasets();
@@ -331,7 +335,9 @@ describe("domain repositories", () => {
       orderBy: [
         { updatedAt: "desc" },
         { createdAt: "desc" }
-      ]
+      ],
+      skip: 0,
+      take: 50
     });
 
     await evaluationRepository.findDatasetById("dataset-001");
@@ -475,7 +481,8 @@ describe("domain repositories", () => {
       findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn()
     };
-    const repository = createProviderRepository({ providerConfig } as never);
+    const $transaction = vi.fn(async (fn: (tx: { providerConfig: typeof providerConfig }) => Promise<unknown>) => fn({ providerConfig }));
+    const repository = createProviderRepository({ providerConfig, $transaction } as never);
 
     const saved = await repository.save({
       key: "openai-responses-prod",

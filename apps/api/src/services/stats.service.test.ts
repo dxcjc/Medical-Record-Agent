@@ -99,18 +99,8 @@ describe("createStatsService", () => {
   });
 
   describe("getTrendStats", () => {
-    it("should return empty when no jobs found", async () => {
-      const deps = createMockDeps();
-      const service = createStatsService(deps);
-      const result = await service.getTrendStats("nonexistent-schema");
-      expect(result).toEqual([]);
-    });
-
     it("should aggregate daily trend data from raw SQL", async () => {
       const deps = createMockDeps({
-        recognitionJob: {
-          findMany: vi.fn(async () => [{ id: "job-1" }, { id: "job-2" }]),
-        },
         $queryRawUnsafe: vi.fn(async () => [
           { date: "2026-06-10", total: 5n, extracted: 4n, failed: 1n },
           { date: "2026-06-11", total: 3n, extracted: 3n, failed: 0n },
@@ -128,9 +118,6 @@ describe("createStatsService", () => {
     it("should pass correct parameters to $queryRawUnsafe", async () => {
       const mockRaw = vi.fn(async () => []);
       const deps = createMockDeps({
-        recognitionJob: {
-          findMany: vi.fn(async () => [{ id: "job-1" }]),
-        },
         $queryRawUnsafe: mockRaw,
       });
 
@@ -138,10 +125,10 @@ describe("createStatsService", () => {
       await service.getTrendStats("test-schema", 14);
 
       expect(mockRaw).toHaveBeenCalledTimes(1);
-      const callArgs = mockRaw.mock.calls[0] as unknown as [string, string[], Date];
-      const [sql, ids, startDate] = callArgs;
+      const callArgs = mockRaw.mock.calls[0] as unknown as [string, string, Date];
+      const [sql, schemaKey, startDate] = callArgs;
       expect(sql).toContain("GROUP BY");
-      expect(ids).toEqual(["job-1"]);
+      expect(schemaKey).toBe("test-schema");
       expect(startDate).toBeInstanceOf(Date);
     });
   });

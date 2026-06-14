@@ -70,12 +70,22 @@ export function createWebhookRepository(dependencies: WebhookRepositoryDependenc
       });
     },
 
-    async list(limit = 50) {
-      return dependencies.webhookSubscription.findMany({
-        select: webhookSelection,
-        orderBy: { createdAt: "desc" },
-        take: limit
-      });
+    async list(input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = Math.min(input?.pageSize ?? 50, 100);
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.webhookSubscription.findMany({
+          select: webhookSelection,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: pageSize
+        }),
+        dependencies.webhookSubscription.count()
+      ]);
+
+      return { items, total, page, pageSize };
     },
 
     async delete(id: string) {

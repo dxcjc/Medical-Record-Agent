@@ -26,25 +26,22 @@ export function createStatsService(deps: StatsRepositoryDeps) {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const jobIds = await deps.recognitionJob.findMany({
-        where: { schemaKey, deletedAt: null },
-        select: { id: true },
-      });
-      const ids = jobIds.map((j) => j.id);
-      if (ids.length === 0) return [];
-
+      // Single query: join RecognitionResult → RecognitionJob via subquery
+      // Use AT TIME ZONE 'UTC' so date bucketing matches frontend UTC display
       const rows = await deps.$queryRawUnsafe<Array<{ date: string; total: bigint; extracted: bigint; failed: bigint }>>(
         `SELECT
-           TO_CHAR(rr."createdAt", 'YYYY-MM-DD') AS date,
+           TO_CHAR(rr."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
            COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE rr."reviewRequired" = false)::int AS extracted,
            COUNT(*) FILTER (WHERE rr."reviewRequired" = true)::int AS failed
          FROM "RecognitionResult" rr
-         WHERE rr."jobId" = ANY($1)
+         INNER JOIN "RecognitionJob" rj ON rj.id = rr."jobId"
+         WHERE rj."schemaKey" = $1
+           AND rj."deletedAt" IS NULL
            AND rr."createdAt" >= $2
-         GROUP BY TO_CHAR(rr."createdAt", 'YYYY-MM-DD')
+         GROUP BY TO_CHAR(rr."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD')
          ORDER BY date ASC`,
-        ids,
+        schemaKey,
         startDate,
       );
 
@@ -66,10 +63,11 @@ export function createStatsService(deps: StatsRepositoryDeps) {
       const jobIds = jobs.map((j) => j.id);
       if (jobIds.length === 0) return [];
 
-      // 2) Get all recognition results for these jobs
+      // 2) Get recognition results for these jobs (capped to prevent unbounded loading)
       const results = await deps.recognitionResult.findMany({
         where: { jobId: { in: jobIds } },
         select: { fields: true, confidence: true, reviewRequired: true },
+        take: 1000,
       });
 
       // 3) Aggregate per-field recognition data

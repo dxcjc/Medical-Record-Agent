@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { PutFileInput, StorageProvider, StoredFile } from "./storage.types";
+import type { PutFileInput, StorageProvider, StoredFile, StoredFileStream } from "./storage.types";
 
 export interface LocalStorageProviderOptions {
   /**
@@ -116,6 +116,44 @@ export function createLocalStorageProvider(options: LocalStorageProviderOptions)
         return {
           key: normalizedKey,
           body,
+          size: fileStat.size,
+          ...(metadata.contentType ? { contentType: metadata.contentType } : {})
+        };
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+
+    async getStream(key: string): Promise<StoredFileStream | null> {
+      const { normalizedKey, absoluteFilePath, absoluteMetadataPath } = resolveLocalPath(options.rootDir, key);
+
+      try {
+        await stat(absoluteFilePath);
+        const metadataContent = await readFile(absoluteMetadataPath, "utf8").catch((error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") {
+            return "{}";
+          }
+
+          throw error;
+        });
+        let metadata: LocalFileMetadata = {};
+        try {
+          metadata = JSON.parse(metadataContent) as LocalFileMetadata;
+        } catch {
+          metadata = {};
+        }
+
+        const { createReadStream } = await import("node:fs");
+        const stream = createReadStream(absoluteFilePath);
+        const fileStat = await stat(absoluteFilePath);
+
+        return {
+          key: normalizedKey,
+          stream,
           size: fileStat.size,
           ...(metadata.contentType ? { contentType: metadata.contentType } : {})
         };

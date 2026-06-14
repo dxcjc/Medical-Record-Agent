@@ -70,7 +70,7 @@ export interface ApiRecognitionOrchestrator {
 
 export interface ApiServiceRepositories {
   schemaRepository: {
-    listActive(): Promise<unknown[]>;
+    listActive(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
   };
   fileRepository: {
     create(input: {
@@ -154,7 +154,7 @@ export interface ApiServiceRepositories {
     listAll(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
   };
   evaluationRepository: {
-    listDatasets(): Promise<unknown[]>;
+    listDatasets(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
     createDataset(input: {
       key: string;
       displayName: string;
@@ -171,7 +171,7 @@ export interface ApiServiceRepositories {
       groundTruth: Prisma.InputJsonValue;
       metadata?: Prisma.InputJsonValue;
     }): Promise<unknown>;
-    listRunsByDataset(datasetId: string): Promise<unknown[]>;
+    listRunsByDataset(datasetId: string, input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
     createRun(input: {
       datasetId: string;
       createdById?: string | null;
@@ -500,7 +500,10 @@ export function createInProcessJobQueueExecutor(
   const maxAttempts = options.maxAttempts ?? 1;
   const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 30_000;
   const now = options.now ?? (() => new Date());
+  const maxConcurrent = Number(process.env.MAX_CONCURRENT_JOBS ?? "3") || 3;
   let sequence = 0;
+  let runningJobs = 0;
+  const waitingQueue: Array<() => void> = [];
 
   function normalizeTask(task: (() => Promise<void>) | JobQueueTask): JobQueueTask {
     if (typeof task === "function") {
@@ -518,7 +521,17 @@ export function createInProcessJobQueueExecutor(
       const queueTask = normalizeTask(task);
       const leaseId = `in-process-${++sequence}`;
 
-      const promise = Promise.resolve()
+      const promise = new Promise<void>((resolve) => {
+        function acquireSlot() {
+          if (runningJobs < maxConcurrent) {
+            runningJobs += 1;
+            resolve();
+          } else {
+            waitingQueue.push(acquireSlot);
+          }
+        }
+        acquireSlot();
+      })
         .then(async () => {
           for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             const lease = {
@@ -552,6 +565,11 @@ export function createInProcessJobQueueExecutor(
         .finally(() => {
           leases.delete(leaseId);
           pending.delete(promise);
+          runningJobs -= 1;
+          const next = waitingQueue.shift();
+          if (next) {
+            next();
+          }
         });
 
       pending.add(promise);
@@ -576,7 +594,8 @@ export function createInProcessJobQueueExecutor(
         },
         policy: {
           maxAttempts,
-          heartbeatIntervalMs
+          heartbeatIntervalMs,
+          maxConcurrent
         },
         readiness: inProcessJobQueueReadiness
       };
@@ -1431,8 +1450,9 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
 
   const evaluationService: EvaluationRouteService = {
     async listDatasets() {
+      const result = await repositories.evaluationRepository.listDatasets();
       return assertRouteRecordList(
-        await repositories.evaluationRepository.listDatasets(),
+        result.items,
         "EVALUATION_DATASET_RESPONSE_INVALID"
       );
     },
@@ -1479,8 +1499,9 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
     },
     async listRuns(input: ListEvaluationRunsRouteInput) {
       if (input.datasetId) {
+        const result = await repositories.evaluationRepository.listRunsByDataset(input.datasetId);
         return assertRouteRecordList(
-          await repositories.evaluationRepository.listRunsByDataset(input.datasetId),
+          result.items,
           "EVALUATION_RUN_RESPONSE_INVALID"
         );
       }
@@ -1738,7 +1759,9 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               ? body.byteSize
               : BigInt(body.byteSize ?? 0);
 
-        const created = await repositories.fileRepository.create({
+        let created;
+        try {
+          created = await repositories.fileRepository.create({
             storageKey: storedFile?.key ?? storageKey,
             originalName,
             mimeType: storedFile?.contentType ?? body.mimeType ?? "application/octet-stream",
@@ -1747,6 +1770,15 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             metadata: toInputJsonValue(body.metadata),
             uploadedById: body.uploadedById ?? null
           });
+        } catch (dbError) {
+          // Clean up the uploaded file since DB record creation failed
+          if (storedFile !== undefined) {
+            await options.storageProvider?.delete(storedFile.key).catch(() => {
+              // Log but don't throw - we want to surface the original DB error
+            });
+          }
+          throw dbError;
+        }
 
         // Prisma BigInt 不能直接 JSON.stringify，转为 Number
         return assertRouteRecord(
@@ -1989,7 +2021,7 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           }
         }
 
-        const idempotencyKey = input.idempotencyKey ?? `${input.jobId}:${now().toISOString()}`;
+        const idempotencyKey = input.idempotencyKey ?? `writeback:${input.jobId}`;
 
         let attempt: unknown;
         try {
@@ -2001,6 +2033,14 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             requestPayload: toInputJsonValue(buildReadyFieldsPayload(readyFields))
           });
         } catch (err) {
+          // Prisma P2002 = unique constraint violation on idempotencyKey.
+          // This means a concurrent request already created an attempt for this job,
+          // so we surface a 409 instead of a 500.
+          const isDuplicateKey =
+            isRecord(err) && (err.code === "P2002" || err.message === "writeback_attempt_idempotency_key_key");
+          if (isDuplicateKey) {
+            throw createApiServiceError("WRITEBACK_ALREADY_RUNNING_OR_COMPLETED", 409);
+          }
           console.error(`[writeback] Failed to create attempt for job ${input.jobId}:`, err);
           throw createApiServiceError("WRITEBACK_CREATE_FAILED", 500);
         }

@@ -90,9 +90,11 @@ export async function registerFileRoutes(server: FastifyInstance, dependencies: 
       }
 
       // 下载接口只返回受控存储中的字节内容；文件元数据用于响应头，不把底层 storageKey 或绝对路径暴露给调用方。
+      // 清理控制字符（\r, \n, \t 等），防止 Content-Disposition header 注入。
+      const safeName = file.originalName.replace(/[\x00-\x1f\x7f\\"]/g, "_");
       return reply
         .type(file.mimeType)
-        .header("content-disposition", `attachment; filename="${encodeURIComponent(file.originalName)}"`)
+        .header("content-disposition", `attachment; filename="${encodeURIComponent(safeName)}"`)
         .send(file.body);
     }
   );

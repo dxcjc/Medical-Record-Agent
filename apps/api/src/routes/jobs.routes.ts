@@ -4,6 +4,7 @@ import { PERMISSIONS } from "../auth/permissions";
 import type { createAuthHooks } from "../middleware/auth.middleware";
 import {
   assertRouteResponseObject,
+  jobListQuerySchema,
   recognitionJobRouteInputSchema,
   type ApiRouteResponseObject,
   type CreateRecognitionJobRouteInput
@@ -97,8 +98,9 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
       ]
     },
     async (request, reply) => {
-      const query = request.query as { limit?: string };
-      const limit = query.limit ? Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 100) : 50;
+      const parsed = jobListQuerySchema.safeParse(request.query);
+      const data = parsed.success ? parsed.data : {};
+      const limit = data.pageSize ?? 50;
       const jobs = await dependencies.jobService.list(limit);
       return { items: jobs };
     }

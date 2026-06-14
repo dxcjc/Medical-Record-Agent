@@ -5,6 +5,8 @@ import type { AuthContext, createAuthHooks } from "../middleware/auth.middleware
 import {
   assertRouteResponseObject,
   assertRouteResponseObjectList,
+  createEvaluationRunRouteInputSchema,
+  createEvaluationDatasetRouteInputSchema,
   importEvaluationSamplesRouteInputSchema,
   type ApiRouteResponseObject,
   type EvaluationSampleRouteInput
@@ -64,50 +66,6 @@ export interface EvaluationRoutesDependencies {
   authHooks: ReturnType<typeof createAuthHooks>;
 }
 
-function isCreateRunBody(
-  value: unknown
-): value is { datasetId: string; schemaKey?: string; schemaVersionId?: string; providerKey: string; sampleLimit?: number } {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const body = value as Record<string, unknown>;
-  const sampleLimit = body.sampleLimit;
-  const schemaKey = body.schemaKey;
-  const schemaVersionId = body.schemaVersionId;
-
-  return (
-    typeof body.datasetId === "string" &&
-    body.datasetId.length > 0 &&
-    typeof body.providerKey === "string" &&
-    body.providerKey.length > 0 &&
-    (schemaKey === undefined || (typeof schemaKey === "string" && schemaKey.length > 0)) &&
-    (schemaVersionId === undefined || (typeof schemaVersionId === "string" && schemaVersionId.length > 0)) &&
-    (sampleLimit === undefined || (typeof sampleLimit === "number" && Number.isFinite(sampleLimit)))
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function isCreateDatasetBody(
-  value: unknown
-): value is { key: string; displayName: string; description?: string; deidentified: boolean; metadata?: unknown } {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    typeof value.key === "string" &&
-    value.key.length > 0 &&
-    typeof value.displayName === "string" &&
-    value.displayName.length > 0 &&
-    typeof value.deidentified === "boolean" &&
-    (value.description === undefined || typeof value.description === "string")
-  );
-}
-
 /**
  * Evaluation API 管理评估数据集和评估运行，属于高权限管理能力。
  * 这里通过注入的 evaluationService 完成业务动作，路由层不直接连接数据库。
@@ -138,22 +96,23 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
       preHandler
     },
     async (request, reply) => {
-      if (!isCreateDatasetBody(request.body)) {
+      const parsed = createEvaluationDatasetRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
         return reply.status(400).send({
           error: "BAD_REQUEST"
         });
       }
 
       const input: CreateEvaluationDatasetRouteInput = {
-        key: request.body.key,
-        displayName: request.body.displayName,
-        deidentified: request.body.deidentified,
-        metadata: request.body.metadata,
+        key: parsed.data.key,
+        displayName: parsed.data.displayName,
+        deidentified: parsed.data.deidentified,
+        metadata: parsed.data.metadata,
         actor: request.auth as AuthContext
       };
 
-      if (request.body.description !== undefined) {
-        input.description = request.body.description;
+      if (parsed.data.description !== undefined) {
+        input.description = parsed.data.description;
       }
 
       const dataset = await dependencies.evaluationService.createDataset(input);
@@ -219,28 +178,29 @@ export async function registerEvaluationRoutes(server: FastifyInstance, dependen
       preHandler
     },
     async (request, reply) => {
-      if (!isCreateRunBody(request.body)) {
+      const parsed = createEvaluationRunRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
         return reply.status(400).send({
           error: "BAD_REQUEST"
         });
       }
 
       const input: CreateEvaluationRunInput = {
-        datasetId: request.body.datasetId,
-        providerKey: request.body.providerKey,
+        datasetId: parsed.data.datasetId,
+        providerKey: parsed.data.providerKey,
         actor: request.auth as AuthContext
       };
 
-      if (request.body.schemaKey !== undefined) {
-        input.schemaKey = request.body.schemaKey;
+      if (parsed.data.schemaKey !== undefined) {
+        input.schemaKey = parsed.data.schemaKey;
       }
 
-      if (request.body.schemaVersionId !== undefined) {
-        input.schemaVersionId = request.body.schemaVersionId;
+      if (parsed.data.schemaVersionId !== undefined) {
+        input.schemaVersionId = parsed.data.schemaVersionId;
       }
 
-      if (request.body.sampleLimit !== undefined) {
-        input.sampleLimit = request.body.sampleLimit;
+      if (parsed.data.sampleLimit !== undefined) {
+        input.sampleLimit = parsed.data.sampleLimit;
       }
 
       const run = await dependencies.evaluationService.createRun(input);

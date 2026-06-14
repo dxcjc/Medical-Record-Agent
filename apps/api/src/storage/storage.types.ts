@@ -1,3 +1,5 @@
+import type { Readable } from "node:stream";
+
 /**
  * 存储层只向上暴露逻辑文件标识和文件内容，不暴露底层磁盘绝对路径或对象存储内部实现细节。
  */
@@ -32,6 +34,16 @@ export interface StoredFile extends StoredFileDescriptor {
 }
 
 /**
+ * 以流式方式读取到的文件描述对象。
+ */
+export interface StoredFileStream extends StoredFileDescriptor {
+  /**
+   * 可读流，适合大文件场景，避免一次性加载到内存。
+   */
+  stream: Readable;
+}
+
+/**
  * 写入文件时需要的最小输入。
  */
 export interface PutFileInput {
@@ -61,6 +73,11 @@ export interface StorageProvider {
    * 读取一个逻辑 key 对应的文件；不存在时返回 null。
    */
   get(key: string): Promise<StoredFile | null>;
+  /**
+   * 以流式方式读取一个逻辑 key 对应的文件；不存在时返回 null。
+   * 适用于大文件场景，避免一次性将整个文件加载到内存。
+   */
+  getStream?(key: string): Promise<StoredFileStream | null>;
   /**
    * 删除一个逻辑 key 对应的文件；不存在时保持幂等。
    */

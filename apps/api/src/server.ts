@@ -9,6 +9,7 @@ import { createAuthHooks } from "./middleware/auth.middleware";
 import type { AuditRecorder } from "./middleware/audit.middleware";
 import { createAuditHooks } from "./middleware/audit.middleware";
 import { registerSecurityHeaders } from "./middleware/security.middleware";
+import { handlePrismaError } from "./middleware/prisma-error.middleware";
 import { registerAuditRoutes, type AuditRouteService } from "./routes/audit.routes";
 import { registerAuthRoutes, type AuthRouteService } from "./routes/auth.routes";
 import { registerEvaluationRoutes, type EvaluationRouteService } from "./routes/evaluation.routes";
@@ -64,6 +65,7 @@ export interface CreateApiServerOptions {
   logger?: boolean;
   runtimeInfo?: ApiRuntimeInfo;
   rateLimit?: ApiRateLimitOptions;
+  rateLimitStore?: RateLimitStore;
 }
 
 export interface ApiRateLimitRule {
@@ -76,6 +78,16 @@ export interface ApiRateLimitOptions {
   writeback?: ApiRateLimitRule;
 }
 
+export interface RateLimitStore {
+  increment(key: string, windowMs: number): Promise<{ count: number; resetAt: number }>;
+}
+
+export interface RedisRateLimitClient {
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<void>;
+  pttl(key: string): Promise<number>;
+}
+
 const defaultRateLimitOptions: Required<ApiRateLimitOptions> = {
   login: {
     max: 20,
@@ -86,6 +98,39 @@ const defaultRateLimitOptions: Required<ApiRateLimitOptions> = {
     windowMs: 60_000
   }
 };
+
+export function createMemoryRateLimitStore(): RateLimitStore {
+  const buckets = new Map<string, { count: number; resetAt: number }>();
+
+  return {
+    async increment(key: string, windowMs: number) {
+      const now = Date.now();
+      const current = buckets.get(key);
+      const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + windowMs };
+      bucket.count += 1;
+      buckets.set(key, bucket);
+
+      return { count: bucket.count, resetAt: bucket.resetAt };
+    }
+  };
+}
+
+export function createRedisRateLimitStore(client: RedisRateLimitClient): RateLimitStore {
+  return {
+    async increment(key: string, windowMs: number) {
+      const count = await client.incr(key);
+      const ttlMs = await client.pttl(key);
+
+      if (ttlMs < 0) {
+        const windowSeconds = Math.ceil(windowMs / 1000);
+        await client.expire(key, windowSeconds);
+        return { count, resetAt: Date.now() + windowMs };
+      }
+
+      return { count, resetAt: Date.now() + ttlMs };
+    }
+  };
+}
 
 function readErrorStatus(error: unknown) {
   if (error && typeof error === "object" && "statusCode" in error) {
@@ -148,20 +193,16 @@ function readRateLimitSource(request: FastifyRequest) {
   return request.ip;
 }
 
-function createFixedWindowRateLimiter(rule: ApiRateLimitRule, scope: string): preHandlerHookHandler {
-  const buckets = new Map<string, { count: number; resetAt: number }>();
+function createFixedWindowRateLimiter(rule: ApiRateLimitRule, scope: string, store?: RateLimitStore): preHandlerHookHandler {
+  const memoryStore = store ?? createMemoryRateLimitStore();
 
   return async (request) => {
-    const now = Date.now();
     const actor = request.auth?.actorUserId ?? request.auth?.actorApiTokenId;
     const key = `${scope}:${readRateLimitSource(request)}:${actor ?? "anonymous"}`;
-    const current = buckets.get(key);
-    const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + rule.windowMs };
-    bucket.count += 1;
-    buckets.set(key, bucket);
+    const { count, resetAt } = await memoryStore.increment(key, rule.windowMs);
 
-    if (bucket.count > rule.max) {
-      throw createRateLimitError(Math.ceil((bucket.resetAt - now) / 1000));
+    if (count > rule.max) {
+      throw createRateLimitError(Math.ceil((resetAt - Date.now()) / 1000));
     }
   };
 }
@@ -185,8 +226,9 @@ export async function createApiServer(options: CreateApiServerOptions) {
     ...defaultRateLimitOptions,
     ...(options.rateLimit ?? {})
   };
-  const loginRateLimit = createFixedWindowRateLimiter(rateLimitOptions.login, "auth.login");
-  const writebackRateLimit = createFixedWindowRateLimiter(rateLimitOptions.writeback, "writeback.execute");
+  const rateLimitStore = options.rateLimitStore;
+  const loginRateLimit = createFixedWindowRateLimiter(rateLimitOptions.login, "auth.login", rateLimitStore);
+  const writebackRateLimit = createFixedWindowRateLimiter(rateLimitOptions.writeback, "writeback.execute", rateLimitStore);
 
   server.addHook("onRequest", async (_request, reply) => {
     Object.entries(securityHeaders).forEach(([name, value]) => {
@@ -195,6 +237,16 @@ export async function createApiServer(options: CreateApiServerOptions) {
   });
 
   server.setErrorHandler((error, _request, reply) => {
+    // Prisma 数据库错误优先处理
+    const prismaHttpError = handlePrismaError(error);
+    if (prismaHttpError !== null) {
+      reply.status(prismaHttpError.statusCode).send({
+        error: prismaHttpError.code,
+        message: prismaHttpError.message
+      });
+      return;
+    }
+
     const retryAfter = readRateLimitRetryAfter(error);
     if (retryAfter !== undefined) {
       reply.header("retry-after", String(retryAfter));
@@ -213,7 +265,7 @@ export async function createApiServer(options: CreateApiServerOptions) {
     origin: corsOrigins,
     allowedHeaders: ["authorization", "content-type", "x-api-token"],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
   });
 
   // Swagger / OpenAPI 文档

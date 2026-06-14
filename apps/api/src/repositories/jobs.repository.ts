@@ -99,6 +99,8 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
       schemaKey?: string;
       search?: string;
     }) {
+      // 限制 search 参数长度，防止超长字符串导致查询性能问题
+      const sanitizedSearch = input.search ? input.search.slice(0, 200) : undefined;
       const where: Prisma.RecognitionJobWhereInput = { deletedAt: null };
 
       if (input.status) {
@@ -107,10 +109,10 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
       if (input.schemaKey) {
         where.schemaKey = input.schemaKey;
       }
-      if (input.search) {
+      if (sanitizedSearch) {
         where.OR = [
-          { id: { contains: input.search, mode: "insensitive" } },
-          { schemaKey: { contains: input.search, mode: "insensitive" } }
+          { id: { contains: sanitizedSearch, mode: "insensitive" } },
+          { schemaKey: { contains: sanitizedSearch, mode: "insensitive" } }
         ];
       }
 
