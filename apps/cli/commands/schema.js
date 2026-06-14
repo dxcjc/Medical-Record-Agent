@@ -68,6 +68,69 @@ const SCHEMAS = {
       limit:  { type: 'number', required: false, description: '返回数量', default: 20 },
     },
   },
+  push: {
+    command: 'push',
+    description: '推送识别结果到外部系统',
+    usage: 'mra push --endpoint <url> --job <job_id> [--token <token>]',
+    flags: {
+      endpoint: { type: 'string', required: true, description: '外部系统接收 URL' },
+      job:      { type: 'string', required: true, description: '任务 ID' },
+      token:    { type: 'string', required: false, description: '认证 token' },
+      format:   { type: 'string', required: false, description: '输出格式', default: 'table' },
+    },
+    required: ['endpoint', 'job'],
+  },
+  stats: {
+    command: 'stats',
+    description: '查看字段识别统计',
+    usage: 'mra stats [--schema <key>] [--format json|table]',
+    flags: {
+      schema: { type: 'string', required: false, description: 'Schema key', default: 'tumor-gene-test' },
+      format: { type: 'string', required: false, description: '输出格式', default: 'table' },
+    },
+  },
+  trend: {
+    command: 'trend',
+    description: '查看识别趋势数据',
+    usage: 'mra trend [--schema <key>] [--days 30] [--format json|table]',
+    flags: {
+      schema: { type: 'string', required: false, description: 'Schema key', default: 'tumor-gene-test' },
+      days:   { type: 'number', required: false, description: '天数', default: 30 },
+      format: { type: 'string', required: false, description: '输出格式', default: 'table' },
+    },
+  },
+  delete: {
+    command: 'delete',
+    description: '软删除识别任务',
+    usage: 'mra delete <job_id> [--yes] [--token <token>]',
+    positional: [{ name: 'job_id', required: true, description: '任务 ID' }],
+    flags: {
+      yes:   { type: 'boolean', required: false, description: '跳过确认' },
+      token: { type: 'string', required: false, description: '认证 token' },
+    },
+    required: ['job_id'],
+  },
+  rerun: {
+    command: 'rerun',
+    description: '重新执行识别任务',
+    usage: 'mra rerun <job_id> [--token <token>]',
+    positional: [{ name: 'job_id', required: true, description: '任务 ID' }],
+    flags: {
+      token: { type: 'string', required: false, description: '认证 token' },
+    },
+    required: ['job_id'],
+  },
+  export: {
+    command: 'export',
+    description: '导出识别结果为 JSON 文件',
+    usage: 'mra export <job_id> [--output <path>] [--token <token>]',
+    positional: [{ name: 'job_id', required: true, description: '任务 ID' }],
+    flags: {
+      output: { type: 'string', required: false, description: '输出文件路径', default: '<job_id>.json' },
+      token:  { type: 'string', required: false, description: '认证 token' },
+    },
+    required: ['job_id'],
+  },
 };
 
 export async function schema(args) {
