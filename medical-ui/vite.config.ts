@@ -16,6 +16,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-arco': ['@arco-design/web-react', '@arco-design/web-react/icon'],
+          'vendor-query': ['@tanstack/react-query'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 700, // Arco Design vendor chunk ~643KB is expected
   },
   test: {
     environment: 'jsdom',
