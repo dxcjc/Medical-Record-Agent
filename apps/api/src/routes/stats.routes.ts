@@ -8,25 +8,39 @@ export interface StatsRouteService {
 
 export function registerStatsRoutes(
   app: FastifyInstance,
-  service: StatsRouteService
+  service: StatsRouteService,
+  authHook?: {
+    authenticate: any;
+    requirePermission: (permission: string) => any;
+  }
 ) {
-  app.get("/api/stats/fields", async (request: FastifyRequest, reply: FastifyReply) => {
-    const query = request.query as { schemaKey?: string; limit?: string };
-    if (!query.schemaKey) {
-      return reply.status(400).send({ error: "MISSING_PARAM", message: "schemaKey is required" });
-    }
-    const limit = query.limit ? Math.min(parseInt(query.limit, 10) || 100, 500) : 100;
-    const stats = await service.getFieldStats(query.schemaKey, limit);
-    return reply.send({ stats, total: stats.length });
-  });
+  const authPreHandler = authHook ? [authHook.authenticate] : [];
 
-  app.get("/api/stats/trend", async (request: FastifyRequest, reply: FastifyReply) => {
-    const query = request.query as { schemaKey?: string; days?: string };
-    if (!query.schemaKey) {
-      return reply.status(400).send({ error: "MISSING_PARAM", message: "schemaKey is required" });
+  app.get(
+    "/api/stats/fields",
+    { preHandler: authPreHandler },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const query = request.query as { schemaKey?: string; limit?: string };
+      if (!query.schemaKey) {
+        return reply.status(400).send({ error: "MISSING_PARAM", message: "schemaKey is required" });
+      }
+      const limit = query.limit ? Math.min(parseInt(query.limit, 10) || 100, 500) : 100;
+      const stats = await service.getFieldStats(query.schemaKey, limit);
+      return reply.send({ stats, total: stats.length });
     }
-    const days = query.days ? Math.min(Math.max(parseInt(query.days, 10) || 30, 1), 365) : 30;
-    const trend = await service.getTrendStats(query.schemaKey, days);
-    return reply.send({ trend });
-  });
+  );
+
+  app.get(
+    "/api/stats/trend",
+    { preHandler: authPreHandler },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const query = request.query as { schemaKey?: string; days?: string };
+      if (!query.schemaKey) {
+        return reply.status(400).send({ error: "MISSING_PARAM", message: "schemaKey is required" });
+      }
+      const days = query.days ? Math.min(Math.max(parseInt(query.days, 10) || 30, 1), 365) : 30;
+      const trend = await service.getTrendStats(query.schemaKey, days);
+      return reply.send({ trend });
+    }
+  );
 }

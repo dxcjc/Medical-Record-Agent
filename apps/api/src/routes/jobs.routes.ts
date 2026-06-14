@@ -98,7 +98,7 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
     },
     async (request, reply) => {
       const query = request.query as { limit?: string };
-      const limit = query.limit ? parseInt(query.limit, 10) : 50;
+      const limit = query.limit ? Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 100) : 50;
       const jobs = await dependencies.jobService.list(limit);
       return { items: jobs };
     }

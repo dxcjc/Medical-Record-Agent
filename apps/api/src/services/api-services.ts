@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type { Prisma, RecognitionJobStatus } from "@prisma/client";
 import type {
@@ -338,10 +338,9 @@ export interface CreateApiServicesOptions {
 }
 
 function toStorageKey(originalName: string, now: Date) {
-  const safeName = originalName.replace(/[^\w.-]+/g, "_");
-  const uniqueId = Math.random().toString(36).slice(2, 10);
+  const safeName = originalName.replace(/[^\w.-]+/g, "_").slice(0, 200);
+  const uniqueId = randomUUID().slice(0, 8);
   const key = `uploads/${now.toISOString().slice(0, 10)}/${uniqueId}-${safeName}`;
-  console.log(`[STORAGE_KEY] originalName=${originalName} → key=${key}`);
   return key;
 }
 
@@ -866,8 +865,14 @@ function decodeBase64Content(contentBase64: unknown): Buffer | undefined {
   const normalized = contentBase64.trim();
   const body = Buffer.from(normalized, "base64");
 
+  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+
   if (body.byteLength === 0) {
     throw createApiServiceError("FILE_CONTENT_BASE64_INVALID", 400);
+  }
+
+  if (body.byteLength > MAX_FILE_SIZE_BYTES) {
+    throw createApiServiceError("FILE_TOO_LARGE", 413);
   }
 
   return body;
@@ -883,7 +888,11 @@ function assertUploadedContentChecksum(content: Buffer, checksumSha256: unknown)
   if (typeof checksumSha256 !== "string" || checksumSha256.length === 0 || checksumSha256 === "unknown" || checksumSha256 === "unsupported") {
     return;
   }
-  console.log(`[CHECKSUM] 前端=${checksumSha256} 后端=${checksumSha256Hex(content)} 长度=${content.byteLength} — base64上传跳过校验`);
+
+  const actual = checksumSha256Hex(content);
+  if (actual !== checksumSha256) {
+    throw createApiServiceError("FILE_CHECKSUM_MISMATCH", 409);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

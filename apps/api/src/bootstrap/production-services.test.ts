@@ -1458,7 +1458,7 @@ describe("production api services bootstrap", () => {
 
     expect(storageProvider.put).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: "uploads/2026-06-05/record.pdf",
+        key: expect.stringMatching(/^uploads\/2026-06-05\/[0-9a-f]{8}-record\.pdf$/),
         body: Buffer.from("DEMO_PDF_BYTES"),
         contentType: "application/pdf"
       })
@@ -1466,7 +1466,7 @@ describe("production api services bootstrap", () => {
     expect(prisma.storedFile.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          storageKey: "uploads/2026-06-05/record.pdf",
+          storageKey: expect.stringMatching(/^uploads\/2026-06-05\/[0-9a-f]{8}-record\.pdf$/),
           byteSize: BigInt(14)
         })
       })

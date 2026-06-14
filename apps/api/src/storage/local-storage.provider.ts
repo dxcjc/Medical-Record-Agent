@@ -106,7 +106,12 @@ export function createLocalStorageProvider(options: LocalStorageProviderOptions)
             throw error;
           })
         ]);
-        const metadata = JSON.parse(metadataContent) as LocalFileMetadata;
+        let metadata: LocalFileMetadata = {};
+        try {
+          metadata = JSON.parse(metadataContent) as LocalFileMetadata;
+        } catch {
+          metadata = {};
+        }
 
         return {
           key: normalizedKey,

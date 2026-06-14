@@ -1392,14 +1392,14 @@ describe("api service composition", () => {
 
     expect(storageProvider.put).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: "uploads/2026-06-05/record.pdf",
+        key: expect.stringMatching(/^uploads\/2026-06-05\/[0-9a-f]{8}-record\.pdf$/),
         body: Buffer.from("DEMO_PDF_BYTES"),
         contentType: "application/pdf"
       })
     );
     expect(repositories.fileRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        storageKey: "uploads/2026-06-05/record.pdf",
+        storageKey: expect.stringMatching(/^uploads\/2026-06-05\/[0-9a-f]{8}-record\.pdf$/),
         byteSize: BigInt(14),
         checksumSha256: "b66f1b66ec824925d01f389a3494722c0676af4d131cc3bd7d38b7c06bf62d61"
       })

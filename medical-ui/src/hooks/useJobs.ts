@@ -15,6 +15,7 @@ export function useJobs(limit = 50) {
     queryKey: ['jobs', limit],
     queryFn: () => jobsApi.list(limit),
     refetchInterval: 10000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -32,6 +33,7 @@ export function usePaginatedJobs(params: UseJobsParams = {}) {
       };
     },
     refetchInterval: 10000,
+    refetchIntervalInBackground: false,
   });
 }
 

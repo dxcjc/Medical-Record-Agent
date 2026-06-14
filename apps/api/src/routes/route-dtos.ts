@@ -255,11 +255,27 @@ export function assertRouteResponseObjectList(values: unknown[], code: string): 
   return values.map((value) => assertRouteResponseObject(value, code));
 }
 
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/tiff",
+  "image/bmp",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "application/dicom",
+  "text/plain",
+  "application/json",
+];
+
 export const fileUploadRouteInputSchema = z
   .object({
-    originalName: nonEmptyString,
-    mimeType: optionalNonEmptyString,
-    byteSize: z.number().int().nonnegative().optional(),
+    originalName: nonEmptyString.max(255),
+    mimeType: z.string().refine(
+      (val) => ALLOWED_MIME_TYPES.includes(val),
+      { message: `Unsupported file type. Allowed: ${ALLOWED_MIME_TYPES.join(", ")}` }
+    ).optional(),
+    byteSize: z.number().int().nonnegative().max(50 * 1024 * 1024).optional(),
     checksumSha256: optionalNonEmptyString,
     contentBase64: optionalNonEmptyString,
     metadata: jsonObjectSchema.optional()

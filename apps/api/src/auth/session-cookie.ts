@@ -31,20 +31,28 @@ export function readSessionCookie(cookieHeader: string | string[] | undefined, n
 }
 
 export function serializeSessionCookie(token: string) {
-  return [
+  const parts = [
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
     "HttpOnly",
     "Path=/",
     "SameSite=Lax"
-  ].join("; ");
+  ];
+  if (process.env.NODE_ENV === "production") {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
 }
 
 export function serializeClearedSessionCookie() {
-  return [
+  const parts = [
     `${SESSION_COOKIE_NAME}=`,
     "HttpOnly",
     "Path=/",
     "SameSite=Lax",
     "Max-Age=0"
-  ].join("; ");
+  ];
+  if (process.env.NODE_ENV === "production") {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
 }

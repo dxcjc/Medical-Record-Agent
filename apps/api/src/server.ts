@@ -202,11 +202,15 @@ export async function createApiServer(options: CreateApiServerOptions) {
     });
   });
 
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim())
+    : ["http://localhost:5173", "http://127.0.0.1:5173"];
+
   await server.register(cors, {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: corsOrigins,
     allowedHeaders: ["authorization", "content-type", "x-api-token"],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "OPTIONS"]
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   });
 
   await registerSecurityHeaders(server);
@@ -285,11 +289,11 @@ export async function createApiServer(options: CreateApiServerOptions) {
   });
 
   if (options.services.knowledgeService) {
-    await registerKnowledgeRoutes(server, options.services.knowledgeService);
+    await registerKnowledgeRoutes(server, options.services.knowledgeService, authHooks);
   }
 
   if (options.services.statsService) {
-    await registerStatsRoutes(server, options.services.statsService);
+    await registerStatsRoutes(server, options.services.statsService, authHooks);
   }
 
   if (options.services.v1Service) {
