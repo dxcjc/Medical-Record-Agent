@@ -143,4 +143,6 @@ Tests:       354 passed | 11 failed | 1 skipped (366)
 
 ## 9. Git 提交
 
-待提交后补充 commit hash。
+- **Commit**: `c0035b3`
+- **Message**: `Phase 2: 功能闭环 - 反馈审核/Provider CRUD/Schema 编辑/评测导入/回写触发`
+- **文件变更**: 17 files changed, +2425 -292 lines
