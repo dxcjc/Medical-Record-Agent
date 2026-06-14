@@ -273,10 +273,17 @@ export const filesApi = {
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
-    // Calculate SHA256
-    const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const checksumSha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Calculate SHA256 (crypto.subtle only available in secure contexts: HTTPS/localhost)
+    let checksumSha256 = '';
+    try {
+      if (crypto?.subtle?.digest) {
+        const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        checksumSha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch {
+      // crypto.subtle unavailable (non-HTTPS), skip checksum — server will still accept the file
+    }
 
     // Convert to base64 using chunked approach to avoid stack overflow
     const base64 = uint8ArrayToBase64(uint8Array);
