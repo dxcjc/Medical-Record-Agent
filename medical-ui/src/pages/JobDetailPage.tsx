@@ -160,10 +160,6 @@ function extractOcrBlocks(
 function normalizeFields(result: import('../api/types').RecognitionResult | null | undefined) {
   if (!result) return [];
 
-  // 优先使用 normalizedFields（已经过规范化）
-  const fields = result.normalizedFields || result.fields;
-  if (!fields || typeof fields !== 'object') return [];
-
   // 按 fieldKey 分组 evidence
   const evidenceByField = new Map<string, import('../api/types').EvidenceItem[]>();
   for (const ev of result.evidence || []) {
@@ -174,13 +170,49 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
     }
   }
 
-  return Object.entries(fields).map(([key, val]) => ({
-    key,
-    value: val != null ? String(val) : '-',
-    rawValue: '',
-    confidence: undefined,
-    evidence: evidenceByField.get(key) || [],
-  }));
+  // 优先使用 normalizedFields（已经过规范化）
+  const raw = result.normalizedFields || result.fields;
+  if (!raw) return [];
+
+  // 数组格式：[{fieldKey, value, confidence, rawValue, ...}]
+  if (Array.isArray(raw)) {
+    return raw.map((item: Record<string, unknown>) => {
+      const key = String(item.fieldKey || item.key || '');
+      const rawVal = item.value;
+      let displayValue: string;
+      if (rawVal == null || rawVal === '') {
+        displayValue = '-';
+      } else if (Array.isArray(rawVal)) {
+        displayValue = rawVal.length > 0
+          ? rawVal.map((v: unknown) => typeof v === 'object' ? JSON.stringify(v) : String(v)).join('、')
+          : '-';
+      } else if (typeof rawVal === 'object') {
+        displayValue = JSON.stringify(rawVal);
+      } else {
+        displayValue = String(rawVal);
+      }
+      return {
+        key,
+        value: displayValue,
+        rawValue: String(item.rawValue || ''),
+        confidence: typeof item.confidence === 'number' ? item.confidence : undefined,
+        evidence: evidenceByField.get(key) || [],
+      };
+    });
+  }
+
+  // 对象格式 fallback：{key: value, ...}
+  if (typeof raw === 'object') {
+    return Object.entries(raw).map(([key, val]) => ({
+      key,
+      value: val != null ? String(val) : '-',
+      rawValue: '',
+      confidence: undefined,
+      evidence: evidenceByField.get(key) || [],
+    }));
+  }
+
+  return [];
 }
 
 /* ------------------------------------------------------------------ */
