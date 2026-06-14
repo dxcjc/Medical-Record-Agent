@@ -179,8 +179,13 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
     return raw.map((item: Record<string, unknown>) => {
       const key = String(item.fieldKey || item.key || '');
       const rawVal = item.value;
+      const strVal = rawVal == null ? '' : String(rawVal);
+      // "unknown" 视为空值
+      const isUnknown = strVal.toLowerCase() === 'unknown' || strVal === '';
+      const isNull = rawVal == null || rawVal === '' || isUnknown;
+      
       let displayValue: string;
-      if (rawVal == null || rawVal === '') {
+      if (isNull) {
         displayValue = '-';
       } else if (Array.isArray(rawVal)) {
         displayValue = rawVal.length > 0
@@ -189,13 +194,14 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
       } else if (typeof rawVal === 'object') {
         displayValue = JSON.stringify(rawVal);
       } else {
-        displayValue = String(rawVal);
+        displayValue = strVal;
       }
       return {
         key,
         value: displayValue,
         rawValue: String(item.rawValue || ''),
-        confidence: typeof item.confidence === 'number' ? item.confidence : undefined,
+        originalValue: rawVal, // 保留原始值供 parseTestItems 使用
+        confidence: isNull ? 0 : (typeof item.confidence === 'number' ? item.confidence : undefined),
         evidence: evidenceByField.get(key) || [],
       };
     });
@@ -207,6 +213,7 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
       key,
       value: val != null ? String(val) : '-',
       rawValue: '',
+      originalValue: val,
       confidence: undefined,
       evidence: evidenceByField.get(key) || [],
     }));
@@ -219,8 +226,14 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
 /*  Checkbox value parser - parse comma/array values into checkbox state */
 /* ------------------------------------------------------------------ */
 
-function parseTestItems(raw: string | undefined): { all: string[]; checked: string[] } {
+function parseTestItems(raw: string | string[] | undefined | null): { all: string[]; checked: string[] } {
   if (!raw) return { all: [], checked: [] };
+
+  // 数组格式（直接来自 LLM 结果的 originalValue）
+  if (Array.isArray(raw)) {
+    const checked = raw.map((item: unknown) => String(item).trim()).filter(Boolean);
+    return { all: [...checked], checked };
+  }
 
   // 1) Try to parse as JSON array first (LLM output like ['1021基因'] or ["山肿1021 PLUS-MRD-T"])
   try {
@@ -295,6 +308,7 @@ interface NormalizedField {
   key: string;
   value: string;
   rawValue: string;
+  originalValue?: unknown; // 原始值（数组/字符串/null），用于 parseTestItems
   confidence?: number;
   evidence: EvidenceItem[];
 }
@@ -596,7 +610,7 @@ export default function JobDetailPage() {
     const data: Record<string, { field?: NormalizedField; parsed: { all: string[]; checked: string[] }; effectiveSelected: string[]; effectiveOptions: string[] }> = {};
     for (const key of testItemKeys) {
       const f = fieldMap.get(key);
-      const parsed = parseTestItems(f?.value);
+      const parsed = parseTestItems(f?.originalValue as string | string[] | null ?? f?.value);
       const localSel = testItemSelections[key] || [];
       const effectiveSelected = localSel.length > 0 ? localSel : parsed.checked;
       const schemaOptions = testItemOptions[key] || [];

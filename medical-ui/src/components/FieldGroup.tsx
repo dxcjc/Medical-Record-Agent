@@ -51,6 +51,7 @@ function ConfidenceBadge({ confidence, source }: { confidence?: number; source?:
 
 function formatFieldValue(val: string | string[] | null): string {
   if (val == null || val === '') return '-';
+  if (typeof val === 'string' && val.toLowerCase() === 'unknown') return '-';
   if (Array.isArray(val)) return val.length > 0 ? val.join('、') : '-';
   return val;
 }
