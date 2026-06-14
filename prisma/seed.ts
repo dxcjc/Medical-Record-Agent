@@ -221,6 +221,35 @@ async function main() {
   });
 
   await prisma.providerConfig.upsert({
+    where: { key: "paddleocr-http" },
+    update: {
+      kind: "ocr",
+      displayName: "PaddleOCR 本地服务",
+      status: "active",
+      isDefault: true,
+      config: {
+        provider: "http",
+        endpoint: "http://127.0.0.1:8866/ocr",
+        timeoutMs: 30000
+      },
+      secretRefs: {}
+    },
+    create: {
+      key: "paddleocr-http",
+      kind: "ocr",
+      displayName: "PaddleOCR 本地服务",
+      status: "active",
+      isDefault: true,
+      config: {
+        provider: "http",
+        endpoint: "http://127.0.0.1:8866/ocr",
+        timeoutMs: 30000
+      },
+      secretRefs: {}
+    }
+  });
+
+  await prisma.providerConfig.upsert({
     where: { key: "local-lims-sandbox" },
     update: {
       kind: "lims",
