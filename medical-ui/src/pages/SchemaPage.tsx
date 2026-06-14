@@ -22,6 +22,7 @@ import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion, useCr
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import Skeleton from '../components/Skeleton';
 import StatusTag from '../components/StatusTag';
 import FieldCard from '../components/FieldCard';
 import { groupSchemaFields } from '../utils/schemaGroups';
@@ -249,11 +250,32 @@ export default function SchemaPage() {
 
   if (isLoading) {
     return (
-      <Card>
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <Spin size={40} />
-        </div>
-      </Card>
+      <div>
+        <PageHeader
+          eyebrow="配置管理"
+          title="Schema 管理"
+          subtitle="管理识别 Schema 版本"
+        />
+        <Row gutter={[16, 16]}>
+          {[0, 1].map((i) => (
+            <Col key={i} xs={24} lg={12}>
+              <Card style={{ borderRadius: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <Skeleton width={150} height={20} style={{ marginBottom: 4 }} />
+                    <Skeleton width={100} height={14} />
+                  </div>
+                  <Skeleton variant="rounded" width={50} height={20} />
+                </div>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <Skeleton variant="rounded" width={80} height={22} />
+                  <Skeleton width={120} height={14} />
+                </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </div>
     );
   }
 
@@ -270,8 +292,8 @@ export default function SchemaPage() {
         />
         <Card>
           <EmptyState
-            title="暂无 Schema"
-            description="点击右上角按钮创建第一个 Schema"
+            title="还没有 Schema 定义"
+            description="Schema 定义了识别任务的字段结构，创建后即可使用"
             action={{ label: '新建 Schema', onClick: openDrawer }}
           />
         </Card>

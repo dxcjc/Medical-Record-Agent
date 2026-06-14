@@ -20,6 +20,7 @@ import StatusTag from '../components/StatusTag';
 import MetricCard from '../components/MetricCard';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import Skeleton, { ChartSkeleton, TableSkeleton, QuickActionCardSkeleton } from '../components/Skeleton';
 import type { RecognitionJob } from '../api/types';
 
 const { Row, Col } = Grid;
@@ -244,7 +245,7 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
+        <Col xs={12} sm={12} lg={6}>
           <MetricCard
             title="今日任务"
             value={todayJobs}
@@ -253,7 +254,7 @@ export default function DashboardPage() {
             loading={isLoading}
           />
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} lg={6}>
           <MetricCard
             title="待复核"
             value={needsReview}
@@ -262,7 +263,7 @@ export default function DashboardPage() {
             loading={isLoading}
           />
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} lg={6}>
           <MetricCard
             title="已完成"
             value={completedJobs}
@@ -271,7 +272,7 @@ export default function DashboardPage() {
             loading={isLoading}
           />
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} lg={6}>
           <MetricCard
             title="Provider 在线"
             value={onlineProviders}
@@ -312,7 +313,7 @@ export default function DashboardPage() {
             <div>请先选择 Schema 以查看趋势</div>
           </div>
         ) : trendLoading ? (
-          <div style={{ textAlign: 'center', padding: 60 }}><Spin /></div>
+          <ChartSkeleton />
         ) : trendPoints.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--color-text-3)' }}>
             暂无趋势数据
@@ -329,15 +330,13 @@ export default function DashboardPage() {
         </Button>
       }>
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <Spin />
-          </div>
+          <TableSkeleton rows={4} columns={5} />
         ) : recentJobs.length === 0 ? (
           <EmptyState
-            title="暂无识别任务"
+            title="还没有识别任务"
             description="上传医疗文档，AI 自动识别并提取结构化数据"
             action={{
-              label: '上传文档开始识别',
+              label: '新建识别',
               onClick: () => navigate('/recognition/new'),
             }}
           />
@@ -359,11 +358,22 @@ export default function DashboardPage() {
       {/* 快捷操作 */}
       <div style={{ marginTop: 24 }}>
         <Text style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, display: 'block' }}>快捷操作</Text>
+        {isLoading ? (
+          <Row gutter={16}>
+            {[0, 1, 2].map((i) => (
+              <Col key={i} xs={24} sm={12} lg={8}>
+                <Card hoverable style={{ cursor: 'default' }}>
+                  <QuickActionCardSkeleton />
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        ) : (
         <Row gutter={16}>
           {QUICK_ACTIONS.map((action) => {
             const Icon = action.icon;
             return (
-              <Col key={action.path} span={8}>
+              <Col key={action.path} xs={24} sm={12} lg={8}>
                 <Card
                   hoverable
                   style={{ cursor: 'pointer', textAlign: 'center' }}
@@ -383,6 +393,7 @@ export default function DashboardPage() {
             );
           })}
         </Row>
+        )}
       </div>
     </div>
   );

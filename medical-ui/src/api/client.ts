@@ -10,7 +10,7 @@ const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
 // 401 去重锁 — 多个请求同时 401 时，只执行一次跳转
 let isRedirectingToLogin = false;
 
-function getToken(): string | null {
+export function getToken(): string | null {
   return localStorage.getItem('accessToken');
 }
 
@@ -59,6 +59,55 @@ function handle401Redirect() {
   }, 5000);
 }
 
+/* ------------------------------------------------------------------ */
+/*  Token 静默续期                                                     */
+/* ------------------------------------------------------------------ */
+
+let refreshPromise: Promise<string | null> | null = null;
+
+/**
+ * 尝试用当前 token 换取新 token。
+ * 并发请求时只发一次 refresh，其他请求等待同一 Promise。
+ * 返回新 token 或 null（续期失败）。
+ */
+async function tryRefreshToken(): Promise<string | null> {
+  // 已有 refresh 请求在进行中，复用它
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const token = getToken();
+    if (!token) return null;
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      if (data?.accessToken) {
+        setToken(data.accessToken);
+        return data.accessToken as string;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -103,6 +152,16 @@ async function request<T>(
     }
 
     if (res.status === 401) {
+      // 尝试静默续期（非重试的请求才触发，避免递归）
+      if (attempt === 0) {
+        const newToken = await tryRefreshToken();
+        if (newToken) {
+          // 续期成功，用新 token 重试当前请求
+          headers['Authorization'] = `Bearer ${newToken}`;
+          continue;
+        }
+      }
+      // 续期失败或已经重试过，跳转登录页
       handle401Redirect();
       throw new ApiError(401, null, '登录已过期，请重新登录', 'Unauthorized');
     }
@@ -157,6 +216,8 @@ export const authApi = {
     ),
   logout: () =>
     request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
+  refresh: () =>
+    request<{ accessToken: string; tokenType: string }>('/auth/refresh', { method: 'POST' }),
 };
 
 // Jobs

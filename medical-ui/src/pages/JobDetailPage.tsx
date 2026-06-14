@@ -25,6 +25,7 @@ import CheckboxMatrix from '../components/CheckboxMatrix';
 import ImageViewer from '../components/ImageViewer';
 import ConfidenceDashboard from '../components/ConfidenceDashboard';
 import PipelineProgress from '../components/PipelineProgress';
+import Skeleton, { MetricCardSkeleton } from '../components/Skeleton';
 import { buildFieldLabels, groupSchemaFields } from '../utils/schemaGroups';
 import {
   IconArrowLeft,
@@ -670,11 +671,28 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <Card>
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <Spin size={40} />
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Skeleton variant="rounded" width={80} height={32} />
+          <Skeleton width={180} height={16} />
+          <Skeleton variant="rounded" width={60} height={22} />
         </div>
-      </Card>
+        <Card style={{ borderRadius: 8 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} variant="rounded" width="100%" height={40} style={{ flex: 1 }} />
+            ))}
+          </div>
+        </Card>
+        <Card style={{ borderRadius: 8 }}>
+          <Skeleton width={120} height={16} style={{ marginBottom: 16 }} />
+          <Skeleton variant="rounded" width="100%" height={200} />
+        </Card>
+        <Card style={{ borderRadius: 8 }}>
+          <Skeleton width={100} height={16} style={{ marginBottom: 16 }} />
+          <Skeleton variant="text" lines={6} />
+        </Card>
+      </Space>
     );
   }
 

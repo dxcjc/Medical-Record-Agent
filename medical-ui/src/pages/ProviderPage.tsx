@@ -27,6 +27,7 @@ import {
 import { ApiError } from '../api/client';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import Skeleton, { MetricCardSkeleton } from '../components/Skeleton';
 import { IconPlus, IconPencil, IconTrash } from '../icons/appIcons';
 import type { ProviderConfig, ProviderKind } from '../api/types';
 
@@ -268,11 +269,31 @@ export default function ProviderPage() {
 
   if (isLoading) {
     return (
-      <Card>
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <Spin size={40} />
-        </div>
-      </Card>
+      <div>
+        <PageHeader
+          eyebrow="配置管理"
+          title="Provider 管理"
+          subtitle="管理 OCR 和 LLM Provider"
+        />
+        <Row gutter={[16, 16]}>
+          {[0, 1, 2].map((i) => (
+            <Col key={i} span={8}>
+              <Card style={{ height: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Skeleton width={120} height={20} />
+                  <Skeleton variant="rounded" width={48} height={22} />
+                </div>
+                <Skeleton variant="rounded" width={40} height={20} style={{ marginBottom: 12 }} />
+                <Skeleton variant="text" lines={3} style={{ marginBottom: 12 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Skeleton variant="rounded" width={60} height={28} />
+                  <Skeleton variant="rounded" width={60} height={28} />
+                </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </div>
     );
   }
 
@@ -289,8 +310,8 @@ export default function ProviderPage() {
         />
         <Card>
           <EmptyState
-            title="暂无 Provider"
-            description="点击上方按钮创建第一个 Provider"
+            title="还没有配置 Provider"
+            description="添加 OCR 或 LLM Provider 后即可开始识别"
             action={{ label: '新建 Provider', onClick: openCreateModal }}
           />
         </Card>
@@ -311,7 +332,7 @@ export default function ProviderPage() {
 
       <Row gutter={[16, 16]}>
         {providers.map((p: ProviderConfig) => (
-          <Col key={p.id} span={8}>
+          <Col key={p.id} xs={24} sm={12} lg={8}>
             <Card style={{ height: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <Space>

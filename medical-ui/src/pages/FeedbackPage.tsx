@@ -529,7 +529,7 @@ export default function FeedbackPage() {
         ) : feedbackItems.length === 0 ? (
           <EmptyState
             title="暂无反馈记录"
-            description="当前筛选条件下没有反馈数据"
+            description="在识别结果中提交反馈后会显示在这里"
             action={{ label: '刷新', onClick: refetchFeedback }}
           />
         ) : (

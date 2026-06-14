@@ -25,3 +25,21 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Skeleton shimmer animation */
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Mobile: minimum 44px touch targets */
+@media (max-width: 768px) {
+  button, [role="button"], a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .arco-btn-size-small {
+    min-height: 32px;
+    min-width: 32px;
+  }
+}

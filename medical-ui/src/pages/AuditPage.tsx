@@ -640,8 +640,8 @@ function AuditLogTab() {
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
-          title="暂无审计记录"
-          description="系统审计日志为空"
+          title="暂无操作记录"
+          description="系统审计日志为空，执行操作后会自动记录"
           action={{ label: '刷新', onClick: () => refetch() }}
         />
       ) : (

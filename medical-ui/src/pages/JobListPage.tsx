@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Select, Input, Button, Typography, Space, Spin, Badge } from '@arco-design/web-react';
+import { Card, Table, Select, Input, Button, Typography, Space, Badge } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
 import { usePaginatedJobs } from '../hooks/useJobs';
 import { useSchemas } from '../hooks/useSchemas';
@@ -8,6 +8,7 @@ import { useProviders } from '../hooks/useProviders';
 import StatusTag from '../components/StatusTag';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import { TableSkeleton } from '../components/Skeleton';
 import type { RecognitionJob } from '../api/types';
 
 const { Option } = Select;
@@ -280,13 +281,11 @@ export default function JobListPage() {
 
       <Card>
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <Spin />
-          </div>
+          <TableSkeleton rows={8} columns={6} />
         ) : jobs.length === 0 ? (
           <EmptyState
-            title="暂无任务"
-            description="上传医疗文档开始识别"
+            title="还没有识别任务"
+            description="上传医疗文档，AI 将自动识别并提取结构化数据"
             action={{
               label: '新建识别',
               onClick: () => navigate('/recognition/new'),

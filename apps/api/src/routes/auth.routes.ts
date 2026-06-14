@@ -13,6 +13,10 @@ export interface LoginInput {
 export interface AuthRouteService {
   login(input: LoginInput): Promise<unknown>;
   invalidateSessionToken?(token: string): Promise<void>;
+  /** 验证 JWT token（含签名验证） */
+  verifySessionToken?(token: string): Promise<{ sub: string; permissions: string[]; roles: string[] } | null>;
+  /** 签发新 JWT token */
+  signSessionToken?(payload: { sub: string; permissions: string[]; roles: string[] }): Promise<string>;
 }
 
 export interface AuthRoutesDependencies {
@@ -82,5 +86,44 @@ export async function registerAuthRoutes(server: FastifyInstance, dependencies: 
 
     reply.header("set-cookie", serializeClearedSessionCookie());
     return reply.send({ ok: true });
+  });
+
+  /**
+   * Token 静默续期端点。
+   * 前端在收到 401 后尝试调用此端点，用当前（可能已接近过期的）token 换取新 token。
+   * 仅当后端实现了 verifySessionToken 和 signSessionToken 时才生效，
+   * 否则返回 501 NOT_IMPLEMENTED，前端据此跳转登录页。
+   */
+  server.post("/auth/refresh", async (request, reply) => {
+    if (!dependencies.authService.verifySessionToken || !dependencies.authService.signSessionToken) {
+      return reply.status(501).send({ error: "NOT_IMPLEMENTED" });
+    }
+
+    // 从 Authorization header 或 cookie 读取 token
+    const authHeader = request.headers.authorization;
+    const tokenFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const tokenFromCookie = readSessionCookie(request.headers.cookie);
+    const token = tokenFromHeader || tokenFromCookie;
+
+    if (!token) {
+      return reply.status(401).send({ error: "NO_TOKEN" });
+    }
+
+    try {
+      const payload = await dependencies.authService.verifySessionToken(token);
+      if (!payload) {
+        return reply.status(401).send({ error: "INVALID_TOKEN" });
+      }
+
+      const newAccessToken = await dependencies.authService.signSessionToken(payload);
+      reply.header("set-cookie", serializeSessionCookie(newAccessToken));
+
+      return reply.send({
+        accessToken: newAccessToken,
+        tokenType: "Bearer",
+      });
+    } catch {
+      return reply.status(401).send({ error: "TOKEN_EXPIRED" });
+    }
   });
 }

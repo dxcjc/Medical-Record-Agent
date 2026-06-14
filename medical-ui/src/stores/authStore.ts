@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authApi, setToken, clearToken } from '../api/client';
+import { authApi, setToken, clearToken, getToken } from '../api/client';
 import type { User } from '../api/types';
 
 interface AuthState {
@@ -11,6 +11,8 @@ interface AuthState {
   logout: () => Promise<void>;
   restore: () => void;
   validateToken: () => boolean;
+  /** 更新 access token（静默续期后调用） */
+  updateToken: (token: string) => void;
 }
 
 /** 解码 JWT payload（不做签名验证，仅读取 exp 等声明） */
@@ -91,5 +93,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
     return true;
+  },
+
+  updateToken: (token: string) => {
+    setToken(token);
+    set({ isAuthenticated: true });
   },
 }));
