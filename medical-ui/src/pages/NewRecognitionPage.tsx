@@ -249,7 +249,7 @@ export default function NewRecognitionPage() {
         subtitle="上传医疗文档，选择 Schema 后开始识别"
       />
 
-      <div style={{ maxWidth: 640 }}>
+      <div style={{ maxWidth: 860 }}>
         {uploading && (
           <Card style={{ marginBottom: 12, background: 'var(--color-primary-light-1)', border: '1px solid var(--color-primary-light-3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -267,6 +267,7 @@ export default function NewRecognitionPage() {
                 accept="image/*,.pdf"
                 showUploadList={false}
                 fileList={[]}
+                style={{ width: '100%' }}
                 onChange={(fileList: UploadItem[]) => {
                   const incoming = fileList
                     .filter((item) => item.originFile)
@@ -286,14 +287,40 @@ export default function NewRecognitionPage() {
                       const unique = incoming.filter(
                         (f) => !existingKeys.has(`${f.name}::${f.size}`)
                       );
-                      return unique.length > 0 ? [...prev, ...unique] : prev;
+                      if (unique.length > 0) {
+                        Message.success(`已选择 ${unique.length} 个文件`);
+                        return [...prev, ...unique];
+                      }
+                      return prev;
                     });
                   }
                 }}
               >
-                <div style={{ padding: 20, textAlign: 'center' }}>
-                  <IconUpload size={32} style={{ color: 'var(--color-muted)', marginBottom: 8 }} />
-                  <p style={{ fontSize: 14 }}>点击或拖拽文件到此处上传</p>
+                <div
+                  className="upload-drag-area"
+                  style={{
+                    padding: '40px 20px',
+                    minHeight: 200,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px dashed var(--color-border)',
+                    borderRadius: 8,
+                    transition: 'border-color 0.2s, background 0.2s',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    e.currentTarget.style.background = 'var(--color-primary-light-1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-border)';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <IconUpload size={36} style={{ color: 'var(--color-primary)', marginBottom: 12 }} />
+                  <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>点击或拖拽文件到此处上传</p>
                   <p style={{ fontSize: 12, color: 'var(--color-muted)' }}>
                     支持图片、PDF 等格式，可多选，单文件最大 20MB
                   </p>

@@ -129,6 +129,17 @@ export default function AppLayout() {
     return '医疗记录识别';
   }, [location.pathname]);
 
+  // 根据当前路由匹配导航分组，作为面包屑第一级
+  const breadcrumbScope = useMemo(() => {
+    const path = location.pathname;
+    for (const group of navGroups) {
+      if (group.items.some((item) => item.key !== '/' && path.startsWith(item.key))) {
+        return group.label;
+      }
+    }
+    return '概览';
+  }, [location.pathname]);
+
   // 动态设置浏览器标签页标题
   useEffect(() => {
     document.title = `${pageTitle} - 医疗记录智能识别`;
@@ -234,7 +245,7 @@ export default function AppLayout() {
               </button>
             )}
             <Breadcrumb className="app-breadcrumb">
-              <Breadcrumb.Item key="scope">医疗识别</Breadcrumb.Item>
+              <Breadcrumb.Item key="scope">{breadcrumbScope}</Breadcrumb.Item>
               <Breadcrumb.Item key="page">{pageTitle}</Breadcrumb.Item>
             </Breadcrumb>
           </div>

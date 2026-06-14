@@ -283,6 +283,100 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
+      {/* 快速上手引导 */}
+      {!isLoading && jobs.length <= 5 && (
+        <Card style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 16, fontWeight: 600 }}>🚀 快速上手</Text>
+            <Text type="secondary" style={{ fontSize: 13, marginLeft: 8 }}>3 步开始使用医疗记录识别系统</Text>
+          </div>
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <div style={{
+                padding: '20px 16px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 8,
+                textAlign: 'center',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: 'var(--color-primary-light-1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 12,
+                }}>
+                  <IconFileUp size={20} style={{ color: '#3370FF' }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>步骤 1：上传文档</div>
+                <Text type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                  上传医疗文档图片或 PDF 文件
+                </Text>
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() => navigate('/recognition/new')}
+                >
+                  开始上传
+                </Button>
+              </div>
+            </Col>
+            <Col xs={24} sm={8}>
+              <div style={{
+                padding: '20px 16px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 8,
+                textAlign: 'center',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: 'var(--color-success-light-1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 12,
+                }}>
+                  <IconActivity size={20} style={{ color: '#00B42A' }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>步骤 2：AI 识别</div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  AI 自动识别并提取结构化数据
+                </Text>
+              </div>
+            </Col>
+            <Col xs={24} sm={8}>
+              <div style={{
+                padding: '20px 16px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 8,
+                textAlign: 'center',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: 'var(--color-warning-light-1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 12,
+                }}>
+                  <IconClipboardList size={20} style={{ color: '#FF7D00' }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>步骤 3：人工复核</div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  审核 AI 识别结果，确保数据准确
+                </Text>
+              </div>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
       {/* 趋势图 */}
       <Card
         title="任务趋势（近 7 天）"
