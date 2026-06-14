@@ -13,8 +13,8 @@ import {
   Modal,
   Descriptions,
   Checkbox,
-  Message,
 } from '@arco-design/web-react';
+import { toast } from '../components/GlobalToast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { feedbackApi, ApiError } from '../api/client';
 import EmptyState from '../components/EmptyState';
@@ -152,13 +152,13 @@ export default function FeedbackPage() {
   const approveMutation = useMutation({
     mutationFn: (id: string) => feedbackApi.updateStatus(id, 'approved'),
     onSuccess: () => {
-      Message.success('已批准，将写入知识库');
+      toast.success('已批准，将写入知识库');
       queryClient.invalidateQueries({ queryKey: ['feedback-all'] });
       queryClient.invalidateQueries({ queryKey: ['feedback-stats'] });
     },
     onError: (err: unknown) => {
       const apiErr = err as ApiError;
-      Message.error(`批准失败：${apiErr.userMessage || '未知错误'}`);
+      toast.error(`批准失败：${apiErr.userMessage || '未知错误'}`);
     },
   });
 
@@ -166,7 +166,7 @@ export default function FeedbackPage() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       feedbackApi.updateStatus(id, 'rejected', reason),
     onSuccess: () => {
-      Message.success('已拒绝');
+      toast.success('已拒绝');
       setRejectModalVisible(false);
       setRejectTarget(null);
       setRejectReason('');
@@ -176,28 +176,28 @@ export default function FeedbackPage() {
     },
     onError: (err: unknown) => {
       const apiErr = err as ApiError;
-      Message.error(`拒绝失败：${apiErr.userMessage || '未知错误'}`);
+      toast.error(`拒绝失败：${apiErr.userMessage || '未知错误'}`);
     },
   });
 
   const batchApproveMutation = useMutation({
     mutationFn: (ids: string[]) => feedbackApi.batchUpdateStatus(ids, 'approved'),
     onSuccess: (data) => {
-      Message.success(`已批量批准 ${data.updated} 条反馈`);
+      toast.success(`已批量批准 ${data.updated} 条反馈`);
       setSelectedRowKeys([]);
       queryClient.invalidateQueries({ queryKey: ['feedback-all'] });
       queryClient.invalidateQueries({ queryKey: ['feedback-stats'] });
     },
     onError: (err: unknown) => {
       const apiErr = err as ApiError;
-      Message.error(`批量批准失败：${apiErr.userMessage || '未知错误'}`);
+      toast.error(`批量批准失败：${apiErr.userMessage || '未知错误'}`);
     },
   });
 
   const batchRejectMutation = useMutation({
     mutationFn: (ids: string[]) => feedbackApi.batchUpdateStatus(ids, 'rejected'),
     onSuccess: (data) => {
-      Message.success(`已批量拒绝 ${data.updated} 条反馈`);
+      toast.success(`已批量拒绝 ${data.updated} 条反馈`);
       setSelectedRowKeys([]);
       setRejectModalVisible(false);
       setRejectReason('');
@@ -207,7 +207,7 @@ export default function FeedbackPage() {
     },
     onError: (err: unknown) => {
       const apiErr = err as ApiError;
-      Message.error(`批量拒绝失败：${apiErr.userMessage || '未知错误'}`);
+      toast.error(`批量拒绝失败：${apiErr.userMessage || '未知错误'}`);
     },
   });
 
