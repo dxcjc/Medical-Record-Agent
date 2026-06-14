@@ -13,6 +13,7 @@ describe("createStatsService", () => {
       feedbackSubmission: {
         findMany: vi.fn(async () => []),
       },
+      $queryRawUnsafe: vi.fn(async () => []),
       ...overrides,
     } as unknown as Parameters<typeof createStatsService>[0];
   }
@@ -94,6 +95,54 @@ describe("createStatsService", () => {
       expect(deps.recognitionJob.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 50 })
       );
+    });
+  });
+
+  describe("getTrendStats", () => {
+    it("should return empty when no jobs found", async () => {
+      const deps = createMockDeps();
+      const service = createStatsService(deps);
+      const result = await service.getTrendStats("nonexistent-schema");
+      expect(result).toEqual([]);
+    });
+
+    it("should aggregate daily trend data from raw SQL", async () => {
+      const deps = createMockDeps({
+        recognitionJob: {
+          findMany: vi.fn(async () => [{ id: "job-1" }, { id: "job-2" }]),
+        },
+        $queryRawUnsafe: vi.fn(async () => [
+          { date: "2026-06-10", total: 5n, extracted: 4n, failed: 1n },
+          { date: "2026-06-11", total: 3n, extracted: 3n, failed: 0n },
+        ]),
+      });
+
+      const service = createStatsService(deps);
+      const result = await service.getTrendStats("tumor-gene-test", 7);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ date: "2026-06-10", total: 5, extracted: 4, failed: 1 });
+      expect(result[1]).toEqual({ date: "2026-06-11", total: 3, extracted: 3, failed: 0 });
+    });
+
+    it("should pass correct parameters to $queryRawUnsafe", async () => {
+      const mockRaw = vi.fn(async () => []);
+      const deps = createMockDeps({
+        recognitionJob: {
+          findMany: vi.fn(async () => [{ id: "job-1" }]),
+        },
+        $queryRawUnsafe: mockRaw,
+      });
+
+      const service = createStatsService(deps);
+      await service.getTrendStats("test-schema", 14);
+
+      expect(mockRaw).toHaveBeenCalledTimes(1);
+      const callArgs = mockRaw.mock.calls[0] as unknown as [string, string[], Date];
+      const [sql, ids, startDate] = callArgs;
+      expect(sql).toContain("GROUP BY");
+      expect(ids).toEqual(["job-1"]);
+      expect(startDate).toBeInstanceOf(Date);
     });
   });
 });

@@ -264,3 +264,44 @@ export interface KnowledgeEntry {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface FeedbackSubmission {
+  id: string;
+  jobId: string;
+  schemaVersionId?: string;
+  submittedById?: string;
+  fieldKey?: string;
+  originalValue?: unknown;
+  correctedValue?: unknown;
+  comment?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+}
+
+export interface WritebackAttempt {
+  id: string;
+  jobId: string;
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped';
+  targetSystem: string;
+  endpoint: string;
+  idempotencyKey: string;
+  requestPayload?: unknown;
+  responsePayload?: unknown;
+  error?: unknown;
+  attemptedAt: string;
+  completedAt?: string;
+}
+
+export interface FeedbackFieldStat {
+  fieldKey: string;
+  count: number;
+}
+
+export interface TrendDataPoint {
+  date: string;
+  total: number;
+  extracted: number;
+  failed: number;
+}

@@ -13,6 +13,7 @@ import {
 export interface WritebackRouteService {
   execute(input: ExecuteWritebackRouteInput): Promise<ApiRouteResponseObject>;
   listEligible(input: { actor: AuthContext; limit: number }): Promise<ApiRouteResponseObject[]>;
+  listHistory(input?: { page?: number; pageSize?: number }): Promise<{ items: ApiRouteResponseObject[]; total: number; page: number; pageSize: number }>;
 }
 
 export interface WritebackJobRouteService {
@@ -132,6 +133,30 @@ export async function registerWritebackRoutes(server: FastifyInstance, dependenc
         }),
         "WRITEBACK_RESPONSE_INVALID"
       );
+    }
+  );
+
+  // GET /writeback/history - 回写历史列表
+  server.get(
+    "/writeback/history",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.writebackExecute)
+      ]
+    },
+    async (request) => {
+      const query = request.query as { page?: string; pageSize?: string };
+      const page = query.page ? Math.max(1, parseInt(query.page, 10) || 1) : 1;
+      const pageSize = query.pageSize ? Math.min(100, Math.max(1, parseInt(query.pageSize, 10) || 20)) : 20;
+
+      const result = await dependencies.writebackService.listHistory({ page, pageSize });
+      return {
+        items: assertRouteResponseObjectList(result.items, "WRITEBACK_HISTORY_RESPONSE_INVALID"),
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize
+      };
     }
   );
 }

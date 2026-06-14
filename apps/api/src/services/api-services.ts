@@ -129,6 +129,8 @@ export interface ApiServiceRepositories {
   feedbackRepository: {
     create(input: unknown): Promise<unknown>;
     listByJobId(jobId: string): Promise<unknown[]>;
+    listAll(input?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
+    getFieldStats(): Promise<Array<{ fieldKey: string; count: number }>>;
   };
   writebackRepository: {
     create(input: {
@@ -149,6 +151,7 @@ export interface ApiServiceRepositories {
       }
     ): Promise<unknown>;
     listByJobId?(jobId: string): Promise<unknown[]>;
+    listAll(input?: { page?: number; pageSize?: number }): Promise<{ items: unknown[]; total: number; page: number; pageSize: number }>;
   };
   evaluationRepository: {
     listDatasets(): Promise<unknown[]>;
@@ -1930,6 +1933,18 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       async listByJobId(jobId) {
         const items = await repositories.feedbackRepository.listByJobId(jobId);
         return items.map((item) => assertRouteRecord(item, "FEEDBACK_RESPONSE_INVALID"));
+      },
+      async listAll(input?) {
+        const result = await repositories.feedbackRepository.listAll(input);
+        return {
+          items: result.items.map((item) => assertRouteRecord(item, "FEEDBACK_RESPONSE_INVALID")),
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize
+        };
+      },
+      async getFieldStats() {
+        return repositories.feedbackRepository.getFieldStats();
       }
     },
     writebackService: {
@@ -1939,6 +1954,15 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         return rawJobs
           .map(normalizeEligibleWritebackJob)
           .filter((item): item is NonNullable<ReturnType<typeof normalizeEligibleWritebackJob>> => Boolean(item));
+      },
+      async listHistory(input?) {
+        const result = await repositories.writebackRepository.listAll(input);
+        return {
+          items: result.items.map((item) => assertRouteRecord(item, "WRITEBACK_HISTORY_RESPONSE_INVALID")),
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize
+        };
       },
       async execute(input: ExecuteWritebackRouteInput) {
         const job = await repositories.jobsRepository.findById(input.jobId);
@@ -1956,25 +1980,49 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           }
         }
 
-        const attempt = await repositories.writebackRepository.create({
-          jobId: input.jobId,
-          targetSystem: "lims",
-          endpoint: "configured-lims-writeback",
-          idempotencyKey: input.idempotencyKey ?? `${input.jobId}:${now().toISOString()}`,
-          requestPayload: toInputJsonValue(buildReadyFieldsPayload(readyFields))
-        });
+        const idempotencyKey = input.idempotencyKey ?? `${input.jobId}:${now().toISOString()}`;
 
-        return assertRouteRecord(
-          await repositories.writebackRepository.complete(attempt.id, {
-            status: "succeeded",
-            responsePayload: {
-              accepted: true
-            },
-            retryable: false,
-            completedAt: now()
-          }),
-          "WRITEBACK_RESPONSE_INVALID"
-        );
+        let attempt: unknown;
+        try {
+          attempt = await repositories.writebackRepository.create({
+            jobId: input.jobId,
+            targetSystem: "lims",
+            endpoint: "configured-lims-writeback",
+            idempotencyKey,
+            requestPayload: toInputJsonValue(buildReadyFieldsPayload(readyFields))
+          });
+        } catch (err) {
+          console.error(`[writeback] Failed to create attempt for job ${input.jobId}:`, err);
+          throw createApiServiceError("WRITEBACK_CREATE_FAILED", 500);
+        }
+
+        try {
+          return assertRouteRecord(
+            await repositories.writebackRepository.complete((attempt as { id: string }).id, {
+              status: "succeeded",
+              responsePayload: {
+                accepted: true
+              },
+              retryable: false,
+              completedAt: now()
+            }),
+            "WRITEBACK_RESPONSE_INVALID"
+          );
+        } catch (err) {
+          console.error(`[writeback] Failed to complete attempt ${(attempt as { id: string }).id} for job ${input.jobId}:`, err);
+          // Try to mark the attempt as failed
+          try {
+            await repositories.writebackRepository.complete((attempt as { id: string }).id, {
+              status: "failed",
+              error: { message: (err as Error).message || "Unknown error" },
+              retryable: true,
+              completedAt: now()
+            });
+          } catch (completeErr) {
+            console.error(`[writeback] Failed to mark attempt as failed:`, completeErr);
+          }
+          throw createApiServiceError("WRITEBACK_EXECUTION_FAILED", 500);
+        }
       }
     },
     providerService,

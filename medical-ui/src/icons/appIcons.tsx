@@ -22,6 +22,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
+  Repeat,
   Search,
   Settings,
   Shield,
@@ -38,6 +39,11 @@ import {
   Beaker,
   Eye,
   ImageIcon,
+  MessageSquare,
+  RotateCcw,
+  GitBranch,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 
 export type AppIcon = (props: LucideProps) => ReactElement;
@@ -85,3 +91,9 @@ export const IconApps = createAppIcon(Grid3X3);
 export const IconStorage = createAppIcon(HardDrive);
 export const IconInfoCircle = createAppIcon(Info);
 export const IconImage = createAppIcon(ImageIcon);
+export const IconMessageSquare = createAppIcon(MessageSquare);
+export const IconRotateCcw = createAppIcon(RotateCcw);
+export const IconRepeat = createAppIcon(Repeat);
+export const IconGitBranch = createAppIcon(GitBranch);
+export const IconChevronRight = createAppIcon(ChevronRight);
+export const IconChevronDown = createAppIcon(ChevronDown);

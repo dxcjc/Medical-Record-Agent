@@ -135,12 +135,13 @@ describeIfDatabase("repositories with test database", () => {
       }
     });
 
-    const auditLogs = await auditRepository.listRecent({
+    const auditResult = await auditRepository.listRecent({
       actorUserId: user.id,
       action: "repository.integration",
       take: 5
     });
 
+    const auditLogs = auditResult.items;
     expect(auditLogs.length).toBeGreaterThan(0);
   });
 });

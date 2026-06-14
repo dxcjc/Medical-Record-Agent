@@ -13,6 +13,7 @@ import {
   Descriptions,
   Space,
   Typography,
+  Tabs,
 } from '@arco-design/web-react';
 import { useJob } from '../hooks/useJobs';
 import { useResult } from '../hooks/useResults';
@@ -37,8 +38,13 @@ import {
   IconApps,
   IconStorage,
   IconInfoCircle,
+  IconGitBranch,
+  IconChevronRight,
+  IconChevronDown,
+  IconCheckCircle,
+  IconDatabase,
 } from '../icons/appIcons';
-import type { TraceStep, EvidenceItem, SchemaField } from '../api/types';
+import type { TraceStep, EvidenceItem, SchemaField, RecognitionJob, RecognitionResult } from '../api/types';
 
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
@@ -278,6 +284,215 @@ function getFieldData(fields: NormalizedField[], keys: string[], fieldLabels: Re
 }
 
 /* ------------------------------------------------------------------ */
+/*  Trace View Component (追溯链路)                                     */
+/* ------------------------------------------------------------------ */
+
+interface TraceNode {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  status: 'completed' | 'running' | 'failed' | 'pending';
+  details: Array<{ label: string; value: React.ReactNode }>;
+  children?: Array<{ label: string; value: React.ReactNode }>;
+}
+
+function TraceNodeCard({ node, defaultExpanded = false }: { node: TraceNode; defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const statusColors: Record<string, string> = {
+    completed: 'green',
+    running: 'blue',
+    failed: 'red',
+    pending: 'gray',
+  };
+  const statusLabels: Record<string, string> = {
+    completed: '完成',
+    running: '运行中',
+    failed: '失败',
+    pending: '等待',
+  };
+
+  return (
+    <Card
+      size="small"
+      style={{ marginBottom: 8, cursor: 'pointer', borderLeft: `3px solid var(--color-${node.status === 'completed' ? 'success' : node.status === 'failed' ? 'danger' : node.status === 'running' ? 'primary' : 'disabled'})` }}
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+        {node.icon}
+        <Text style={{ fontWeight: 600, flex: 1 }}>{node.title}</Text>
+        <Tag size="small" color={statusColors[node.status] || 'gray'}>{statusLabels[node.status] || node.status}</Tag>
+      </div>
+      {expanded && (
+        <div style={{ marginTop: 12, paddingLeft: 28 }}>
+          {node.details.length > 0 && (
+            <Descriptions
+              column={2}
+              size="small"
+              data={node.details.map((d) => ({ label: d.label, value: d.value }))}
+              style={{ marginBottom: node.children && node.children.length > 0 ? 12 : 0 }}
+            />
+          )}
+          {node.children && node.children.length > 0 && (
+            <div style={{ background: 'var(--color-info-soft)', borderRadius: 6, padding: 12 }}>
+              {node.children.map((child, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 4, fontSize: 13 }}>
+                  <Text type="secondary" style={{ flexShrink: 0, minWidth: 80 }}>{child.label}:</Text>
+                  <span>{child.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TraceView({
+  job,
+  result,
+}: {
+  job: RecognitionJob;
+  result: RecognitionResult | null | undefined;
+}) {
+  const trace = job.trace || [];
+  const payload = (result?.payload as Record<string, unknown>) || {};
+  const extraction = (payload.extraction as Record<string, unknown>) || {};
+  const validation = (payload.validation as Record<string, unknown>) || {};
+  const rag = (payload.rag as Record<string, unknown>) || {};
+  const ocr = (payload.ocr as Record<string, unknown>) || {};
+
+  // 构建追溯节点
+  const nodes: TraceNode[] = [];
+
+  // 1. 原始文件
+  const sourceFile = job.sourceFile;
+  nodes.push({
+    id: 'source',
+    title: '原始文件',
+    icon: <IconFileText size={16} style={{ color: '#3370FF' }} />,
+    status: sourceFile ? 'completed' : 'pending',
+    details: [
+      { label: '文件名', value: sourceFile?.originalName || job.sourceFileId || '-' },
+      { label: '文件大小', value: sourceFile?.byteSize ? `${(Number(sourceFile.byteSize) / 1024).toFixed(1)} KB` : '-' },
+      { label: 'MIME类型', value: sourceFile?.mimeType || '-' },
+    ],
+  });
+
+  // 2. OCR 识别
+  const ocrStep = trace.find((s: TraceStep) => (s.node || s.step) === 'ocr');
+  const ocrBlocks = (ocr.blocks as unknown[]) || [];
+  nodes.push({
+    id: 'ocr',
+    title: 'OCR 识别',
+    icon: <IconEye size={16} style={{ color: '#3370FF' }} />,
+    status: ocrStep?.status === 'completed' ? 'completed' : ocrStep?.status === 'failed' ? 'failed' : ocrStep?.status === 'running' ? 'running' : 'pending',
+    details: [
+      { label: 'Provider', value: (ocr.provider as string) || (job.providerConfig?.ocrProviderKey as string) || '-' },
+      { label: '耗时', value: ocrStep?.duration ? formatDuration(ocrStep.duration) : '-' },
+      { label: '输出 blocks', value: ocrBlocks.length > 0 ? String(ocrBlocks.length) : '-' },
+    ],
+  });
+
+  // 3. RAG 知识检索
+  const ragStep = trace.find((s: TraceStep) => (s.node || s.step) === 'rag');
+  const ragHits = (rag.hits as Array<{ title?: string; score?: number; content?: string }>) || [];
+  const ragMisses = (rag.misses as string[]) || [];
+  const ragQuery = (rag.query as string) || '';
+  nodes.push({
+    id: 'rag',
+    title: 'RAG 知识检索',
+    icon: <IconDatabase size={16} style={{ color: '#3370FF' }} />,
+    status: ragStep?.status === 'completed' ? 'completed' : ragStep ? 'pending' : 'pending',
+    details: [
+      { label: '检索 Query', value: ragQuery || '-' },
+      { label: '命中条目', value: ragHits.length > 0 ? `${ragHits.length} 条` : '-' },
+      { label: '未命中', value: ragMisses.length > 0 ? `${ragMisses.length} 条` : '0' },
+    ],
+    children: ragHits.length > 0
+      ? ragHits.map((hit, idx) => ({
+          label: `命中 ${idx + 1}`,
+          value: <span>{hit.title || '-'} <Tag size="small" color="blue" style={{ marginLeft: 4 }}>{((hit.score || 0) * 100).toFixed(0)}%</Tag></span>,
+        }))
+      : ragMisses.length > 0
+        ? ragMisses.map((miss, idx) => ({
+            label: `未命中 ${idx + 1}`,
+            value: miss,
+          }))
+        : undefined,
+  });
+
+  // 4. LLM 抽取
+  const extractionStep = trace.find((s: TraceStep) => (s.node || s.step) === 'extraction');
+  const tokenUsage = (extraction.tokenUsage as Record<string, unknown>) || {};
+  nodes.push({
+    id: 'extraction',
+    title: 'LLM 抽取',
+    icon: <IconCode size={16} style={{ color: '#3370FF' }} />,
+    status: extractionStep?.status === 'completed' ? 'completed' : extractionStep?.status === 'failed' ? 'failed' : 'pending',
+    details: [
+      { label: 'Provider', value: (extraction.provider as string) || (job.providerConfig?.providerKey as string) || '-' },
+      { label: '模型', value: (extraction.model as string) || '-' },
+      { label: 'Token 用量', value: tokenUsage.total ? `${tokenUsage.total} (prompt: ${tokenUsage.prompt || '-'}, completion: ${tokenUsage.completion || '-'})` : '-' },
+      { label: '耗时', value: extractionStep?.duration ? formatDuration(extractionStep.duration) : '-' },
+    ],
+  });
+
+  // 5. 校验 & 决策
+  const validationStep = trace.find((s: TraceStep) => (s.node || s.step) === 'validation' || (s.node || s.step) === 'autoDecision');
+  const fieldResults = (validation.fieldResults as Array<{
+    fieldKey?: string;
+    decision?: string;
+    issues?: string[];
+    confidence?: number;
+  }>) || [];
+  nodes.push({
+    id: 'validation',
+    title: '校验 & 决策',
+    icon: <IconCheckCircle size={16} style={{ color: '#3370FF' }} />,
+    status: validationStep?.status === 'completed' ? 'completed' : validationStep?.status === 'failed' ? 'failed' : 'pending',
+    details: [
+      { label: '字段数', value: fieldResults.length > 0 ? String(fieldResults.length) : '-' },
+      { label: '耗时', value: validationStep?.duration ? formatDuration(validationStep.duration) : '-' },
+    ],
+    children: fieldResults.length > 0
+      ? fieldResults.slice(0, 20).map((fr) => ({
+          label: fr.fieldKey || '-',
+          value: (
+            <span>
+              {fr.decision || '-'}
+              {fr.confidence != null && (
+                <Tag size="small" color={confidenceColor(fr.confidence)} style={{ marginLeft: 4 }}>
+                  {(fr.confidence * 100).toFixed(0)}%
+                </Tag>
+              )}
+              {fr.issues && fr.issues.length > 0 && (
+                <Text type="error" style={{ marginLeft: 8, fontSize: 12 }}>
+                  ⚠ {fr.issues.join('; ')}
+                </Text>
+              )}
+            </span>
+          ),
+        }))
+      : undefined,
+  });
+
+  return (
+    <Space direction="vertical" size={0} style={{ width: '100%' }}>
+      {nodes.map((node, idx) => (
+        <div key={node.id} style={{ position: 'relative' }}>
+          <TraceNodeCard node={node} defaultExpanded={idx < 2} />
+          {idx < nodes.length - 1 && (
+            <div style={{ position: 'absolute', left: 24, bottom: -8, width: 2, height: 16, background: 'var(--color-border)' }} />
+          )}
+        </div>
+      ))}
+    </Space>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Page Component                                                */
 /* ------------------------------------------------------------------ */
 
@@ -488,6 +703,9 @@ export default function JobDetailPage() {
       )}
 
       {/* Card 1: Task Info (full width) */}
+      <Tabs defaultActiveTab="results" type="card" style={{ width: '100%' }}>
+        <Tabs.TabPane key="results" title="识别结果">
+          <Space direction="vertical" size={16} style={{ width: '100%', paddingTop: 16 }}>
       <Card
         style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
         title={
@@ -840,6 +1058,15 @@ export default function JobDetailPage() {
           </div>
         </Card>
       )}
+
+          </Space>
+        </Tabs.TabPane>
+        <Tabs.TabPane key="trace" title="追溯链路">
+          <div style={{ paddingTop: 16 }}>
+            <TraceView job={job} result={result as RecognitionResult | null | undefined} />
+          </div>
+        </Tabs.TabPane>
+      </Tabs>
 
       {/* Image Viewer Drawer */}
       <ImageViewer

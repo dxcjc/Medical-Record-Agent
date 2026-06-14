@@ -1,6 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 
-type StatsRepositoryDeps = Pick<PrismaClient, "recognitionResult" | "feedbackSubmission" | "recognitionJob">;
+type StatsRepositoryDeps = Pick<PrismaClient, "recognitionResult" | "feedbackSubmission" | "recognitionJob"> & {
+  $queryRawUnsafe: PrismaClient["$queryRawUnsafe"];
+};
 
 export interface FieldStatItem {
   fieldKey: string;
@@ -11,8 +13,49 @@ export interface FieldStatItem {
   commonErrors: Array<{ original: string; corrected: string; count: number }>;
 }
 
+export interface TrendDataPoint {
+  date: string;
+  total: number;
+  extracted: number;
+  failed: number;
+}
+
 export function createStatsService(deps: StatsRepositoryDeps) {
   return {
+    async getTrendStats(schemaKey: string, days = 30): Promise<TrendDataPoint[]> {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const jobIds = await deps.recognitionJob.findMany({
+        where: { schemaKey, deletedAt: null },
+        select: { id: true },
+      });
+      const ids = jobIds.map((j) => j.id);
+      if (ids.length === 0) return [];
+
+      const rows = await deps.$queryRawUnsafe<Array<{ date: string; total: bigint; extracted: bigint; failed: bigint }>>(
+        `SELECT
+           TO_CHAR(rr."createdAt", 'YYYY-MM-DD') AS date,
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE rr."reviewRequired" = false)::int AS extracted,
+           COUNT(*) FILTER (WHERE rr."reviewRequired" = true)::int AS failed
+         FROM "RecognitionResult" rr
+         WHERE rr."jobId" = ANY($1)
+           AND rr."createdAt" >= $2
+         GROUP BY TO_CHAR(rr."createdAt", 'YYYY-MM-DD')
+         ORDER BY date ASC`,
+        ids,
+        startDate,
+      );
+
+      return rows.map((r) => ({
+        date: r.date,
+        total: Number(r.total),
+        extracted: Number(r.extracted),
+        failed: Number(r.failed),
+      }));
+    },
+
     async getFieldStats(schemaKey: string, limit = 100): Promise<FieldStatItem[]> {
       // 1) Find all jobs for this schemaKey
       const jobs = await deps.recognitionJob.findMany({

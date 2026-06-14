@@ -87,12 +87,15 @@ function createRepositories(): ApiServiceRepositories {
     },
     feedbackRepository: {
       create: vi.fn(async (input) => ({ id: "feedback-001", ...input })),
-      listByJobId: vi.fn(async () => [])
+      listByJobId: vi.fn(async () => []),
+      listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+      getFieldStats: vi.fn(async () => [])
     },
     writebackRepository: {
       create: vi.fn(async (input) => ({ id: "writeback-001", ...input })),
       complete: vi.fn(async (_id, input) => ({ id: "writeback-001", ...input })),
-      listByJobId: vi.fn(async () => [])
+      listByJobId: vi.fn(async () => []),
+      listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     },
     evaluationRepository: {
       listDatasets: vi.fn(async () => [{ id: "dataset-001", displayName: "评估集" }]),

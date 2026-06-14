@@ -70,6 +70,23 @@ export function createWritebackRepository(dependencies: WritebackRepositoryDepen
         where: { id },
         data
       });
+    },
+
+    async listAll(input?: { page?: number; pageSize?: number }) {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.writebackAttempt.findMany({
+          orderBy: { attemptedAt: "desc" },
+          skip,
+          take: pageSize
+        }),
+        dependencies.writebackAttempt.count()
+      ]);
+
+      return { items, total, page, pageSize };
     }
   };
 }

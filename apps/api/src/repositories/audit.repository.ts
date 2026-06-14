@@ -17,9 +17,12 @@ export type ListRecentAuditLogsInput = {
   actorUserId?: string;
   actorApiTokenId?: string;
   action?: string;
+  objectType?: string;
   createdFrom?: Date;
   createdTo?: Date;
   take?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 type AuditRepositoryDependencies = Pick<PrismaClient, "auditLog">;
@@ -81,6 +84,7 @@ export function createAuditRepository(dependencies: AuditRepositoryDependencies)
     /**
      * 查询最近审计记录。
      * 默认按创建时间倒序，便于登录审计、权限追踪等场景直接消费。
+     * 支持分页（page/pageSize）和 objectType 筛选。
      */
     async listRecent(input: ListRecentAuditLogsInput) {
       const createdAt: {
@@ -100,6 +104,7 @@ export function createAuditRepository(dependencies: AuditRepositoryDependencies)
         actorUserId?: string;
         actorApiTokenId?: string;
         action?: string;
+        objectType?: string;
         createdAt?: {
           gte?: Date;
           lte?: Date;
@@ -118,17 +123,48 @@ export function createAuditRepository(dependencies: AuditRepositoryDependencies)
         where.action = input.action;
       }
 
+      if (input.objectType) {
+        where.objectType = input.objectType;
+      }
+
       if (createdAt) {
         where.createdAt = createdAt;
       }
 
-      return auditLog.findMany({
+      // 分页模式：使用 page + pageSize
+      if (input.page !== undefined && input.pageSize !== undefined) {
+        const skip = (input.page - 1) * input.pageSize;
+        const [items, total] = await Promise.all([
+          auditLog.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: input.pageSize,
+            include: {
+              actorUser: {
+                select: { id: true, email: true, displayName: true }
+              }
+            }
+          }),
+          auditLog.count({ where })
+        ]);
+        return { items, total, page: input.page, pageSize: input.pageSize };
+      }
+
+      // 兼容原有 take 模式
+      const items = await auditLog.findMany({
         where,
         orderBy: {
           createdAt: "desc"
         },
-        take: input.take ?? 50
+        take: input.take ?? 50,
+        include: {
+          actorUser: {
+            select: { id: true, email: true, displayName: true }
+          }
+        }
       });
+      return { items, total: items.length };
     }
   };
 }

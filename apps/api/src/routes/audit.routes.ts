@@ -12,7 +12,10 @@ export interface AuditListInput {
   actorUserId?: string;
   actorApiTokenId?: string;
   action?: string;
+  objectType?: string;
   take?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface AuditRouteService {
@@ -60,6 +63,18 @@ export async function registerAuditRoutes(server: FastifyInstance, dependencies:
 
       if (query.actorApiTokenId !== undefined) {
         input.actorApiTokenId = query.actorApiTokenId;
+      }
+
+      if (query.objectType !== undefined) {
+        input.objectType = query.objectType;
+      }
+
+      if (query.page !== undefined) {
+        input.page = query.page;
+      }
+
+      if (query.pageSize !== undefined) {
+        input.pageSize = query.pageSize;
       }
 
       const items = await dependencies.auditService.listRecent(input);

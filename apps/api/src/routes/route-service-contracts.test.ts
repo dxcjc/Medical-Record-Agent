@@ -41,7 +41,8 @@ void validAuditService;
 
 const validWritebackService: WritebackRouteService = {
   execute: async () => routeObject,
-  listEligible: async () => [routeObject]
+  listEligible: async () => [routeObject],
+  listHistory: async () => ({ items: [routeObject], total: 1, page: 1, pageSize: 20 })
 };
 
 void validWritebackService;
@@ -71,7 +72,9 @@ void validResultService;
 
 const validFeedbackService: FeedbackRouteService = {
   create: async () => routeObject,
-  listByJobId: async () => []
+  listByJobId: async () => [],
+  listAll: async () => ({ items: [routeObject], total: 1, page: 1, pageSize: 20 }),
+  getFieldStats: async () => []
 };
 
 void validFeedbackService;
@@ -124,7 +127,8 @@ void invalidAuditService;
 
 const scalarWritebackServiceFixture = {
   execute: async () => "not-object",
-  listEligible: async () => ["not-object"]
+  listEligible: async () => ["not-object"],
+  listHistory: async () => "not-object"
 };
 
 // @ts-expect-error scalar writeback responses must be rejected at compile time
@@ -158,7 +162,9 @@ const invalidResultService: ResultRouteService = scalarResultServiceFixture;
 void invalidResultService;
 
 const scalarFeedbackServiceFixture = {
-  create: async () => "not-object"
+  create: async () => "not-object",
+  listAll: async () => "not-object",
+  getFieldStats: async () => "not-object"
 };
 
 // @ts-expect-error scalar feedback response must be rejected at compile time

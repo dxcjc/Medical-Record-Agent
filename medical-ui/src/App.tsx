@@ -13,6 +13,8 @@ import SchemaPage from './pages/SchemaPage';
 import ProviderPage from './pages/ProviderPage';
 import EvaluationPage from './pages/EvaluationPage';
 import AuditPage from './pages/AuditPage';
+import FeedbackPage from './pages/FeedbackPage';
+import WritebackPage from './pages/WritebackPage';
 import { useAuthStore } from './stores/authStore';
 
 const queryClient = new QueryClient({
@@ -48,6 +50,8 @@ export default function App() {
               <Route path="providers" element={<ProviderPage />} />
               <Route path="evaluation" element={<EvaluationPage />} />
               <Route path="audit" element={<AuditPage />} />
+              <Route path="feedback" element={<FeedbackPage />} />
+              <Route path="writeback" element={<WritebackPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

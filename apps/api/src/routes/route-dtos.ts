@@ -404,6 +404,23 @@ export const auditListQuerySchema = z
     actorUserId: optionalNonEmptyString,
     actorApiTokenId: optionalNonEmptyString,
     action: optionalNonEmptyString,
+    objectType: optionalNonEmptyString,
+    page: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((value) => {
+        if (value === undefined || value === "") return undefined;
+        const parsed = parsePositiveIntegerQueryValue(value);
+        return parsed ?? undefined;
+      }),
+    pageSize: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((value) => {
+        if (value === undefined || value === "") return undefined;
+        const parsed = parsePositiveIntegerQueryValue(value);
+        return parsed ? Math.min(parsed, 100) : undefined;
+      }),
     take: z
       .union([z.string(), z.number()])
       .optional()

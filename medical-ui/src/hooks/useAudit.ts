@@ -7,3 +7,10 @@ export function useAuditLog(take = 20) {
     queryFn: () => auditApi.list(take),
   });
 }
+
+export function usePaginatedAudit(params?: { page?: number; pageSize?: number; action?: string; objectType?: string }) {
+  return useQuery({
+    queryKey: ['audit-paginated', params?.page, params?.pageSize, params?.action, params?.objectType],
+    queryFn: () => auditApi.listPaginated(params),
+  });
+}

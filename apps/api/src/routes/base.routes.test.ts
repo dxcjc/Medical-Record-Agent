@@ -535,7 +535,9 @@ describe("base route groups", () => {
     const tools = createRouteTools(["feedback:create"]);
     const feedbackService: FeedbackRouteService = {
       create: vi.fn(async () => ({ id: "feedback-001" })),
-      listByJobId: vi.fn(async () => [])
+      listByJobId: vi.fn(async () => []),
+      listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+      getFieldStats: vi.fn(async () => [])
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -576,6 +578,8 @@ describe("base route groups", () => {
     const feedbackService: FeedbackRouteService = {
       create: vi.fn(async () => ({ id: "feedback-001" })),
       listByJobId: vi.fn(async () => []),
+      listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+      getFieldStats: vi.fn(async () => [])
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -621,7 +625,9 @@ describe("base route groups", () => {
     const tools = createRouteTools(["feedback:create"]);
     const feedbackService: FeedbackRouteService = {
       create: vi.fn(),
-      listByJobId: vi.fn(async () => [])
+      listByJobId: vi.fn(async () => []),
+      listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+      getFieldStats: vi.fn(async () => [])
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -682,7 +688,8 @@ describe("base route groups", () => {
     const tools = createRouteTools(["writeback:execute"]);
     const writebackService: WritebackRouteService = {
       execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" })),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     };
     const jobService = {
       get: vi.fn(async () => ({ id: "job-001", status: "completed" }))

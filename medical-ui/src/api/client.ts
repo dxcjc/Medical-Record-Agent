@@ -253,18 +253,35 @@ export const feedbackApi = {
     }),
   listByJob: (jobId: string) =>
     request<{ items: Record<string, unknown>[] }>(`/feedback?jobId=${jobId}`),
+  listAll: (params?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.fieldKey) p.set('fieldKey', params.fieldKey);
+    if (params?.jobId) p.set('jobId', params.jobId);
+    if (params?.page) p.set('page', String(params.page));
+    if (params?.pageSize) p.set('pageSize', String(params.pageSize));
+    const qs = p.toString();
+    return request<{ items: import('./types').FeedbackSubmission[]; total: number; page: number; pageSize: number }>(
+      `/feedback/all${qs ? `?${qs}` : ''}`
+    );
+  },
+  getFieldStats: () =>
+    request<{ stats: import('./types').FeedbackFieldStat[] }>('/feedback/stats'),
 };
 
 // Audit
 export const auditApi = {
   list: (take = 20) =>
     request<{ items: import('./types').AuditEntry[] }>(`/audit?take=${take}`),
-  listPaginated: (params?: { take?: number; action?: string }) => {
+  listPaginated: (params?: { page?: number; pageSize?: number; action?: string; objectType?: string }) => {
     const p = new URLSearchParams();
-    if (params?.take) p.set('take', String(params.take));
+    if (params?.page) p.set('page', String(params.page));
+    if (params?.pageSize) p.set('pageSize', String(params.pageSize));
     if (params?.action) p.set('action', params.action);
+    if (params?.objectType) p.set('objectType', params.objectType);
     const qs = p.toString();
-    return request<{ items: import('./types').AuditEntry[] }>(`/audit${qs ? `?${qs}` : ''}`);
+    return request<{ items: import('./types').AuditEntry[]; total: number; page: number; pageSize: number }>(
+      `/audit${qs ? `?${qs}` : ''}`
+    );
   },
 };
 
@@ -307,5 +324,30 @@ export const statsApi = {
     const params = new URLSearchParams({ schemaKey });
     if (limit) params.set('limit', String(limit));
     return request<{ stats: import('./types').FieldStatItem[]; total: number }>(`/stats/fields?${params}`);
+  },
+  getTrendStats: (schemaKey: string, days?: number) => {
+    const params = new URLSearchParams({ schemaKey });
+    if (days) params.set('days', String(days));
+    return request<{ trend: import('./types').TrendDataPoint[] }>(`/stats/trend?${params}`);
+  },
+};
+
+// Writeback
+export const writebackApi = {
+  eligible: (limit = 20) =>
+    request<{ items: Array<Record<string, unknown>> }>(`/writeback/eligible?limit=${limit}`),
+  execute: (body: { jobId: string; confirmed: true; idempotencyKey?: string }) =>
+    request<Record<string, unknown>>('/writeback', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  history: (params?: { page?: number; pageSize?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.page) p.set('page', String(params.page));
+    if (params?.pageSize) p.set('pageSize', String(params.pageSize));
+    const qs = p.toString();
+    return request<{ items: import('./types').WritebackAttempt[]; total: number; page: number; pageSize: number }>(
+      `/writeback/history${qs ? `?${qs}` : ''}`
+    );
   },
 };

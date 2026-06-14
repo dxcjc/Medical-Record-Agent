@@ -13,6 +13,8 @@ import {
 export interface FeedbackRouteService {
   create(input: CreateFeedbackRouteInput): Promise<ApiRouteResponseObject>;
   listByJobId(jobId: string): Promise<ApiRouteResponseObject[]>;
+  listAll(input?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }): Promise<{ items: ApiRouteResponseObject[]; total: number; page: number; pageSize: number }>;
+  getFieldStats(): Promise<Array<{ fieldKey: string; count: number }>>;
 }
 
 export interface FeedbackRoutesDependencies {
@@ -84,6 +86,53 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
       return {
         items: items.map((item) => assertRouteResponseObject(item, "FEEDBACK_RESPONSE_INVALID"))
       };
+    }
+  );
+
+  // GET /feedback/all - 全局反馈列表（跨任务）
+  server.get(
+    "/feedback/all",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.feedbackCreate)
+      ]
+    },
+    async (request) => {
+      const query = request.query as {
+        fieldKey?: string;
+        jobId?: string;
+        page?: string;
+        pageSize?: string;
+      };
+      const input: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number } = {};
+      if (query.fieldKey) input.fieldKey = query.fieldKey;
+      if (query.jobId) input.jobId = query.jobId;
+      if (query.page) input.page = Math.max(1, parseInt(query.page, 10) || 1);
+      if (query.pageSize) input.pageSize = Math.min(100, Math.max(1, parseInt(query.pageSize, 10) || 20));
+
+      const result = await dependencies.feedbackService.listAll(input);
+      return {
+        items: result.items.map((item) => assertRouteResponseObject(item, "FEEDBACK_RESPONSE_INVALID")),
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize
+      };
+    }
+  );
+
+  // GET /feedback/stats - 按字段统计反馈数量
+  server.get(
+    "/feedback/stats",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.feedbackCreate)
+      ]
+    },
+    async () => {
+      const stats = await dependencies.feedbackService.getFieldStats();
+      return { stats };
     }
   );
 }

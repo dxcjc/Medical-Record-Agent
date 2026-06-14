@@ -2762,7 +2762,10 @@ export function createProductionApiServices(options: CreateProductionApiServices
   const services = createApiServices({
     authService,
     auditService: {
-      listRecent: auditRepository.listRecent,
+      listRecent: async (input) => {
+        const result = await auditRepository.listRecent(input);
+        return result.items;
+      },
       record: createAuditRecorder(auditRepository)
     },
     schemaService: schemaRouteService,
@@ -2808,7 +2811,8 @@ export function createProductionApiServices(options: CreateProductionApiServices
       async execute(input) {
         return assertRouteResponseObject(await productionWritebackExecutor(input), "WRITEBACK_RESPONSE_INVALID");
       },
-      listEligible: (input) => services.writebackService.listEligible(input)
+      listEligible: (input) => services.writebackService.listEligible(input),
+      listHistory: (input) => services.writebackService.listHistory(input)
     }
   };
 }

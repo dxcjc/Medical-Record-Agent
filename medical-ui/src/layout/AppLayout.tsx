@@ -12,9 +12,11 @@ import {
   IconFileUp,
   IconLogOut,
   IconMenu,
+  IconMessageSquare,
   IconMoon,
   IconPanelLeftClose,
   IconPanelLeftOpen,
+  IconRepeat,
   IconShield,
   IconSun,
   IconUserRound,
@@ -63,6 +65,8 @@ const navGroups: NavGroup[] = [
     items: [
       { key: '/evaluation', label: '评测中心', icon: IconBeaker },
       { key: '/audit', label: '审计日志', icon: IconShield },
+      { key: '/feedback', label: '反馈管理', icon: IconMessageSquare },
+      { key: '/writeback', label: '回写管理', icon: IconRepeat },
     ],
   },
 ];
@@ -75,6 +79,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/providers': 'Provider 管理',
   '/evaluation': '评测中心',
   '/audit': '审计日志',
+  '/feedback': '反馈管理',
+  '/writeback': '回写管理',
 };
 
 export default function AppLayout() {

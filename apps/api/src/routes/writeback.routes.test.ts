@@ -53,7 +53,8 @@ describe("writeback routes", () => {
     };
     const writebackService: WritebackRouteService = {
       execute: vi.fn(),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     };
     const server = await createServer({ authService, writebackService });
 
@@ -72,7 +73,8 @@ describe("writeback routes", () => {
     const authService = createAuthService(context);
     const writebackService: WritebackRouteService = {
       execute: vi.fn(),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     };
     const server = await createServer({ authService, writebackService });
 
@@ -98,7 +100,8 @@ describe("writeback routes", () => {
           jobId: "job-eligible-001",
           readyFields: [{ fieldKey: "clinicalDiagnosis", value: "肺腺癌" }]
         }
-      ])
+      ]),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     };
     const server = await createServer({ authService, writebackService });
 
@@ -129,7 +132,8 @@ describe("writeback routes", () => {
     const authService = createAuthService(context);
     const writebackService: WritebackRouteService = {
       execute: vi.fn(async () => ({ status: "success" })),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     };
     const server = await createServer({ authService, writebackService });
 
@@ -170,7 +174,8 @@ describe("writeback routes", () => {
     const authService = createAuthService(context);
     const writebackService: WritebackRouteService = {
       execute: vi.fn(async () => ({ status: "success" })),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     };
     const server = await createServer({ authService, writebackService });
 
@@ -200,7 +205,8 @@ describe("writeback routes", () => {
     const authService = createAuthService(context);
     const writebackService = {
       execute: vi.fn(async () => "not-object"),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     } as unknown as WritebackRouteService;
     const server = await createServer({ authService, writebackService });
 

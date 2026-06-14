@@ -50,6 +50,57 @@ export function createFeedbackRepository(dependencies: FeedbackRepositoryDepende
       });
     },
 
+    async listAll(input?: {
+      fieldKey?: string;
+      jobId?: string;
+      page?: number;
+      pageSize?: number;
+      createdFrom?: Date;
+      createdTo?: Date;
+    }) {
+      const where: {
+        fieldKey?: string;
+        jobId?: string;
+        createdAt?: { gte?: Date; lte?: Date };
+      } = {};
+
+      if (input?.fieldKey) where.fieldKey = input.fieldKey;
+      if (input?.jobId) where.jobId = input.jobId;
+      if (input?.createdFrom || input?.createdTo) {
+        where.createdAt = {};
+        if (input.createdFrom) where.createdAt.gte = input.createdFrom;
+        if (input.createdTo) where.createdAt.lte = input.createdTo;
+      }
+
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        dependencies.feedbackSubmission.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: pageSize
+        }),
+        dependencies.feedbackSubmission.count({ where })
+      ]);
+
+      return { items, total, page, pageSize };
+    },
+
+    async getFieldStats() {
+      const grouped = await dependencies.feedbackSubmission.groupBy({
+        by: ["fieldKey"],
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } }
+      });
+      return grouped.map((g) => ({
+        fieldKey: g.fieldKey ?? "unknown",
+        count: g._count.id
+      }));
+    },
+
     async markReviewed(id: string, reviewedAt: Date, status: FeedbackStatus = "reviewed") {
       return dependencies.feedbackSubmission.update({
         where: { id },

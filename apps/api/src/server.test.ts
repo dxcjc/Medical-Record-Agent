@@ -115,11 +115,14 @@ function createServices(authService = createAuthService()): ApiServerServices {
     },
     feedbackService: {
       create: vi.fn(async () => ({ id: "feedback-001", status: "open" })),
-      listByJobId: vi.fn(async () => [])
+      listByJobId: vi.fn(async () => []),
+      listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+      getFieldStats: vi.fn(async () => [])
     },
     writebackService: {
       execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" })),
-      listEligible: vi.fn(async () => [])
+      listEligible: vi.fn(async () => []),
+      listHistory: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 }))
     },
     providerService: {
       listProviders: vi.fn(async () => [

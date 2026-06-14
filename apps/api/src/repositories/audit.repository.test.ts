@@ -84,7 +84,65 @@ describe("audit.repository", () => {
       orderBy: {
         createdAt: "desc"
       },
-      take: 20
+      take: 20,
+      include: {
+        actorUser: {
+          select: { id: true, email: true, displayName: true }
+        }
+      }
     });
+  });
+
+  it("分页模式下应使用 skip/take 并返回 total", async () => {
+    const auditLog = {
+      findMany: vi.fn().mockResolvedValue([
+        { id: "audit-001", action: "job.create", createdAt: new Date() }
+      ]),
+      count: vi.fn().mockResolvedValue(42)
+    };
+
+    const repository = createAuditRepository({ auditLog } as never);
+    const result = await repository.listRecent({
+      page: 2,
+      pageSize: 10
+    });
+
+    expect(auditLog.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { createdAt: "desc" },
+      skip: 10,
+      take: 10,
+      include: {
+        actorUser: {
+          select: { id: true, email: true, displayName: true }
+        }
+      }
+    });
+    expect(auditLog.count).toHaveBeenCalledWith({ where: {} });
+    expect(result).toEqual(expect.objectContaining({
+      total: 42,
+      page: 2,
+      pageSize: 10
+    }));
+  });
+
+  it("objectType 筛选应正确传递到 where 条件", async () => {
+    const auditLog = {
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0)
+    };
+
+    const repository = createAuditRepository({ auditLog } as never);
+    await repository.listRecent({
+      objectType: "job",
+      page: 1,
+      pageSize: 20
+    });
+
+    expect(auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { objectType: "job" }
+      })
+    );
   });
 });
