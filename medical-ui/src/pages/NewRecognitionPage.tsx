@@ -75,10 +75,82 @@ export default function NewRecognitionPage() {
         return;
       }
     }
-    // If user clicked "使用示例", guide them to upload a real file
+    // If user clicked "使用示例", fetch the example file
     if (useExample && files.length === 0) {
-      Message.info('请上传肿瘤基因检测申请单图片');
-      return;
+      setProgressText('正在加载示例文件...');
+      try {
+        const resp = await fetch('/example-tumor-gene-test.png');
+        if (!resp.ok) throw new Error('示例文件加载失败');
+        const blob = await resp.blob();
+        const exampleFile = new File([blob], '肿瘤基因检测申请单示例.png', { type: 'image/png' });
+        setFiles([exampleFile]);
+        // Continue with the upload using the fetched file
+        files.length = 0; // won't be used, we'll use a local array
+        const filesToUpload = [exampleFile];
+        
+        setUploading(true);
+        setProgressText('正在创建任务...');
+        
+        const notifKey = `creating-${Date.now()}`;
+        Notification.info({
+          id: notifKey,
+          title: '创建识别任务',
+          content: '正在创建任务，请稍候...',
+          duration: 0,
+          closable: false,
+        });
+
+        let createdCount = 0;
+        const errors: string[] = [];
+
+        try {
+          for (let i = 0; i < filesToUpload.length; i++) {
+            setProgressText(`正在处理 ${i + 1}/${filesToUpload.length}...`);
+            try {
+              const storedFile = await filesApi.upload(filesToUpload[i]);
+              await createJob.mutateAsync({
+                schemaKey,
+                sourceFileId: storedFile.id,
+              });
+              createdCount++;
+            } catch (e) {
+              errors.push(`文件 ${filesToUpload[i].name} 处理失败`);
+            }
+          }
+
+          Notification.remove(notifKey);
+          setFiles([]);
+          setUseExample(false);
+
+          if (createdCount > 0) {
+            Notification.success({
+              title: '创建成功',
+              content: `成功创建 ${createdCount} 个识别任务，正在跳转...`,
+              duration: 5000,
+            });
+            setTimeout(() => navigate('/jobs'), 1500);
+          } else {
+            Notification.error({
+              title: '创建失败',
+              content: errors.join('；') || '未知错误',
+              duration: 5000,
+            });
+          }
+        } catch (err: unknown) {
+          Notification.remove(notifKey);
+          const msg = err instanceof Error ? err.message : '创建失败，请重试';
+          Notification.error({ title: '创建失败', content: msg, duration: 5000 });
+        } finally {
+          setUploading(false);
+          setProgressText('');
+        }
+        return;
+      } catch (e) {
+        Message.error('示例文件加载失败，请直接上传文件');
+        setUploading(false);
+        setProgressText('');
+        return;
+      }
     }
 
     setUploading(true);
