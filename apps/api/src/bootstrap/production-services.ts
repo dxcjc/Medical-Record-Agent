@@ -2816,6 +2816,15 @@ export function createProductionApiServices(options: CreateProductionApiServices
     auditService: {
       listRecent: async (input) => {
         const result = await auditRepository.listRecent(input);
+        // 分页模式下返回完整分页信息，否则返回 items 数组
+        if (input && input.page !== undefined && input.pageSize !== undefined) {
+          return {
+            items: result.items,
+            total: result.total,
+            page: result.page,
+            pageSize: result.pageSize,
+          };
+        }
         return result.items;
       },
       record: createAuditRecorder(auditRepository)

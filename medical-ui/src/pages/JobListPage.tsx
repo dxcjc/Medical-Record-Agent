@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Select, Input, Button, Typography, Space, Spin } from '@arco-design/web-react';
+import { Card, Table, Select, Input, Button, Typography, Space, Spin, Badge } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
 import { usePaginatedJobs } from '../hooks/useJobs';
 import { useSchemas } from '../hooks/useSchemas';
@@ -31,15 +31,25 @@ export default function JobListPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [schemaFilter, setSchemaFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  // 300ms 防抖搜索
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchText);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   const { data, isLoading, error, refetch } = usePaginatedJobs({
     page,
     pageSize,
     status: statusFilter !== 'all' ? statusFilter : undefined,
     schemaKey: schemaFilter !== 'all' ? schemaFilter : undefined,
-    search: searchText || undefined,
+    search: debouncedSearch || undefined,
   });
   const { data: schemasData } = useSchemas();
   const { data: providersData } = useProviders();
@@ -91,8 +101,8 @@ export default function JobListPage() {
     {
       title: '文件名',
       width: 180,
-      render: (_: unknown, record: RecognitionJob) => {
-        const name = record.sourceFile?.originalName;
+      render: (_: unknown, record: RecognitionJob & { fileName?: string }) => {
+        const name = record.fileName || record.sourceFile?.originalName;
         if (!name) return <span style={{ color: '#999' }}>-</span>;
         return (
           <Text
@@ -114,13 +124,12 @@ export default function JobListPage() {
     {
       title: '整体置信度',
       width: 110,
-      render: (_: unknown, record: RecognitionJob) => {
-        const result = record.result;
-        if (!result) return <span style={{ color: '#999' }}>-</span>;
-        const conf = result.confidence;
+      render: (_: unknown, record: RecognitionJob & { confidence?: number | null }) => {
+        const conf = record.confidence ?? record.result?.confidence;
         if (!conf) return <span style={{ color: '#999' }}>-</span>;
-        const pct = (parseFloat(conf) * 100).toFixed(0);
-        const color = parseFloat(conf) >= 0.8 ? 'green' : parseFloat(conf) >= 0.5 ? 'orange' : 'red';
+        const confNum = typeof conf === 'number' ? conf : parseFloat(conf);
+        const pct = (confNum * 100).toFixed(1);
+        const color = confNum >= 0.9 ? '#00B42A' : confNum >= 0.7 ? '#FF7D00' : '#F53F3F';
         return <span style={{ color, fontWeight: 600 }}>{pct}%</span>;
       },
     },
@@ -137,8 +146,15 @@ export default function JobListPage() {
     {
       title: '需复核',
       width: 80,
-      render: (_: unknown, record: RecognitionJob) => {
+      render: (_: unknown, record: RecognitionJob & { needsReviewCount?: number }) => {
+        const needsReviewCount = record.needsReviewCount;
         const needsReview = record.result?.reviewRequired;
+        if (needsReviewCount !== undefined) {
+          if (needsReviewCount > 0) {
+            return <Badge count={needsReviewCount} style={{ backgroundColor: '#F53F3F' }} />;
+          }
+          return <span style={{ color: '#00B42A' }}>0</span>;
+        }
         if (needsReview === undefined) return <span style={{ color: '#999' }}>-</span>;
         return needsReview
           ? <span style={{ color: '#F53F3F', fontWeight: 600 }}>是</span>
@@ -148,10 +164,9 @@ export default function JobListPage() {
     {
       title: 'Provider',
       width: 140,
-      render: (_: unknown, record: RecognitionJob) => {
-        const cfg = record.providerConfig;
-        const providerKey = cfg?.providerKey || cfg?.ocrProviderKey || '';
-        return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : '-'}</span>;
+      render: (_: unknown, record: RecognitionJob & { provider?: string }) => {
+        const providerKey = record.provider || record.providerConfig?.providerKey || record.providerConfig?.ocrProviderKey || '';
+        return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : <span style={{ color: '#999' }}>-</span>}</span>;
       },
     },
     {
@@ -254,8 +269,8 @@ export default function JobListPage() {
           <Input.Search
             value={searchText}
             onChange={setSearchText}
-            onSearch={() => { setPage(1); refetch(); }}
-            placeholder="搜索任务ID / Schema"
+            onSearch={() => { setDebouncedSearch(searchText); setPage(1); refetch(); }}
+            placeholder="搜索任务ID / Schema..."
             style={{ width: 240 }}
             allowClear
             prefix={<IconSearch size={14} />}

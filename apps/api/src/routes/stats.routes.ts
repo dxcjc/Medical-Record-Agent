@@ -47,11 +47,15 @@ export function registerStatsRoutes(
     async (request: FastifyRequest, reply: FastifyReply) => {
       const query = request.query as { schemaKey?: string; limit?: string };
       if (!query.schemaKey) {
-        return reply.status(400).send({ error: "MISSING_PARAM", message: "schemaKey is required" });
+        return reply.send({ stats: [], total: 0 });
       }
       const limit = query.limit ? Math.min(parseInt(query.limit, 10) || 100, 500) : 100;
-      const stats = await service.getFieldStats(query.schemaKey, limit);
-      return reply.send({ stats, total: stats.length });
+      try {
+        const stats = await service.getFieldStats(query.schemaKey, limit);
+        return reply.send({ stats, total: stats.length });
+      } catch {
+        return reply.send({ stats: [], total: 0 });
+      }
     }
   );
 
@@ -61,11 +65,15 @@ export function registerStatsRoutes(
     async (request: FastifyRequest, reply: FastifyReply) => {
       const query = request.query as { schemaKey?: string; days?: string };
       if (!query.schemaKey) {
-        return reply.status(400).send({ error: "MISSING_PARAM", message: "schemaKey is required" });
+        return reply.send({ trend: [] });
       }
       const days = query.days ? Math.min(Math.max(parseInt(query.days, 10) || 30, 1), 365) : 30;
-      const trend = await service.getTrendStats(query.schemaKey, days);
-      return reply.send({ trend });
+      try {
+        const trend = await service.getTrendStats(query.schemaKey, days);
+        return reply.send({ trend });
+      } catch {
+        return reply.send({ trend: [] });
+      }
     }
   );
 }

@@ -102,6 +102,13 @@ export interface ApiServiceRepositories {
       schemaKey?: string;
       search?: string;
     }): Promise<{ items: unknown[]; total: number }>;
+    listPaginatedWithRelations(input: {
+      skip: number;
+      take: number;
+      status?: string;
+      schemaKey?: string;
+      search?: string;
+    }): Promise<{ items: unknown[]; total: number }>;
     updateStatus(input: {
       id: string;
       status: RecognitionJobStatus;
@@ -1944,6 +1951,67 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           statusUrl: `/jobs/${job.id}`,
           resultUrl: `/results/${job.id}`
         }));
+      },
+      async listPaginated(input: {
+        page: number;
+        pageSize: number;
+        status?: string;
+        schemaKey?: string;
+        search?: string;
+      }) {
+        const skip = (input.page - 1) * input.pageSize;
+        const { items, total } = await repositories.jobsRepository.listPaginatedWithRelations({
+          skip,
+          take: input.pageSize,
+          status: input.status,
+          schemaKey: input.schemaKey,
+          search: input.search,
+        });
+
+        const mapped = (items as Array<Record<string, unknown>>).map((job) => {
+          const item: Record<string, unknown> = {
+            ...job,
+            executionMode: "asynchronous",
+            statusUrl: `/jobs/${job.id}`,
+            resultUrl: `/results/${job.id}`,
+          };
+
+          // 列数据补全：fileName
+          const sourceFile = job.sourceFile as Record<string, unknown> | undefined;
+          if (sourceFile?.originalName) {
+            item.fileName = sourceFile.originalName;
+          }
+
+          // 列数据补全：confidence + needsReviewCount
+          const result = job.result as Record<string, unknown> | undefined;
+          if (result) {
+            item.confidence = result.confidence != null ? Number(result.confidence) : null;
+            const fields = (result.fields ?? {}) as Record<string, unknown>;
+            const fieldCount = Object.keys(fields).length;
+            // 计算需复核字段数
+            if (result.reviewRequired === true) {
+              item.needsReviewCount = fieldCount;
+            } else {
+              item.needsReviewCount = 0;
+            }
+          }
+
+          // 列数据补全：provider
+          const providerConfig = job.providerConfig as Record<string, unknown> | undefined;
+          const providerKey = providerConfig?.providerKey || providerConfig?.ocrProviderKey;
+          if (typeof providerKey === "string" && providerKey.length > 0) {
+            item.provider = providerKey;
+          }
+
+          return item;
+        });
+
+        return {
+          items: mapped,
+          total,
+          page: input.page,
+          pageSize: input.pageSize,
+        };
       },
       async softDelete(id) {
         await repositories.jobsRepository.softDelete(id);

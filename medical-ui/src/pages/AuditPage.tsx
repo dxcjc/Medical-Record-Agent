@@ -403,6 +403,8 @@ function AuditLogTab() {
   const [pageSize, setPageSize] = useState(20);
   const [actionFilter, setActionFilter] = useState<string | undefined>(undefined);
   const [objectTypeFilter, setObjectTypeFilter] = useState<string | undefined>(undefined);
+  const [startDate, setStartDate] = useState<string | undefined>(undefined);
+  const [endDate, setEndDate] = useState<string | undefined>(undefined);
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
   const { data, isLoading, error, refetch } = usePaginatedAudit({
@@ -410,6 +412,8 @@ function AuditLogTab() {
     pageSize,
     action: actionFilter,
     objectType: objectTypeFilter,
+    startDate,
+    endDate,
   });
 
   const entries = data?.items || [];
@@ -424,6 +428,52 @@ function AuditLogTab() {
   const objectTypeOptions = useMemo(() => {
     return Object.entries(OBJECT_TYPE_LABELS).map(([key, label]) => ({ key, label }));
   }, []);
+
+  // CSV 导出
+  const handleExportCsv = () => {
+    const token = localStorage.getItem('accessToken');
+    const url = auditApi.exportCsv({
+      action: actionFilter,
+      objectType: objectTypeFilter,
+      startDate,
+      endDate,
+    });
+    // 使用带认证的下载
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', '');
+    // 添加 Authorization header 通过 fetch
+    fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(res => res.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        link.href = blobUrl;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+      })
+      .catch(() => {
+        // 回退到直接链接
+        link.click();
+      });
+  };
+
+  // 重置筛选
+  const handleReset = () => {
+    setActionFilter(undefined);
+    setObjectTypeFilter(undefined);
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setPage(1);
+  };
+
+  // 日期范围变更
+  const handleDateRangeChange = (dateString: string[]) => {
+    setStartDate(dateString[0] || undefined);
+    setEndDate(dateString[1] || undefined);
+    setPage(1);
+  };
 
   // 跳转函数
   const handleObjectClick = (objectType: string, objectId: string) => {
@@ -548,6 +598,12 @@ function AuditLogTab() {
     <div style={{ padding: '16px 0' }}>
       {/* 筛选栏 */}
       <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <DatePicker.RangePicker
+          style={{ width: 280 }}
+          placeholder={['开始日期', '结束日期']}
+          onChange={handleDateRangeChange}
+          value={startDate && endDate ? [startDate, endDate] : undefined}
+        />
         <Select
           placeholder="操作类型"
           value={actionFilter}
@@ -570,6 +626,11 @@ function AuditLogTab() {
             <Option key={opt.key} value={opt.key}>{opt.label}</Option>
           ))}
         </Select>
+        <Button onClick={handleReset}>重置</Button>
+        <div style={{ flex: 1 }} />
+        <Button type="primary" onClick={handleExportCsv}>
+          导出 CSV
+        </Button>
         <Button onClick={() => refetch()}>刷新</Button>
       </div>
 

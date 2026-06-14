@@ -363,16 +363,27 @@ export const feedbackApi = {
 export const auditApi = {
   list: (take = 20) =>
     request<{ items: import('./types').AuditEntry[] }>(`/audit?take=${take}`),
-  listPaginated: (params?: { page?: number; pageSize?: number; action?: string; objectType?: string }) => {
+  listPaginated: (params?: { page?: number; pageSize?: number; action?: string; objectType?: string; startDate?: string; endDate?: string }) => {
     const p = new URLSearchParams();
     if (params?.page) p.set('page', String(params.page));
     if (params?.pageSize) p.set('pageSize', String(params.pageSize));
     if (params?.action) p.set('action', params.action);
     if (params?.objectType) p.set('objectType', params.objectType);
+    if (params?.startDate) p.set('startDate', params.startDate);
+    if (params?.endDate) p.set('endDate', params.endDate);
     const qs = p.toString();
     return request<{ items: import('./types').AuditEntry[]; total: number; page: number; pageSize: number }>(
       `/audit${qs ? `?${qs}` : ''}`
     );
+  },
+  exportCsv: (params?: { action?: string; objectType?: string; startDate?: string; endDate?: string }) => {
+    const p = new URLSearchParams();
+    if (params?.action) p.set('action', params.action);
+    if (params?.objectType) p.set('objectType', params.objectType);
+    if (params?.startDate) p.set('startDate', params.startDate);
+    if (params?.endDate) p.set('endDate', params.endDate);
+    const qs = p.toString();
+    return `${API_BASE}/audit/export${qs ? `?${qs}` : ''}`;
   },
 };
 

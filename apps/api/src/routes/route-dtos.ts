@@ -421,6 +421,8 @@ export const auditListQuerySchema = z
     actorApiTokenId: optionalNonEmptyString,
     action: optionalNonEmptyString,
     objectType: optionalNonEmptyString,
+    startDate: optionalNonEmptyString,
+    endDate: optionalNonEmptyString,
     page: z
       .union([z.string(), z.number()])
       .optional()

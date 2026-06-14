@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Grid, Card, Table, Button, Spin, Typography } from '@arco-design/web-react';
+import { Grid, Card, Table, Button, Spin, Typography, Select, Space } from '@arco-design/web-react';
+import { useState } from 'react';
 import {
   IconActivity,
   IconAlertTriangle,
@@ -13,6 +14,8 @@ import {
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useJobs } from '../hooks/useJobs';
 import { useProviders } from '../hooks/useProviders';
+import { useSchemas } from '../hooks/useSchemas';
+import { useTrendStats } from '../hooks/useTrendStats';
 import StatusTag from '../components/StatusTag';
 import MetricCard from '../components/MetricCard';
 import PageHeader from '../components/PageHeader';
@@ -21,22 +24,128 @@ import type { RecognitionJob } from '../api/types';
 
 const { Row, Col } = Grid;
 const { Text } = Typography;
+const { Option } = Select;
+
+/* ------------------------------------------------------------------ */
+/*  SVG 折线图组件                                                       */
+/* ------------------------------------------------------------------ */
+
+interface LineData {
+  label: string;
+  completed: number;
+  failed: number;
+}
+
+function SimpleLineChart({ data }: { data: LineData[] }) {
+  const width = 800;
+  const height = 200;
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+
+  const allValues = data.flatMap(d => [d.completed, d.failed]);
+  const maxVal = Math.max(...allValues, 1);
+
+  const points = data.map((d, i) => {
+    const x = padding.left + (i / Math.max(data.length - 1, 1)) * chartW;
+    const yCompleted = padding.top + chartH - (d.completed / maxVal) * chartH;
+    const yFailed = padding.top + chartH - (d.failed / maxVal) * chartH;
+    return { x, yCompleted, yFailed, label: d.label, completed: d.completed, failed: d.failed };
+  });
+
+  const completedPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yCompleted}`).join(' ');
+  const failedPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yFailed}`).join(' ');
+
+  // Y 轴刻度
+  const yTicks = 4;
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((maxVal / yTicks) * i));
+
+  return (
+    <div style={{ width: '100%', height: 200, overflow: 'hidden' }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+        {/* Y 轴网格线和标签 */}
+        {yTickValues.map((val, i) => {
+          const y = padding.top + chartH - (val / maxVal) * chartH;
+          return (
+            <g key={i}>
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f0f0f0" strokeWidth={1} />
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize={11} fill="#999">
+                {val}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X 轴标签 */}
+        {points.map((p, i) => (
+          <text key={i} x={p.x} y={height - 10} textAnchor="middle" fontSize={11} fill="#999">
+            {p.label}
+          </text>
+        ))}
+
+        {/* 完成线（绿色） */}
+        {points.length > 1 && (
+          <path d={completedPath} fill="none" stroke="#00B42A" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+        )}
+        {/* 失败线（红色） */}
+        {points.length > 1 && (
+          <path d={failedPath} fill="none" stroke="#F53F3F" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" strokeDasharray="6 3" />
+        )}
+
+        {/* 数据点 */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.yCompleted} r={4} fill="#00B42A" stroke="#fff" strokeWidth={1.5} />
+            <circle cx={p.x} cy={p.yFailed} r={3} fill="#F53F3F" stroke="#fff" strokeWidth={1.5} />
+          </g>
+        ))}
+
+        {/* 图例 */}
+        <line x1={width - 160} y1={12} x2={width - 140} y2={12} stroke="#00B42A" strokeWidth={2.5} />
+        <text x={width - 135} y={16} fontSize={11} fill="#666">已完成</text>
+        <line x1={width - 90} y1={12} x2={width - 70} y2={12} stroke="#F53F3F" strokeWidth={2} strokeDasharray="4 2" />
+        <text x={width - 65} y={16} fontSize={11} fill="#666">失败</text>
+      </svg>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  快捷操作卡片                                                         */
+/* ------------------------------------------------------------------ */
+
+interface QuickAction {
+  title: string;
+  description: string;
+  icon: typeof IconFileUp;
+  color: string;
+  path: string;
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { title: '新建识别', description: '上传医疗文档开始 AI 识别', icon: IconFileUp, color: '#3370FF', path: '/recognition/new' },
+  { title: '查看待复核', description: '查看需要人工复核的识别结果', icon: IconAlertTriangle, color: '#FF7D00', path: '/jobs' },
+  { title: '查看最新反馈', description: '查看用户提交的反馈和纠正', icon: IconClipboardList, color: '#722ED1', path: '/feedback' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  DashboardPage 主组件                                                 */
+/* ------------------------------------------------------------------ */
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [trendSchemaKey, setTrendSchemaKey] = useState<string | undefined>(undefined);
   const { data: statsData, isLoading: statsLoading, error: statsError } = useDashboardStats();
-  // Fallback: 用 jobs + providers 端点自行计算
   const { data: jobsData, isLoading: jobsLoading, error: jobsError, refetch } = useJobs(20);
   const { data: providersData, isLoading: providersLoading } = useProviders();
+  const { data: schemasData } = useSchemas();
+  const { data: trendData, isLoading: trendLoading } = useTrendStats(trendSchemaKey, 7);
 
   const jobs = jobsData?.items || [];
   const providers = providersData?.items || [];
+  const schemas = schemasData?.items || [];
 
-  // 优先使用 stats API；如果失败则使用 fallback
   const useStatsApi = !!statsData && !statsError;
-
-  // 当 stats API 有数据但同时有错误时，显示警告但继续展示数据
-  const statsApiHasError = !!statsData && !!statsError;
 
   const todayStart = useMemo(() => {
     const d = new Date();
@@ -63,6 +172,16 @@ export default function DashboardPage() {
 
   const isLoading = useStatsApi ? statsLoading : (jobsLoading || providersLoading);
   const hasError = useStatsApi ? !!statsError : !!jobsError;
+
+  // 趋势图数据
+  const trendPoints = useMemo(() => {
+    const raw = trendData?.trend || [];
+    return raw.map(p => ({
+      label: p.date.slice(5), // MM-DD
+      completed: p.extracted,
+      failed: p.failed,
+    }));
+  }, [trendData]);
 
   if (hasError && !useStatsApi) {
     return (
@@ -163,6 +282,46 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
+      {/* 趋势图 */}
+      <Card
+        title="任务趋势（近 7 天）"
+        style={{ marginBottom: 24 }}
+        extra={
+          <Space size={8} align="center">
+            <Text type="secondary" style={{ fontSize: 12 }}>Schema：</Text>
+            <Select
+              value={trendSchemaKey}
+              onChange={setTrendSchemaKey}
+              placeholder="选择 Schema"
+              style={{ width: 200 }}
+              size="small"
+              allowClear
+            >
+              {schemas.map(s => (
+                <Option key={s.schemaKey} value={s.schemaKey}>
+                  {s.displayName || s.schemaKey}
+                </Option>
+              ))}
+            </Select>
+          </Space>
+        }
+      >
+        {!trendSchemaKey ? (
+          <div style={{ textAlign: 'center', padding: 60, color: 'var(--color-text-3)' }}>
+            <IconBarChart size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
+            <div>请先选择 Schema 以查看趋势</div>
+          </div>
+        ) : trendLoading ? (
+          <div style={{ textAlign: 'center', padding: 60 }}><Spin /></div>
+        ) : trendPoints.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 60, color: 'var(--color-text-3)' }}>
+            暂无趋势数据
+          </div>
+        ) : (
+          <SimpleLineChart data={trendPoints} />
+        )}
+      </Card>
+
       {/* Recent Jobs */}
       <Card title="最近任务" extra={
         <Button type="text" size="small" onClick={() => navigate('/jobs')}>
@@ -196,6 +355,35 @@ export default function DashboardPage() {
           />
         )}
       </Card>
+
+      {/* 快捷操作 */}
+      <div style={{ marginTop: 24 }}>
+        <Text style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, display: 'block' }}>快捷操作</Text>
+        <Row gutter={16}>
+          {QUICK_ACTIONS.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Col key={action.path} span={8}>
+                <Card
+                  hoverable
+                  style={{ cursor: 'pointer', textAlign: 'center' }}
+                  onClick={() => navigate(action.path)}
+                >
+                  <div style={{ marginBottom: 12 }}>
+                    <Icon size={32} style={{ color: action.color }} />
+                  </div>
+                  <Text style={{ fontSize: 15, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                    {action.title}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 13 }}>
+                    {action.description}
+                  </Text>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,13 @@ export interface JobRouteService {
   create(input: CreateRecognitionJobServiceInput): Promise<ApiRouteResponseObject>;
   get(id: string): Promise<ApiRouteResponseObject | null>;
   list(limit?: number): Promise<ApiRouteResponseObject[]>;
+  listPaginated?(input: {
+    page: number;
+    pageSize: number;
+    status?: string;
+    schemaKey?: string;
+    search?: string;
+  }): Promise<{ items: ApiRouteResponseObject[]; total: number; page: number; pageSize: number }>;
   softDelete(id: string): Promise<ApiRouteResponseObject>;
   rerun(id: string): Promise<ApiRouteResponseObject>;
   export?(id: string): Promise<ApiRouteResponseObject | null>;
@@ -101,7 +108,26 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
     async (request, reply) => {
       const parsed = jobListQuerySchema.safeParse(request.query);
       const data = parsed.success ? parsed.data : {};
-      const limit = data.pageSize ?? 50;
+
+      // 如果有分页参数且 service 支持 listPaginated，使用分页模式
+      if ((data.page || data.pageSize || data.status || data.schemaKey || data.search) && dependencies.jobService.listPaginated) {
+        const result = await dependencies.jobService.listPaginated({
+          page: data.page ?? 1,
+          pageSize: data.pageSize ?? 20,
+          status: data.status,
+          schemaKey: data.schemaKey,
+          search: data.search,
+        });
+        return {
+          items: result.items,
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize,
+        };
+      }
+
+      // 向后兼容：无分页参数时返回 limit 行为
+      const limit = data.pageSize ?? 200;
       const jobs = await dependencies.jobService.list(limit);
       return { items: jobs };
     }

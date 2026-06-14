@@ -8,9 +8,16 @@ export function useAuditLog(take = 20) {
   });
 }
 
-export function usePaginatedAudit(params?: { page?: number; pageSize?: number; action?: string; objectType?: string }) {
+export function usePaginatedAudit(params?: {
+  page?: number;
+  pageSize?: number;
+  action?: string;
+  objectType?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
   return useQuery({
-    queryKey: ['audit-paginated', params?.page, params?.pageSize, params?.action, params?.objectType],
+    queryKey: ['audit-paginated', params?.page, params?.pageSize, params?.action, params?.objectType, params?.startDate, params?.endDate],
     queryFn: () => auditApi.listPaginated(params),
   });
 }

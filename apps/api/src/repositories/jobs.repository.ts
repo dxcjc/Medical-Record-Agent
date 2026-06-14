@@ -132,6 +132,48 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
       return { items, total };
     },
 
+    /** 带关联数据的分页查询 — 用于列表展示 fileName/confidence/needsReview */
+    async listPaginatedWithRelations(input: {
+      skip: number;
+      take: number;
+      status?: string;
+      schemaKey?: string;
+      search?: string;
+    }) {
+      const sanitizedSearch = input.search ? input.search.slice(0, 200) : undefined;
+      const where: Prisma.RecognitionJobWhereInput = { deletedAt: null };
+
+      if (input.status) {
+        where.status = input.status as RecognitionJobStatus;
+      }
+      if (input.schemaKey) {
+        where.schemaKey = input.schemaKey;
+      }
+      if (sanitizedSearch) {
+        where.OR = [
+          { id: { contains: sanitizedSearch, mode: "insensitive" } },
+          { schemaKey: { contains: sanitizedSearch, mode: "insensitive" } }
+        ];
+      }
+
+      const [items, total] = await Promise.all([
+        dependencies.recognitionJob.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: input.skip,
+          take: input.take,
+          include: {
+            schemaVersion: { select: { displayName: true } },
+            sourceFile: { select: { id: true, originalName: true } },
+            result: { select: { confidence: true, reviewRequired: true, fields: true } }
+          }
+        }),
+        dependencies.recognitionJob.count({ where })
+      ]);
+
+      return { items, total };
+    },
+
     async softDelete(id: string) {
       return dependencies.recognitionJob.update({
         where: { id },
