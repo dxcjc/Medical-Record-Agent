@@ -342,11 +342,6 @@ describe("production api services bootstrap", () => {
         secretRefs: {
           apiToken: "configured"
         }
-      }),
-      expect.objectContaining({
-        key: "local-storage",
-        kind: "storage",
-        secretRefs: {}
       })
     ]);
   });
@@ -1483,6 +1478,10 @@ describe("production api services bootstrap", () => {
 
   it("生产 Storage provider 健康检查会执行受控读写删除探针", async () => {
     const prisma = createPrismaClientStub();
+    // Add storage provider to DB mock
+    prisma.providerConfig.findMany = vi.fn(async () => [
+      { key: "local-storage", kind: "storage", displayName: "Local Storage", status: "active", isDefault: true, config: { driver: "local", localDir: "./storage" }, secretRefs: {} }
+    ]);
     const storageProvider = {
       put: vi.fn(async (input) => ({
         key: input.key,

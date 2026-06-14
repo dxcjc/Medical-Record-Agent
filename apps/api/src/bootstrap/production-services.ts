@@ -2048,23 +2048,27 @@ function createProviderRegistry(
           }
         ]
       : []),
-    {
-      key: env.storage.driver === "s3" ? "s3-storage" : "local-storage",
-      kind: "storage",
-      displayName: env.storage.driver === "s3" ? "S3 Storage Provider" : "Local Storage Provider",
-      enabled: true,
-      isDefault: true,
-      isMock: false,
-      config: {
-        driver: env.storage.driver,
-        bucket: env.storage.driver === "s3" ? (env.storage.s3.bucket ?? null) : null,
-        localDir: env.storage.driver === "local" ? env.storage.localDir : null
-      },
-      secretRefs:
-        env.storage.driver === "s3" && (env.storage.s3.accessKeyId || env.storage.s3.secretAccessKey)
-          ? { accessKeyId: "configured", secretAccessKey: "configured" }
-          : {}
-    }
+    ...(env.storage.driver === "s3"
+      ? [
+          {
+            key: "s3-storage",
+            kind: "storage" as const,
+            displayName: "S3 Storage Provider",
+            enabled: true,
+            isDefault: true,
+            isMock: false,
+            config: {
+              driver: env.storage.driver,
+              bucket: env.storage.s3.bucket ?? null,
+              localDir: null
+            },
+            secretRefs:
+              env.storage.s3.accessKeyId || env.storage.s3.secretAccessKey
+                ? { accessKeyId: "configured", secretAccessKey: "configured" }
+                : {}
+          }
+        ]
+      : [])
   ];
 
   return {

@@ -60,21 +60,33 @@ export async function registerAuthRoutes(server: FastifyInstance, dependencies: 
         });
       }
 
-      const payload = await dependencies.authService.login({
-        email: request.body.email,
-        password: request.body.password
-      });
-      const oldSessionToken = readSessionCookie(request.headers.cookie);
-      if (oldSessionToken) {
-        await dependencies.authService.invalidateSessionToken?.(oldSessionToken);
-      }
+      try {
+        const payload = await dependencies.authService.login({
+          email: request.body.email,
+          password: request.body.password
+        });
+        const oldSessionToken = readSessionCookie(request.headers.cookie);
+        if (oldSessionToken) {
+          await dependencies.authService.invalidateSessionToken?.(oldSessionToken);
+        }
 
-      const accessToken = readAccessToken(payload);
-      if (accessToken) {
-        reply.header("set-cookie", serializeSessionCookie(accessToken));
-      }
+        const accessToken = readAccessToken(payload);
+        if (accessToken) {
+          reply.header("set-cookie", serializeSessionCookie(accessToken));
+        }
 
-      return reply.send(payload);
+        return reply.send(payload);
+      } catch (error: unknown) {
+        const err = error as { code?: string; statusCode?: number; message?: string };
+        const status = err.statusCode === 401 || err.code === "UNAUTHORIZED" ? 401
+          : err.statusCode === 403 || err.code === "FORBIDDEN" ? 403
+          : typeof err.statusCode === "number" ? err.statusCode
+          : 500;
+        return reply.status(status).send({
+          error: err.code ?? "UNAUTHORIZED",
+          message: err.message
+        });
+      }
     }
   );
 

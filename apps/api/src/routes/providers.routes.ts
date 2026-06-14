@@ -206,6 +206,43 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
     },
     async (request, reply) => {
       const params = request.params as { key: string };
+      const body = request.body as Record<string, unknown>;
+
+      // Support partial update (toggle enabled): { enabled: boolean }
+      const isToggleOnly = typeof body.enabled === 'boolean'
+        && !body.kind && !body.displayName && !body.config;
+
+      if (isToggleOnly) {
+        // Toggle endpoint: PATCH-like behavior on PUT
+        if (!dependencies.providerService.saveProviderConfig) {
+          return reply.status(501).send({ error: "PROVIDER_SAVE_NOT_SUPPORTED" });
+        }
+        try {
+          // Read existing provider to get required fields
+          const allProviders = await dependencies.providerService.listProviders();
+          const existing = allProviders.find((p: Record<string, unknown>) => p.key === params.key);
+          if (!existing) {
+            return reply.status(404).send({ error: "NOT_FOUND", message: "Provider not found" });
+          }
+          const provider = await dependencies.providerService.saveProviderConfig({
+            key: params.key,
+            kind: existing.kind as string,
+            displayName: existing.displayName as string,
+            enabled: body.enabled as boolean,
+            isDefault: existing.isDefault as boolean,
+            config: (existing.config ?? {}) as Record<string, unknown>,
+            secretRefs: (existing.secretRefs ?? {}) as Record<string, string>,
+            actor: request.auth as AuthContext
+          });
+          return {
+            provider: redactSensitiveRouteValue(assertRouteResponseObject(provider, "PROVIDER_RESPONSE_INVALID"))
+          };
+        } catch (error) {
+          return sendStructuredProviderError(reply, error);
+        }
+      }
+
+      // Full update: validate with schema
       const parsed = providerConfigRouteInputSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({
