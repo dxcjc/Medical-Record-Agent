@@ -8,13 +8,13 @@ import {
   Form,
   Input,
   Select,
-  Message,
   Grid,
   Descriptions,
   Space,
   Typography,
   Tabs,
 } from '@arco-design/web-react';
+import { toast } from '../components/GlobalToast';
 import { useJob } from '../hooks/useJobs';
 import { useResult } from '../hooks/useResults';
 import { useSchemas } from '../hooks/useSchemas';
@@ -626,7 +626,7 @@ export default function JobDetailPage() {
 
   const handleFeedback = async () => {
     if (!feedbackField) {
-      Message.warning('请选择字段');
+      toast.warning('请选择字段');
       return;
     }
     setFeedbackLoading(true);
@@ -637,12 +637,12 @@ export default function JobDetailPage() {
         correctedValue: feedbackCorrection,
         comment: feedbackComment,
       });
-      Message.success('反馈提交成功');
+      toast.success('反馈提交成功');
       setFeedbackField('');
       setFeedbackCorrection('');
       setFeedbackComment('');
     } catch {
-      Message.error('反馈提交失败');
+      toast.error('反馈提交失败');
     } finally {
       setFeedbackLoading(false);
     }

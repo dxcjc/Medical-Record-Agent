@@ -5,7 +5,6 @@ import {
   Button,
   Spin,
   Grid,
-  Message,
   Descriptions,
   Typography,
   Space,
@@ -20,6 +19,7 @@ import {
   Timeline,
   Divider,
 } from '@arco-design/web-react';
+import { toast } from '../components/GlobalToast';
 import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown, IconSwap, IconClockCircle } from '@arco-design/web-react/icon';
 import { useSchemas, useDeactivateSchemaVersion, useActivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
@@ -332,27 +332,27 @@ export default function SchemaPage() {
   const handleDeactivate = async (id: string) => {
     try {
       await deactivateMutation.mutateAsync(id);
-      Message.success('已停用');
+      toast.success('已停用');
     } catch {
-      Message.error('操作失败');
+      toast.error('操作失败');
     }
   };
 
   const handleActivate = async (id: string) => {
     try {
       await activateMutation.mutateAsync(id);
-      Message.success('已启用');
+      toast.success('已启用');
     } catch {
-      Message.error('操作失败');
+      toast.error('操作失败');
     }
   };
 
   const handleRollback = async (id: string) => {
     try {
       await rollbackMutation.mutateAsync(id);
-      Message.success('已回滚');
+      toast.success('已回滚');
     } catch {
-      Message.error('操作失败');
+      toast.error('操作失败');
     }
   };
 
@@ -411,7 +411,7 @@ export default function SchemaPage() {
     // Validate field keys are non-empty
     const emptyKeyRow = fieldRows.find((r) => !r.key.trim());
     if (emptyKeyRow) {
-      Message.warning('所有字段的"字段名"不能为空');
+      toast.warning('所有字段的"字段名"不能为空');
       return;
     }
 
@@ -419,7 +419,7 @@ export default function SchemaPage() {
     const keys = fieldRows.map((r) => r.key.trim());
     const dupKey = keys.find((k, i) => keys.indexOf(k) !== i);
     if (dupKey) {
-      Message.warning(`字段名 "${dupKey}" 重复，请修改`);
+      toast.warning(`字段名 "${dupKey}" 重复，请修改`);
       return;
     }
 
@@ -438,11 +438,11 @@ export default function SchemaPage() {
         changelog: values.description || `初始版本 - ${values.displayName}`,
       });
 
-      Message.success('Schema 创建并发布成功');
+      toast.success('Schema 创建并发布成功');
       closeDrawer();
       refetch();
     } catch {
-      Message.error('创建失败，请重试');
+      toast.error('创建失败，请重试');
     } finally {
       setSaving(false);
     }

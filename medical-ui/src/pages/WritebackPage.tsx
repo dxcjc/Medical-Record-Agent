@@ -9,7 +9,6 @@ import {
   Tag,
   Tabs,
   Modal,
-  Message,
   Spin,
   Tooltip,
   Badge,
@@ -17,6 +16,7 @@ import {
 import { IconQuestionCircle, IconSettings } from '@arco-design/web-react/icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { writebackApi } from '../api/client';
+import { toast } from '../components/GlobalToast';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import type { WritebackAttempt } from '../api/types';
@@ -78,7 +78,7 @@ function WritebackConfirmModal({
     mutationFn: (jobId: string) =>
       writebackApi.execute({ jobId, confirmed: true, idempotencyKey: `manual:${jobId}:${Date.now()}` }),
     onSuccess: () => {
-      Message.success(isRetry ? '回写重试成功' : '回写执行成功');
+      toast.success(isRetry ? '回写重试成功' : '回写执行成功');
       queryClient.invalidateQueries({ queryKey: ['writeback-eligible'] });
       queryClient.invalidateQueries({ queryKey: ['writeback-history'] });
       onSuccess();
@@ -91,7 +91,7 @@ function WritebackConfirmModal({
       const msg = serverMsg
         ? `回写失败：${serverMsg}`
         : `回写执行失败（${apiErr.status || '网络错误'}）`;
-      Message.error(String(msg));
+      toast.error(String(msg));
     },
   });
 

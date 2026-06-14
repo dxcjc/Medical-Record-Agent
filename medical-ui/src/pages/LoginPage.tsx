@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Message, Card, Typography, Avatar } from '@arco-design/web-react';
+import { Form, Input, Button, Card, Typography, Avatar } from '@arco-design/web-react';
+import { toast } from '../components/GlobalToast';
 import { useAuthStore } from '../stores/authStore';
 import { IconUserRound, IconShield } from '../icons/appIcons';
 
@@ -16,15 +17,15 @@ export default function LoginPage() {
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      Message.warning('请输入邮箱和密码');
+      toast.warning('请输入邮箱和密码');
       return;
     }
     try {
       await login(email, password);
-      Message.success('登录成功');
+      toast.success('登录成功');
       navigate('/');
     } catch {
-      Message.error('登录失败，请检查邮箱和密码');
+      toast.error('登录失败，请检查邮箱和密码');
     }
   };
 
