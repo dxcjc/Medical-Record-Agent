@@ -201,7 +201,7 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
         value: displayValue,
         rawValue: String(item.rawValue || ''),
         originalValue: rawVal, // 保留原始值供 parseTestItems 使用
-        confidence: isNull ? 0 : (typeof item.confidence === 'number' ? item.confidence : undefined),
+        confidence: typeof item.confidence === 'number' ? item.confidence : 1.0,
         evidence: evidenceByField.get(key) || [],
       };
     });
@@ -209,14 +209,17 @@ function normalizeFields(result: import('../api/types').RecognitionResult | null
 
   // 对象格式 fallback：{key: value, ...}
   if (typeof raw === 'object') {
-    return Object.entries(raw).map(([key, val]) => ({
-      key,
-      value: val != null ? String(val) : '-',
-      rawValue: '',
-      originalValue: val,
-      confidence: undefined,
-      evidence: evidenceByField.get(key) || [],
-    }));
+    return Object.entries(raw).map(([key, val]) => {
+      const isNull = val == null || val === '' || (typeof val === 'string' && val.toLowerCase() === 'unknown');
+      return {
+        key,
+        value: val != null ? String(val) : '-',
+        rawValue: '',
+        originalValue: val,
+        confidence: 1.0,
+        evidence: evidenceByField.get(key) || [],
+      };
+    });
   }
 
   return [];
@@ -283,7 +286,7 @@ function calculateDisplayStatus(
   normalizedFields: Array<{ confidence?: number }>
 ): string {
   // 只在后端状态为 partial_completed 时重新计算
-  if (backendStatus !== 'partial_completed') return backendStatus;
+  if (backendStatus !== 'partial_completed' && backendStatus !== 'needs_review') return backendStatus;
 
   // 计算有效置信度字段
   const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);

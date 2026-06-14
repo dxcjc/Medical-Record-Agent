@@ -9,8 +9,8 @@ import {
   Descriptions,
   Typography,
   Space,
-  List,
 } from '@arco-design/web-react';
+import { IconLeft, IconSettings } from '@arco-design/web-react/icon';
 import { useSchemas, useDeactivateSchemaVersion, useRollbackSchemaVersion } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
@@ -46,15 +46,8 @@ export default function SchemaPage() {
     return map;
   }, [statsData]);
 
-  // 使用本地编辑的字段，或从 Schema definition 读取
   const fields: SchemaField[] = localFields || selected?.definition?.fields || [];
   const fieldGroups = useMemo(() => groupSchemaFields(fields), [fields]);
-
-  // 切换 Schema 时重置本地编辑
-  const handleSelectSchema = (id: string) => {
-    setSelectedId(id);
-    setLocalFields(null);
-  };
 
   const handleFieldUpdate = (key: string, updates: Partial<SchemaField>) => {
     const updatedFields = fields.map((f) =>
@@ -122,6 +115,114 @@ export default function SchemaPage() {
     );
   }
 
+  // Detail view
+  if (selected) {
+    return (
+      <div>
+        <PageHeader
+          eyebrow="配置管理"
+          title="Schema 详情"
+          subtitle={`${selected.displayName} · v${selected.version}`}
+          onRefresh={() => refetch()}
+        />
+
+        {/* Back button + actions */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <Button
+            icon={<IconLeft />}
+            onClick={() => { setSelectedId(null); setLocalFields(null); }}
+          >
+            返回列表
+          </Button>
+          <Space>
+            <Button
+              size="small"
+              status="warning"
+              loading={deactivateMutation.isPending}
+              onClick={() => handleDeactivate(selected.id)}
+              disabled={selected.status === 'inactive'}
+            >
+              停用
+            </Button>
+            <Button
+              size="small"
+              loading={rollbackMutation.isPending}
+              onClick={() => handleRollback(selected.id)}
+            >
+              回滚
+            </Button>
+          </Space>
+        </div>
+
+        {/* Schema info card */}
+        <Card
+          style={{
+            marginBottom: 20,
+            borderRadius: 12,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+          }}
+        >
+          <Descriptions
+            column={3}
+            data={[
+              { label: 'Schema Key', value: selected.schemaKey },
+              { label: '版本', value: String(selected.version) },
+              { label: '状态', value: <StatusTag status={selected.status} /> },
+              {
+                label: '发布时间',
+                value: selected.publishedAt
+                  ? new Date(selected.publishedAt).toLocaleString('zh-CN')
+                  : '-',
+              },
+              { label: '字段数', value: String(fields.length) },
+              ...(selected.changelog
+                ? [{ label: '变更说明', value: selected.changelog }]
+                : []),
+            ]}
+          />
+        </Card>
+
+        {/* Field cards - 2 per row */}
+        <div>
+          <Title heading={6} style={{ marginBottom: 16 }}>字段定义</Title>
+          {fields.length === 0 ? (
+            <Text type="secondary">暂无字段定义</Text>
+          ) : (
+            <Space direction="vertical" size={24} style={{ width: '100%' }}>
+              {fieldGroups.map((group) => (
+                <div key={group.key}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: '2px solid var(--color-border-2)',
+                  }}>
+                    <Tag color="blue" size="small">{group.fields.length}</Tag>
+                    <Text bold style={{ fontSize: 15 }}>{group.label}</Text>
+                  </div>
+                  <Row gutter={[16, 16]}>
+                    {group.fields.map((field) => (
+                      <Col key={field.key} xs={24} lg={12}>
+                        <FieldCard
+                          field={field}
+                          stats={statsMap.get(field.key)}
+                          onUpdate={handleFieldUpdate}
+                        />
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              ))}
+            </Space>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // List view - schema cards, 2 per row
   return (
     <div>
       <PageHeader
@@ -131,134 +232,59 @@ export default function SchemaPage() {
         onRefresh={() => refetch()}
       />
 
-      <Row gutter={16}>
-        {/* Left Panel - Schema List */}
-        <Col span={7}>
-          <Card bodyStyle={{ padding: 0 }}>
-            <List
-              dataSource={schemas}
-              render={(s: SchemaVersion) => (
-                <List.Item
-                  key={s.id}
-                  style={{
-                    cursor: 'pointer',
-                    background: selectedId === s.id ? 'var(--color-primary-soft)' : undefined,
-                    padding: '12px 20px',
-                  }}
-                  onClick={() => handleSelectSchema(s.id)}
-                >
-                  <List.Item.Meta
-                    title={
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ fontSize: 13 }}>{s.displayName}</Text>
-                        <StatusTag status={s.status} />
-                      </div>
-                    }
-                    description={
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        v{s.version} · {s.schemaKey}
-                      </Text>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
-
-        {/* Right Panel - Detail */}
-        <Col span={17}>
-          <Card style={{ minHeight: 400 }}>
-            {!selected ? (
-              <EmptyState title="请在左侧选择一个 Schema 查看详情" />
-            ) : (
-              <Space direction="vertical" size={24} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Row gutter={[16, 16]}>
+        {schemas.map((s) => {
+          const fieldCount = s.definition?.fields?.length || 0;
+          return (
+            <Col key={s.id} xs={24} lg={12}>
+              <Card
+                hoverable
+                onClick={() => {
+                  setSelectedId(s.id);
+                  setLocalFields(null);
+                }}
+                style={{
+                  borderRadius: 12,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                  cursor: 'pointer',
+                  border: '1px solid var(--color-border-2)',
+                  transition: 'all 0.2s',
+                }}
+                bodyStyle={{ padding: '20px 24px' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <div>
-                    <Title heading={5} style={{ marginBottom: 4 }}>{selected.displayName}</Title>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {selected.schemaKey} · v{selected.version}
+                    <Title heading={5} style={{ marginBottom: 4 }}>{s.displayName}</Title>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      {s.schemaKey} · v{s.version}
                     </Text>
                   </div>
-                  <Space>
-                    <Button
-                      size="small"
-                      status="warning"
-                      loading={deactivateMutation.isPending}
-                      onClick={() => handleDeactivate(selected.id)}
-                      disabled={selected.status === 'inactive'}
-                    >
-                      停用
-                    </Button>
-                    <Button
-                      size="small"
-                      loading={rollbackMutation.isPending}
-                      onClick={() => handleRollback(selected.id)}
-                    >
-                      回滚
-                    </Button>
-                  </Space>
+                  <StatusTag status={s.status} />
                 </div>
 
-                <Descriptions
-                  column={3}
-                  data={[
-                    { label: '版本', value: String(selected.version) },
-                    { label: '状态', value: <StatusTag status={selected.status} /> },
-                    {
-                      label: '发布时间',
-                      value: selected.publishedAt
-                        ? new Date(selected.publishedAt).toLocaleString('zh-CN')
-                        : '-',
-                    },
-                    ...(selected.changelog
-                      ? [{ label: '变更说明', value: selected.changelog }]
-                      : []),
-                  ]}
-                />
-
-                <div>
-                  <Title heading={6} style={{ marginBottom: 12 }}>字段定义</Title>
-                  {fields.length === 0 ? (
-                    <Text type="secondary">暂无字段定义</Text>
-                  ) : (
-                    <Space direction="vertical" size={20} style={{ width: '100%' }}>
-                      {fieldGroups.map((group) => (
-                        <div key={group.key}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            marginBottom: 10,
-                            paddingBottom: 6,
-                            borderBottom: '1px solid var(--color-border-2)',
-                          }}>
-                            <Tag color="blue" size="small">{group.fields.length}</Tag>
-                            <Text bold style={{ fontSize: 14 }}>{group.label}</Text>
-                          </div>
-                          <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
-                            gap: 12,
-                          }}>
-                            {group.fields.map((field) => (
-                              <FieldCard
-                                key={field.key}
-                                field={field}
-                                stats={statsMap.get(field.key)}
-                                onUpdate={handleFieldUpdate}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </Space>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <Tag color="blue" icon={<IconSettings />}>
+                    {fieldCount} 个字段
+                  </Tag>
+                  {s.publishedAt && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      发布于 {new Date(s.publishedAt).toLocaleString('zh-CN')}
+                    </Text>
                   )}
                 </div>
-              </Space>
-            )}
-          </Card>
-        </Col>
+
+                {s.changelog && (
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 12, marginTop: 8, display: 'block' }}
+                  >
+                    {s.changelog}
+                  </Text>
+                )}
+              </Card>
+            </Col>
+          );
+        })}
       </Row>
     </div>
   );
