@@ -14,15 +14,16 @@ import {
   Descriptions,
 } from '@arco-design/web-react';
 import { useQuery } from '@tanstack/react-query';
-import { feedbackApi, schemasApi } from '../api/client';
+import { feedbackApi } from '../api/client';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import MetricCard from '../components/MetricCard';
-import type { FeedbackSubmission, FeedbackFieldStat, SchemaVersion } from '../api/types';
+import type { FeedbackSubmission, FeedbackFieldStat } from '../api/types';
 import {
   IconMessageSquare,
   IconAlertTriangle,
   IconBarChart,
+  IconRefresh,
 } from '../icons/appIcons';
 
 const { Text } = Typography;
@@ -53,6 +54,7 @@ export default function FeedbackPage() {
   const {
     data: feedbackData,
     isLoading: feedbackLoading,
+    error: feedbackError,
     refetch: refetchFeedback,
   } = useQuery({
     queryKey: ['feedback-all', page, pageSize, fieldKeyFilter, jobIdFilter],
@@ -68,6 +70,7 @@ export default function FeedbackPage() {
   const {
     data: fieldStatsData,
     isLoading: fieldStatsLoading,
+    error: fieldStatsError,
   } = useQuery({
     queryKey: ['feedback-stats'],
     queryFn: () => feedbackApi.getFieldStats(),
@@ -80,13 +83,6 @@ export default function FeedbackPage() {
   // KPI 数据
   const totalFeedback = total;
   const topField = fieldStats.length > 0 ? fieldStats[0] : null;
-
-  // 获取 Schema 列表用于字段名映射
-  const { data: schemasData } = useQuery({
-    queryKey: ['schemas'],
-    queryFn: () => schemasApi.list(),
-  });
-  const schemas = schemasData?.items || [];
 
   // 所有字段名（用于筛选下拉）
   const allFieldKeys = useMemo(() => {
@@ -266,7 +262,12 @@ export default function FeedbackPage() {
           <Button onClick={() => refetchFeedback()}>刷新</Button>
         </div>
 
-        {feedbackLoading ? (
+        {feedbackError ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>加载失败</Text>
+            <Button icon={<IconRefresh />} onClick={() => refetchFeedback()}>重试</Button>
+          </div>
+        ) : feedbackLoading ? (
           <div style={{ textAlign: 'center', padding: 60 }}>
             <Spin />
           </div>

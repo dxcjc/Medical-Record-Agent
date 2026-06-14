@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Card, Grid, Tag, Tooltip, Typography } from '@arco-design/web-react';
 import { IconExclamationCircle } from '@arco-design/web-react/icon';
 
@@ -75,7 +74,7 @@ export default function FieldGroup({ title, icon, fields, columns = 2, onFieldCl
     >
       <Row gutter={[16, 12]}>
         {fields.map((field) => (
-          <Col key={field.label} span={spanPerField}>
+          <Col key={field.key || field.label} span={spanPerField}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Text
                 type="secondary"

@@ -35,6 +35,9 @@ export default function DashboardPage() {
   // 优先使用 stats API；如果失败则使用 fallback
   const useStatsApi = !!statsData && !statsError;
 
+  // 当 stats API 有数据但同时有错误时，显示警告但继续展示数据
+  const statsApiHasError = !!statsData && !!statsError;
+
   const todayStart = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);

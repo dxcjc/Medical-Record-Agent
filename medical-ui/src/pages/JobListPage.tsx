@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Select, Input, Button, Typography, Space } from '@arco-design/web-react';
+import { Card, Table, Select, Input, Button, Typography, Space, Spin } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
 import { usePaginatedJobs } from '../hooks/useJobs';
 import { useSchemas } from '../hooks/useSchemas';
@@ -266,7 +266,7 @@ export default function JobListPage() {
       <Card>
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 60 }}>
-            <Text type="secondary">加载中...</Text>
+            <Spin />
           </div>
         ) : jobs.length === 0 ? (
           <EmptyState

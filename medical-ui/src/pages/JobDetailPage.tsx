@@ -549,6 +549,38 @@ export default function JobDetailPage() {
   // Dynamic checkbox state for test items (keyed by field key)
   const [testItemSelections, setTestItemSelections] = useState<Record<string, string[]>>({});
 
+  // 计算派生数据（在 early returns 之前，遵循 Rules of Hooks）
+  const normalizedFields = normalizeFields(result as Record<string, unknown> | null | undefined);
+  const evidence = result?.evidence || [];
+  const trace = job?.trace || [];
+  const isRunning = job ? ['queued', 'running'].includes(job.status) : false;
+  const ocrText = extractOcrText(result as Record<string, unknown> | null | undefined);
+  const ocrBlocks = extractOcrBlocks(result as Record<string, unknown> | null | undefined);
+  const confidenceStr = result?.confidence;
+  const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
+  const confidenceNum = confidenceStr
+    ? parseFloat(confidenceStr)
+    : fieldsWithConfidence.length > 0
+      ? fieldsWithConfidence.reduce((sum, f) => sum + (f.confidence || 0), 0) / fieldsWithConfidence.length
+      : null;
+  const displayStatus = job ? calculateDisplayStatus(job.status, normalizedFields) : '';
+  const fieldMap = new Map(normalizedFields.map((f) => [f.key, f]));
+
+  // Parse test items from fields dynamically（hooks 必须在 early returns 前声明）
+  const testItemData = useMemo(() => {
+    const data: Record<string, { field?: NormalizedField; parsed: { all: string[]; checked: string[] }; effectiveSelected: string[]; effectiveOptions: string[] }> = {};
+    for (const key of testItemKeys) {
+      const f = fieldMap.get(key);
+      const parsed = parseTestItems(f?.value);
+      const localSel = testItemSelections[key] || [];
+      const effectiveSelected = localSel.length > 0 ? localSel : parsed.checked;
+      const schemaOptions = testItemOptions[key] || [];
+      const effectiveOptions = Array.from(new Set([...schemaOptions, ...effectiveSelected]));
+      data[key] = { field: f, parsed, effectiveSelected, effectiveOptions };
+    }
+    return data;
+  }, [testItemKeys, testItemSelections, testItemOptions, normalizedFields]);
+
   const handleFeedback = async () => {
     if (!feedbackField) {
       Message.warning('请选择字段');
@@ -615,42 +647,6 @@ export default function JobDetailPage() {
     );
   }
 
-  const normalizedFields = normalizeFields(result as Record<string, unknown> | null | undefined);
-  const evidence = result?.evidence || [];
-  const trace = job.trace || [];
-  const isRunning = ['queued', 'running'].includes(job.status);
-  const ocrText = extractOcrText(result as Record<string, unknown> | null | undefined);
-  const ocrBlocks = extractOcrBlocks(result as Record<string, unknown> | null | undefined);
-  const confidenceStr = result?.confidence;
-  // 如果 API 没有返回整体置信度，从字段置信度计算平均值（排除空值字段）
-  const fieldsWithConfidence = normalizedFields.filter((f) => f.confidence != null && f.confidence > 0);
-  const confidenceNum = confidenceStr
-    ? parseFloat(confidenceStr)
-    : fieldsWithConfidence.length > 0
-      ? fieldsWithConfidence.reduce((sum, f) => sum + (f.confidence || 0), 0) / fieldsWithConfidence.length
-      : null;
-
-  // 根据置信度重新计算显示状态（置信度0=空值=通过，≥80%=完成）
-  const displayStatus = calculateDisplayStatus(job.status, normalizedFields);
-
-  // Build field data for each group
-  const fieldMap = new Map(normalizedFields.map((f) => [f.key, f]));
-
-  // Parse test items from fields dynamically
-  const testItemData = useMemo(() => {
-    const data: Record<string, { field?: NormalizedField; parsed: { all: string[]; checked: string[] }; effectiveSelected: string[]; effectiveOptions: string[] }> = {};
-    for (const key of testItemKeys) {
-      const f = fieldMap.get(key);
-      const parsed = parseTestItems(f?.value);
-      const localSel = testItemSelections[key] || [];
-      const effectiveSelected = localSel.length > 0 ? localSel : parsed.checked;
-      const schemaOptions = testItemOptions[key] || [];
-      const effectiveOptions = Array.from(new Set([...schemaOptions, ...effectiveSelected]));
-      data[key] = { field: f, parsed, effectiveSelected, effectiveOptions };
-    }
-    return data;
-  }, [testItemKeys, fieldMap, testItemSelections, testItemOptions]);
-
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       {/* Header */}
@@ -690,8 +686,8 @@ export default function JobDetailPage() {
           }
         >
           <PipelineProgress
-            nodes={trace.map((step) => ({
-              key: step.node || step.step || String(Math.random()),
+            nodes={trace.map((step, idx) => ({
+              key: step.node || step.step || `step-${idx}`,
               label: traceStepTitle(step),
               status: traceStepStatus(step),
               message: step.message ? String(step.message) : undefined,

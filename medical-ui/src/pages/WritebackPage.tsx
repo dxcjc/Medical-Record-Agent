@@ -149,6 +149,7 @@ export default function WritebackPage() {
   const {
     data: historyData,
     isLoading: historyLoading,
+    error: historyError,
     refetch: refetchHistory,
   } = useQuery({
     queryKey: ['writeback-history', historyPage, historyPageSize],
@@ -232,7 +233,7 @@ export default function WritebackPage() {
           size="small"
           onClick={() => navigate(`/jobs/${record.jobId}`)}
         >
-          <Text code style={{ fontSize: 12 }}>{record.jobId.slice(0, 16)}</Text>
+          <Text code style={{ fontSize: 12 }}>{(record.jobId || '').slice(0, 16)}</Text>
         </Button>
       ),
     },
@@ -342,7 +343,9 @@ export default function WritebackPage() {
 
           <Tabs.TabPane key="history" title="回写历史">
             <div style={{ padding: '16px 0' }}>
-              {historyLoading ? (
+              {historyError ? (
+                renderError(historyError, refetchHistory)
+              ) : historyLoading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>
                   <Spin />
                 </div>

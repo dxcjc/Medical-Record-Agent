@@ -159,21 +159,6 @@ function QualityReportTab({ schemas }: { schemas: SchemaVersion[] }) {
       .slice(0, 5);
   }, [fieldStats]);
 
-  // 按 Schema 分布统计
-  const schemaDistribution = useMemo(() => {
-    const map = new Map<string, number>();
-    // 从 fieldStats 按 schemaKey 统计
-    fieldStats.forEach(f => {
-      // 如果有 schemaKey 信息则统计
-    });
-    // 使用 schemas 列表
-    return schemas.map(s => ({
-      key: s.schemaKey,
-      displayName: s.displayName,
-      count: 0, // 会从 dashboardStats 获取
-    }));
-  }, [schemas, fieldStats]);
-
   return (
     <div style={{ padding: '16px 0' }}>
       {/* Schema 选择器 */}
@@ -590,7 +575,7 @@ function AuditLogTab() {
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 60 }}>
-          <Text type="secondary">加载中...</Text>
+          <Spin />
         </div>
       ) : entries.length === 0 ? (
         <EmptyState

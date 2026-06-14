@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Avatar, Breadcrumb, Button, Layout, Message } from '@arco-design/web-react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
-  IconArrowLeft,
-  IconBarChart,
   IconBeaker,
   IconClipboardList,
   IconDashboard,
@@ -76,7 +74,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/jobs': '任务列表',
   '/recognition/new': '新建识别',
   '/schemas': 'Schema 管理',
-  '/providers': 'Provider 管理',
+  '/providers': 'Provider',
   '/evaluation': '评测中心',
   '/audit': '审计日志',
   '/feedback': '反馈管理',
@@ -130,6 +128,11 @@ export default function AppLayout() {
     if (path.startsWith('/jobs/')) return '任务详情';
     return '医疗记录识别';
   }, [location.pathname]);
+
+  // 动态设置浏览器标签页标题
+  useEffect(() => {
+    document.title = `${pageTitle} - 医疗记录智能识别`;
+  }, [pageTitle]);
 
   function handleNavClick(key: string) {
     navigate(key);

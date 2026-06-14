@@ -29,6 +29,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ConfigProvider locale={zhCN}>
     <QueryClientProvider client={queryClient}>
       <AppThemeProvider>
         <BrowserRouter>
@@ -52,10 +53,23 @@ export default function App() {
               <Route path="audit" element={<AuditPage />} />
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="writeback" element={<WritebackPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
       </AppThemeProvider>
     </QueryClientProvider>
+    </ConfigProvider>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 16 }}>
+      <span style={{ fontSize: 64, color: 'var(--color-text-3)' }}>404</span>
+      <span style={{ fontSize: 16, color: 'var(--color-text-2)' }}>页面不存在</span>
+      <a href="/" style={{ color: 'var(--color-primary)' }}>返回工作台</a>
+    </div>
   );
 }
