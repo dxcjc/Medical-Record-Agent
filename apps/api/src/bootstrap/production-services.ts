@@ -2811,12 +2811,65 @@ export function createProductionApiServices(options: CreateProductionApiServices
 
   const statsService = createStatsService(prisma);
 
+  // feedbackService 增强：支持 updateStatus（审核反馈 + 写入知识库）
+  const originalFeedbackService = services.feedbackService;
+
   return {
     ...services,
     knowledgeService: {
       knowledgeRepository
     },
     statsService,
+    feedbackService: {
+      ...originalFeedbackService,
+      async updateStatus(id: string, status: 'approved' | 'rejected') {
+        const prismaStatus = status === 'approved' ? 'accepted' : 'rejected';
+        const now = new Date();
+
+        // 查找反馈记录
+        const feedback = await prisma.feedbackSubmission.findUnique({ where: { id } });
+        if (!feedback) {
+          throw Object.assign(new Error("FEEDBACK_NOT_FOUND"), {
+            code: "FEEDBACK_NOT_FOUND",
+            statusCode: 404
+          });
+        }
+
+        // 更新反馈状态
+        const updated = await prisma.feedbackSubmission.update({
+          where: { id },
+          data: { status: prismaStatus, reviewedAt: now }
+        });
+
+        // 如果审核通过，写入知识库
+        if (status === 'approved' && feedback.fieldKey) {
+          const originalStr = feedback.originalValue
+            ? (typeof feedback.originalValue === 'string' ? feedback.originalValue : JSON.stringify(feedback.originalValue))
+            : '';
+          const correctedStr = feedback.correctedValue
+            ? (typeof feedback.correctedValue === 'string' ? feedback.correctedValue : JSON.stringify(feedback.correctedValue))
+            : '';
+
+          if (correctedStr) {
+            try {
+              await knowledgeRepository.create({
+                kind: 'field_description',
+                title: `纠偏: ${feedback.fieldKey}`,
+                content: `字段 "${feedback.fieldKey}" 从 "${originalStr}" 纠正为 "${correctedStr}"${feedback.comment ? `，原因: ${feedback.comment}` : ''}`,
+                keywords: [feedback.fieldKey],
+                fieldKeys: [feedback.fieldKey],
+                enabled: true,
+                sortOrder: 0
+              });
+            } catch {
+              // 知识库写入失败不影响反馈审核结果
+            }
+          }
+        }
+
+        return updated;
+      }
+    },
     writebackService: {
       async execute(input) {
         return assertRouteResponseObject(await productionWritebackExecutor(input), "WRITEBACK_RESPONSE_INVALID");

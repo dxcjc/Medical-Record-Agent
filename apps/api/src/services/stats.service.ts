@@ -1,6 +1,21 @@
 import type { PrismaClient } from "@prisma/client";
 
-type StatsRepositoryDeps = Pick<PrismaClient, "recognitionResult" | "feedbackSubmission" | "recognitionJob"> & {
+export interface DashboardStats {
+  todayJobs: number;
+  needsReview: number;
+  completedJobs: number;
+  onlineProviders: number;
+  totalJobs: number;
+  recentAlerts: Array<{
+    id: string;
+    status: string;
+    schemaKey: string;
+    createdAt: string;
+    [key: string]: unknown;
+  }>;
+}
+
+type StatsRepositoryDeps = Pick<PrismaClient, "recognitionResult" | "feedbackSubmission" | "recognitionJob" | "providerConfig"> & {
   $queryRawUnsafe: PrismaClient["$queryRawUnsafe"];
 };
 
@@ -139,6 +154,59 @@ export function createStatsService(deps: StatsRepositoryDeps) {
       }
 
       return stats.sort((a, b) => b.recognitionCount - a.recognitionCount);
+    },
+
+    async getDashboardStats(): Promise<DashboardStats> {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // 并行查询各指标
+      const [todayJobs, needsReview, completedJobs, onlineProviders, totalJobs, recentAlerts] = await Promise.all([
+        // 今日任务数
+        deps.recognitionJob.count({
+          where: { deletedAt: null, createdAt: { gte: todayStart } },
+        }),
+        // 需审核数
+        deps.recognitionResult.count({
+          where: { reviewRequired: true },
+        }),
+        // 已完成任务数
+        deps.recognitionJob.count({
+          where: { deletedAt: null, status: 'completed' },
+        }),
+        // 在线 Provider 数
+        deps.providerConfig.count({
+          where: { status: 'active' },
+        }),
+        // 总任务数
+        deps.recognitionJob.count({
+          where: { deletedAt: null },
+        }),
+        // 最近异常（failed/requires_review 的任务）
+        deps.recognitionJob.findMany({
+          where: {
+            deletedAt: null,
+            status: { in: ['failed', 'needs_review'] },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: { id: true, status: true, schemaKey: true, createdAt: true },
+        }),
+      ]);
+
+      return {
+        todayJobs,
+        needsReview,
+        completedJobs,
+        onlineProviders,
+        totalJobs,
+        recentAlerts: (recentAlerts as Array<{ id: string; status: string; schemaKey: string; createdAt: Date }>).map((a) => ({
+          id: a.id,
+          status: a.status,
+          schemaKey: a.schemaKey,
+          createdAt: a.createdAt.toISOString(),
+        })),
+      };
     },
   };
 }

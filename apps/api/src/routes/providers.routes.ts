@@ -93,6 +93,67 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
   );
 
   server.post(
+    "/providers",
+    {
+      preHandler: [
+        ...preHandler,
+        ...(dependencies.auditHooks
+          ? [
+              dependencies.auditHooks.audit({
+                action: "provider.create",
+                objectType: "provider"
+              })
+            ]
+          : [])
+      ]
+    },
+    async (request, reply) => {
+      const parsed = providerConfigRouteInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "Invalid provider config payload"
+        });
+      }
+
+      const body = request.body as Record<string, unknown>;
+      const key = typeof body.key === 'string' && body.key.length > 0
+        ? body.key
+        : (typeof parsed.data.displayName === 'string'
+          ? parsed.data.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+          : '');
+
+      if (!key) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "key is required"
+        });
+      }
+
+      try {
+        if (!dependencies.providerService.saveProviderConfig) {
+          throw Object.assign(new Error("PROVIDER_SAVE_NOT_SUPPORTED"), {
+            code: "PROVIDER_SAVE_NOT_SUPPORTED",
+            statusCode: 501
+          });
+        }
+
+        const provider = await dependencies.providerService.saveProviderConfig({
+          key,
+          ...parsed.data,
+          actor: request.auth as AuthContext
+        });
+
+        return reply.status(201).send({
+          provider: redactSensitiveRouteValue(assertRouteResponseObject(provider, "PROVIDER_RESPONSE_INVALID"))
+        });
+      } catch (error) {
+        return sendStructuredProviderError(reply, error);
+      }
+    }
+  );
+
+  server.post(
     "/providers/:key/default",
     {
       preHandler: [

@@ -6,6 +6,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  restoring: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   restore: () => void;
@@ -39,6 +40,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  restoring: true, // 初始为 true，等 restore() 完成后设为 false
 
   login: async (email: string, password: string) => {
     set({ isLoading: true });
@@ -65,17 +67,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   restore: () => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      set({ isAuthenticated: false, user: null });
+      set({ isAuthenticated: false, user: null, restoring: false });
       return;
     }
     if (isTokenExpired(token)) {
-      // token 已过期，清理状态并跳转登录
+      // token 已过期，清理状态
       clearToken();
-      set({ isAuthenticated: false, user: null });
-      window.location.href = '/login';
+      set({ isAuthenticated: false, user: null, restoring: false });
       return;
     }
-    set({ isAuthenticated: true });
+    set({ isAuthenticated: true, restoring: false });
   },
 
   validateToken: () => {

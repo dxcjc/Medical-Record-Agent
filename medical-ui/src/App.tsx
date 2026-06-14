@@ -1,9 +1,12 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import zhCN from '@arco-design/web-react/es/locale/zh-CN';
-import { ConfigProvider } from '@arco-design/web-react';
+import { ConfigProvider, Spin } from '@arco-design/web-react';
 import AppThemeProvider from './theme/AppThemeProvider';
 import AppLayout from './layout/AppLayout';
+import ErrorBoundary from './components/ErrorBoundary';
+import NetworkStatus from './components/NetworkStatus';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import JobListPage from './pages/JobListPage';
@@ -23,40 +26,59 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const restoring = useAuthStore((s) => s.restoring);
+
+  // restore 完成前显示 loading，避免误跳转到登录页
+  if (restoring) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <Spin size={32} tip="加载中..." />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 export default function App() {
+  // 挂载时恢复登录状态
+  useEffect(() => {
+    useAuthStore.getState().restore();
+  }, []);
+
   return (
     <ConfigProvider locale={zhCN}>
     <QueryClientProvider client={queryClient}>
       <AppThemeProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<DashboardPage />} />
-              <Route path="jobs" element={<JobListPage />} />
-              <Route path="jobs/:id" element={<JobDetailPage />} />
-              <Route path="recognition/new" element={<NewRecognitionPage />} />
-              <Route path="schemas" element={<SchemaPage />} />
-              <Route path="providers" element={<ProviderPage />} />
-              <Route path="evaluation" element={<EvaluationPage />} />
-              <Route path="audit" element={<AuditPage />} />
-              <Route path="feedback" element={<FeedbackPage />} />
-              <Route path="writeback" element={<WritebackPage />} />
+          <ErrorBoundary>
+            <NetworkStatus />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<DashboardPage />} />
+                <Route path="jobs" element={<JobListPage />} />
+                <Route path="jobs/:id" element={<JobDetailPage />} />
+                <Route path="recognition/new" element={<NewRecognitionPage />} />
+                <Route path="schemas" element={<SchemaPage />} />
+                <Route path="providers" element={<ProviderPage />} />
+                <Route path="evaluation" element={<EvaluationPage />} />
+                <Route path="audit" element={<AuditPage />} />
+                <Route path="feedback" element={<FeedbackPage />} />
+                <Route path="writeback" element={<WritebackPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
               <Route path="*" element={<NotFoundPage />} />
-            </Route>
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+            </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </AppThemeProvider>
     </QueryClientProvider>

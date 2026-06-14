@@ -28,6 +28,7 @@ export interface JobRouteService {
   list(limit?: number): Promise<ApiRouteResponseObject[]>;
   softDelete(id: string): Promise<ApiRouteResponseObject>;
   rerun(id: string): Promise<ApiRouteResponseObject>;
+  export?(id: string): Promise<ApiRouteResponseObject | null>;
 }
 
 export interface JobRoutesDependencies {
@@ -133,6 +134,31 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
       const params = request.params as { id: string };
       const result = await dependencies.jobService.rerun(params.id);
       return reply.status(201).send(result);
+    }
+  );
+
+  // GET /jobs/:id/export — 导出任务识别结果
+  server.get(
+    "/jobs/:id/export",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.jobRead)
+      ]
+    },
+    async (request, reply) => {
+      if (!dependencies.jobService.export) {
+        return reply.status(501).send({ error: "NOT_IMPLEMENTED", message: "Export not supported" });
+      }
+
+      const params = request.params as { id: string };
+      const result = await dependencies.jobService.export(params.id);
+
+      if (!result) {
+        return reply.status(404).send(sendNotFound());
+      }
+
+      return result;
     }
   );
 }

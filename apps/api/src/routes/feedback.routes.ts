@@ -17,6 +17,7 @@ export interface FeedbackRouteService {
   listByJobId(jobId: string): Promise<ApiRouteResponseObject[]>;
   listAll(input?: { fieldKey?: string; jobId?: string; page?: number; pageSize?: number }): Promise<{ items: ApiRouteResponseObject[]; total: number; page: number; pageSize: number }>;
   getFieldStats(): Promise<Array<{ fieldKey: string; count: number }>>;
+  updateStatus(id: string, status: 'approved' | 'rejected'): Promise<ApiRouteResponseObject>;
 }
 
 export interface FeedbackRoutesDependencies {
@@ -131,6 +132,51 @@ export async function registerFeedbackRoutes(server: FastifyInstance, dependenci
     async () => {
       const stats = await dependencies.feedbackService.getFieldStats();
       return { stats };
+    }
+  );
+
+  // PATCH /feedback/:id - 更新反馈审核状态
+  server.patch(
+    "/feedback/:id",
+    {
+      preHandler: [
+        dependencies.authHooks.authenticate,
+        dependencies.authHooks.requirePermission(PERMISSIONS.feedbackCreate),
+        ...(dependencies.auditHooks
+          ? [
+              dependencies.auditHooks.audit({
+                action: "feedback.review",
+                objectType: "feedback",
+                objectId: (request) => (request.params as { id?: string }).id
+              })
+            ]
+          : [])
+      ]
+    },
+    async (request, reply) => {
+      const params = request.params as { id: string };
+      const body = request.body as { status?: string };
+
+      if (!body.status || !['approved', 'rejected'].includes(body.status)) {
+        return reply.status(400).send({
+          error: "BAD_REQUEST",
+          message: "status must be 'approved' or 'rejected'"
+        });
+      }
+
+      try {
+        const feedback = await dependencies.feedbackService.updateStatus(
+          params.id,
+          body.status as 'approved' | 'rejected'
+        );
+        return assertRouteResponseObject(feedback, "FEEDBACK_RESPONSE_INVALID");
+      } catch (error: unknown) {
+        const err = error as { code?: string; statusCode?: number };
+        if (err.code === "FEEDBACK_NOT_FOUND") {
+          return reply.status(404).send({ error: "NOT_FOUND", message: "反馈记录不存在" });
+        }
+        throw error;
+      }
     }
   );
 }

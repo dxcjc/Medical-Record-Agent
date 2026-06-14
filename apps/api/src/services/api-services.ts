@@ -1955,6 +1955,34 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         });
 
         return assertRouteRecord({ ...newJob, status: "queued" }, "JOB_RERUN_RESPONSE_INVALID");
+      },
+      async export(id: string) {
+        const job = await repositories.jobsRepository.findById(id);
+        if (!isRecord(job)) {
+          return null;
+        }
+
+        const result = await repositories.resultsRepository.findByJobId(id);
+        const resultRecord = isRecord(result) ? result : null;
+
+        return assertRouteRecord({
+          job: {
+            id: job.id,
+            status: job.status,
+            schemaKey: job.schemaKey,
+            createdAt: job.createdAt,
+            completedAt: job.completedAt,
+            sourceFileId: job.sourceFileId,
+          },
+          result: resultRecord ? {
+            fields: resultRecord.fields,
+            normalizedFields: resultRecord.normalizedFields,
+            confidence: resultRecord.confidence,
+            reviewRequired: resultRecord.reviewRequired,
+            evidence: resultRecord.evidence,
+          } : null,
+          exportedAt: new Date().toISOString(),
+        }, "JOB_EXPORT_RESPONSE_INVALID");
       }
     },
     resultService: {

@@ -1,9 +1,14 @@
+import { getChineseErrorMessage } from './errorMessages';
+
 const API_BASE = '/api';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
+
+// 401 去重锁 — 多个请求同时 401 时，只执行一次跳转
+let isRedirectingToLogin = false;
 
 function getToken(): string | null {
   return localStorage.getItem('accessToken');
@@ -21,6 +26,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public body: unknown,
+    public userMessage: string,
     message?: string
   ) {
     super(message || `API Error ${status}`);
@@ -42,6 +48,17 @@ function isRetryableStatus(status: number): boolean {
   return RETRYABLE_STATUS_CODES.has(status);
 }
 
+function handle401Redirect() {
+  if (isRedirectingToLogin) return;
+  isRedirectingToLogin = true;
+  clearToken();
+  window.location.href = '/login';
+  // 5 秒后重置 flag，避免页面加载后锁死
+  setTimeout(() => {
+    isRedirectingToLogin = false;
+  }, 5000);
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -58,6 +75,12 @@ async function request<T>(
   // Don't set Content-Type for FormData
   if (!(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
+  }
+
+  // POST/DELETE/PUT 无 body 自动补 {}
+  const method = (options.method || 'GET').toUpperCase();
+  if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(method) && options.body === undefined) {
+    options.body = JSON.stringify({});
   }
 
   let lastError: unknown;
@@ -80,15 +103,14 @@ async function request<T>(
     }
 
     if (res.status === 401) {
-      clearToken();
-      window.location.href = '/login';
-      throw new ApiError(401, null, 'Unauthorized');
+      handle401Redirect();
+      throw new ApiError(401, null, '登录已过期，请重新登录', 'Unauthorized');
     }
 
     if (!res.ok) {
       // Retry on transient server/network errors
       if (isRetryableStatus(res.status) && attempt < MAX_RETRIES) {
-        await delay(RETRYABLE_STATUS_CODES.has(res.status) ? RETRY_DELAY_MS * (attempt + 1) : 0);
+        await delay(RETRY_DELAY_MS * (attempt + 1));
         continue;
       }
 
@@ -98,7 +120,8 @@ async function request<T>(
       } catch {
         body = null;
       }
-      throw new ApiError(res.status, body);
+      const userMessage = getChineseErrorMessage(body, res.status);
+      throw new ApiError(res.status, body, userMessage);
     }
 
     // Handle binary responses
@@ -159,6 +182,12 @@ export const jobsApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  rerun: (id: string) =>
+    request<import('./types').RecognitionJob>(`/jobs/${id}/rerun`, { method: 'POST' }),
+  delete: (id: string) =>
+    request<void>(`/jobs/${id}`, { method: 'DELETE' }),
+  export: (id: string) =>
+    request<Record<string, unknown>>(`/jobs/${id}/export`),
 };
 
 // Results
@@ -177,15 +206,15 @@ export const filesApi = {
     // Read file as base64
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    
+
     // Calculate SHA256
     const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const checksumSha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
+
     // Convert to base64 using chunked approach to avoid stack overflow
     const base64 = uint8ArrayToBase64(uint8Array);
-    
+
     return request<import('./types').StoredFile>('/files', {
       method: 'POST',
       body: JSON.stringify({
@@ -244,6 +273,11 @@ export const schemasApi = {
 export const providersApi = {
   list: () =>
     request<{ items: import('./types').ProviderConfig[] }>('/providers'),
+  create: (body: { key: string; kind: string; displayName: string; enabled?: boolean; isDefault?: boolean; config?: Record<string, unknown>; secretRefs?: Record<string, string> }) =>
+    request<{ provider: import('./types').ProviderConfig }>('/providers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   health: (key: string) =>
     request<{ health: import('./types').ProviderHealth }>(`/providers/${key}/health`, {
       method: 'POST',
@@ -308,6 +342,11 @@ export const feedbackApi = {
   },
   getFieldStats: () =>
     request<{ stats: import('./types').FeedbackFieldStat[] }>('/feedback/stats'),
+  updateStatus: (id: string, status: 'approved' | 'rejected') =>
+    request<import('./types').FeedbackSubmission>(`/feedback/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 };
 
 // Audit

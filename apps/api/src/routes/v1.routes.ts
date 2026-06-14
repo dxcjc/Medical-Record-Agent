@@ -50,7 +50,7 @@ function sendNotFound() {
  */
 export async function registerV1Routes(server: FastifyInstance, dependencies: V1RoutesDependencies) {
   server.get(
-    "/api/v1/jobs",
+    "/v1/jobs",
     {
       preHandler: [
         dependencies.authHooks.authenticate,
@@ -84,7 +84,7 @@ export async function registerV1Routes(server: FastifyInstance, dependencies: V1
   );
 
   server.get(
-    "/api/v1/jobs/:id/result",
+    "/v1/jobs/:id/result",
     {
       preHandler: [
         dependencies.authHooks.authenticate,
@@ -104,7 +104,7 @@ export async function registerV1Routes(server: FastifyInstance, dependencies: V1
   );
 
   server.get(
-    "/api/v1/jobs/:id/result/fields",
+    "/v1/jobs/:id/result/fields",
     {
       preHandler: [
         dependencies.authHooks.authenticate,
