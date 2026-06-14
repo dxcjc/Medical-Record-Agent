@@ -5,7 +5,6 @@ import {
   Button,
   Spin,
   Grid,
-  Message,
   Typography,
   Space,
   Descriptions,
@@ -16,7 +15,6 @@ import {
   Switch,
   Popconfirm,
   Tabs,
-  Tooltip,
 } from '@arco-design/web-react';
 import {
   useProviders,
@@ -27,6 +25,7 @@ import {
   useDeleteProvider,
 } from '../hooks/useProviders';
 import { ApiError } from '../api/client';
+import { toast } from '../components/GlobalToast';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Skeleton, { MetricCardSkeleton } from '../components/Skeleton';
@@ -137,7 +136,7 @@ export default function ProviderPage() {
   const handleTestConnection = async () => {
     const values = form.getFieldsValue() as ProviderFormData;
     if (!values.key) {
-      Message.warning('请先填写 Key');
+      toast.warning('请先填写 Key');
       return;
     }
     setHealthLoading(true);
@@ -187,11 +186,11 @@ export default function ProviderPage() {
 
       try {
         await updateMutation.mutateAsync({ key: editingProvider.key, body });
-        Message.success('更新成功');
+        toast.success('更新成功');
         closeModal();
       } catch (err) {
         const apiErr = err as ApiError;
-        Message.error(`更新失败：${apiErr.userMessage || '未知错误'}`);
+        toast.error(`更新失败：${apiErr.userMessage || '未知错误'}`);
       }
     } else {
       // Create new provider
@@ -207,11 +206,11 @@ export default function ProviderPage() {
             ...(values.apiKey ? { apiKey: values.apiKey } : {}),
           },
         });
-        Message.success('创建成功');
+        toast.success('创建成功');
         closeModal();
       } catch (err) {
         const apiErr = err as ApiError;
-        Message.error(`创建失败：${apiErr.userMessage || '未知错误'}`);
+        toast.error(`创建失败：${apiErr.userMessage || '未知错误'}`);
       }
     }
   };
@@ -219,13 +218,13 @@ export default function ProviderPage() {
   const handleDelete = async (key: string) => {
     try {
       await deleteMutation.mutateAsync(key);
-      Message.success('已删除');
+      toast.success('已删除');
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 409) {
-        Message.error('该 Provider 有关联任务，无法删除');
+        toast.error('该 Provider 有关联任务，无法删除');
       } else {
-        Message.error(`删除失败：${apiErr.userMessage || '未知错误'}`);
+        toast.error(`删除失败：${apiErr.userMessage || '未知错误'}`);
       }
     }
   };
@@ -237,19 +236,19 @@ export default function ProviderPage() {
         key: provider.key,
         body: { enabled: newEnabled },
       });
-      Message.success(newEnabled ? '已启用' : '已禁用');
+      toast.success(newEnabled ? '已启用' : '已禁用');
     } catch (err) {
       const apiErr = err as ApiError;
-      Message.error(`操作失败：${apiErr.userMessage || '未知错误'}`);
+      toast.error(`操作失败：${apiErr.userMessage || '未知错误'}`);
     }
   };
 
   const handleSetDefault = async (key: string) => {
     try {
       await setDefaultMutation.mutateAsync(key);
-      Message.success('已设为默认');
+      toast.success('已设为默认');
     } catch {
-      Message.error('设置失败');
+      toast.error('设置失败');
     }
   };
 
@@ -257,19 +256,16 @@ export default function ProviderPage() {
     try {
       const res = await healthCheckMutation.mutateAsync(key);
       if (res.health.healthy) {
-        Message.success(`${key} 健康 (${res.health.latency}ms)`);
+        toast.success(`${key} 健康 (${res.health.latency}ms)`);
       } else {
-        Message.warning(`${key} 异常: ${res.health.message || '未知'}`);
+        toast.warning(`${key} 异常: ${res.health.message || '未知'}`);
       }
     } catch {
-      Message.error('健康检查失败');
+      toast.error('健康检查失败');
     }
   };
 
-  const isBuiltIn = (p: ProviderConfig) => !p.createdAt;
-
   const renderProviderCard = (p: ProviderConfig) => {
-    const builtIn = isBuiltIn(p);
     const endpoint = p.config?.endpoint;
     const showEndpoint = endpoint && endpoint !== '-';
 
@@ -279,29 +275,16 @@ export default function ProviderPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <Space>
               <Title heading={6} style={{ margin: 0 }}>{p.displayName}</Title>
-              {builtIn && <Tag color="gray">系统内置</Tag>}
               {p.isDefault && <Tag color="blue">默认</Tag>}
             </Space>
-            {builtIn ? (
-              <Tooltip content="系统内置 Provider 不可切换状态">
-                <Switch
-                  checked={p.status === 'active'}
-                  disabled
-                  size="small"
-                  checkedText="启用"
-                  uncheckedText="禁用"
-                />
-              </Tooltip>
-            ) : (
-              <Switch
-                checked={p.status === 'active'}
-                onChange={() => handleToggleEnabled(p)}
-                loading={updateMutation.isPending}
-                size="small"
-                checkedText="启用"
-                uncheckedText="禁用"
-              />
-            )}
+            <Switch
+              checked={p.status === 'active'}
+              onChange={() => handleToggleEnabled(p)}
+              loading={updateMutation.isPending}
+              size="small"
+              checkedText="启用"
+              uncheckedText="禁用"
+            />
           </div>
 
           <div style={{ marginBottom: 12 }}>
@@ -344,41 +327,25 @@ export default function ProviderPage() {
               </Button>
             </Space>
             <Space size="small">
-              {builtIn ? (
-                <Tooltip content="系统内置 Provider 不可编辑">
-                  <Button size="small" icon={<IconPencil />} disabled>
-                    编辑
-                  </Button>
-                </Tooltip>
-              ) : (
-                <Button size="small" icon={<IconPencil />} onClick={() => openEditModal(p)}>
-                  编辑
-                </Button>
-              )}
-              {builtIn ? (
-                <Tooltip content="系统内置 Provider 不可删除">
-                  <Button size="small" status="danger" icon={<IconTrash />} disabled>
-                    删除
-                  </Button>
-                </Tooltip>
-              ) : (
-                <Popconfirm
-                  title="确认删除此 Provider？删除后无法恢复。"
-                  onOk={() => handleDelete(p.key)}
-                  okText="删除"
-                  cancelText="取消"
-                  okButtonProps={{ status: 'danger' }}
+              <Button size="small" icon={<IconPencil />} onClick={() => openEditModal(p)}>
+                编辑
+              </Button>
+              <Popconfirm
+                title="确认删除此 Provider？删除后无法恢复。"
+                onOk={() => handleDelete(p.key)}
+                okText="删除"
+                cancelText="取消"
+                okButtonProps={{ status: 'danger' }}
+              >
+                <Button
+                  size="small"
+                  status="danger"
+                  icon={<IconTrash />}
+                  loading={deleteMutation.isPending}
                 >
-                  <Button
-                    size="small"
-                    status="danger"
-                    icon={<IconTrash />}
-                    loading={deleteMutation.isPending}
-                  >
-                    删除
-                  </Button>
-                </Popconfirm>
-              )}
+                  删除
+                </Button>
+              </Popconfirm>
             </Space>
           </div>
         </Card>
