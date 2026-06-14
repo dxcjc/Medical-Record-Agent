@@ -172,7 +172,7 @@ export default function JobListPage() {
       width: 140,
       render: (_: unknown, record: RecognitionJob & { provider?: string }) => {
         const providerKey = record.provider || record.providerConfig?.providerKey || record.providerConfig?.ocrProviderKey || '';
-        return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : <span style={{ color: '#999' }}>-</span>}</span>;
+        return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : <span style={{ color: '#999' }}>未指定</span>}</span>;
       },
     },
     {

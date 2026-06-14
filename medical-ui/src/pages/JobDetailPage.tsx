@@ -13,11 +13,13 @@ import {
   Space,
   Typography,
   Tabs,
+  Drawer,
 } from '@arco-design/web-react';
 import { toast } from '../components/GlobalToast';
 import { useJob } from '../hooks/useJobs';
 import { useResult } from '../hooks/useResults';
 import { useSchemas } from '../hooks/useSchemas';
+import { useProviders } from '../hooks/useProviders';
 import { feedbackApi } from '../api/client';
 import StatusTag from '../components/StatusTag';
 import FieldGroup from '../components/FieldGroup';
@@ -413,6 +415,21 @@ function TraceView({
   const rag = payload.rag || {};
   const ocr = payload.ocr || {};
 
+  // 如果 trace 为空且没有 payload 数据，显示提示
+  const hasPayloadData = Object.keys(payload).length > 0;
+  if (trace.length === 0 && !hasPayloadData) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-3)' }}>
+        <IconGitBranch size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
+        <div style={{ fontSize: 14 }}>
+          {['queued', 'running'].includes(job.status)
+            ? '任务正在执行中，追溯数据将在完成后显示'
+            : '暂无追溯链路数据'}
+        </div>
+      </div>
+    );
+  }
+
   // 构建追溯节点
   const nodes: TraceNode[] = [];
 
@@ -422,9 +439,9 @@ function TraceView({
     id: 'source',
     title: '原始文件',
     icon: <IconFileText size={16} style={{ color: '#3370FF' }} />,
-    status: sourceFile ? 'completed' : 'pending',
+    status: sourceFile ? 'completed' : job.sourceFileId ? 'completed' : 'pending',
     details: [
-      { label: '文件名', value: sourceFile?.originalName || job.sourceFileId || '-' },
+      { label: '文件名', value: sourceFile?.originalName || job.sourceFileId || '未指定' },
       { label: '文件大小', value: sourceFile?.byteSize ? `${(Number(sourceFile.byteSize) / 1024).toFixed(1)} KB` : '-' },
       { label: 'MIME类型', value: sourceFile?.mimeType || '-' },
     ],
@@ -442,6 +459,7 @@ function TraceView({
       { label: 'Provider', value: ocr.provider || job.providerConfig?.ocrProviderKey || '-' },
       { label: '耗时', value: ocrStep?.duration ? formatDuration(ocrStep.duration) : '-' },
       { label: '输出 blocks', value: ocrBlocks.length > 0 ? String(ocrBlocks.length) : '-' },
+      ...(ocrStep?.message ? [{ label: '消息', value: String(ocrStep.message) }] : []),
     ],
   });
 
@@ -459,6 +477,7 @@ function TraceView({
       { label: '检索 Query', value: ragQuery || '-' },
       { label: '命中条目', value: ragHits.length > 0 ? `${ragHits.length} 条` : '-' },
       { label: '未命中', value: ragMisses.length > 0 ? `${ragMisses.length} 条` : '0' },
+      ...(ragStep?.message ? [{ label: '消息', value: String(ragStep.message) }] : []),
     ],
     children: ragHits.length > 0
       ? ragHits.map((hit, idx) => ({
@@ -486,6 +505,7 @@ function TraceView({
       { label: '模型', value: extraction.model || '-' },
       { label: 'Token 用量', value: tokenUsage.total ? `${tokenUsage.total} (prompt: ${tokenUsage.prompt || '-'}, completion: ${tokenUsage.completion || '-'})` : '-' },
       { label: '耗时', value: extractionStep?.duration ? formatDuration(extractionStep.duration) : '-' },
+      ...(extractionStep?.message ? [{ label: '消息', value: String(extractionStep.message) }] : []),
     ],
   });
 
@@ -500,6 +520,7 @@ function TraceView({
     details: [
       { label: '字段数', value: fieldResults.length > 0 ? String(fieldResults.length) : '-' },
       { label: '耗时', value: validationStep?.duration ? formatDuration(validationStep.duration) : '-' },
+      ...(validationStep?.message ? [{ label: '消息', value: String(validationStep.message) }] : []),
     ],
     children: fieldResults.length > 0
       ? fieldResults.slice(0, 20).map((fr) => ({
@@ -547,6 +568,16 @@ export default function JobDetailPage() {
   const { data: job, isLoading, error, refetch } = useJob(id!);
   const { data: result, isLoading: resultLoading } = useResult(id!);
   const { data: schemasData } = useSchemas();
+  const { data: providersData } = useProviders();
+
+  // Provider 名称映射
+  const providerNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    providersData?.items?.forEach((p) => {
+      map[p.key] = p.displayName || p.key;
+    });
+    return map;
+  }, [providersData]);
 
   // 从 Schema definition 动态构建字段配置
   const schemas = schemasData?.items || [];
@@ -588,6 +619,7 @@ export default function JobDetailPage() {
   const [feedbackField, setFeedbackField] = useState('');
   const [feedbackCorrection, setFeedbackCorrection] = useState('');
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackDrawerVisible, setFeedbackDrawerVisible] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [highlightedField, setHighlightedField] = useState<string | undefined>(undefined);
 
@@ -737,6 +769,15 @@ export default function JobDetailPage() {
             查看原图
           </Button>
         )}
+        {result && (
+          <Button
+            type="primary"
+            onClick={() => setFeedbackDrawerVisible(true)}
+            style={{ marginLeft: job.sourceFileId ? 8 : 'auto' }}
+          >
+            提交反馈
+          </Button>
+        )}
       </div>
 
       {/* Recognition Progress (at top, horizontal) */}
@@ -782,10 +823,11 @@ export default function JobDetailPage() {
             { label: 'Schema', value: job.schemaKey },
             {
               label: 'Provider',
-              value:
-                job.providerConfig?.providerKey ||
-                job.providerConfig?.ocrProviderKey ||
-                '-',
+              value: (() => {
+                const providerKey = job.providerConfig?.providerKey || job.providerConfig?.ocrProviderKey || '';
+                if (!providerKey) return '未指定';
+                return providerNameMap[providerKey] || providerKey;
+              })(),
             },
             { label: '状态', value: <StatusTag status={displayStatus} /> },
             { label: '创建时间', value: formatTime(job.createdAt) },
@@ -1035,38 +1077,77 @@ export default function JobDetailPage() {
       {evidence.length > 0 && (
         <Card
           style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-          title="证据片段"
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <IconFileText style={{ color: '#3370FF', fontSize: 16 }} />
+              证据片段
+              <Tag size="small" color="blue" style={{ borderRadius: 10 }}>{evidence.length}</Tag>
+            </span>
+          }
         >
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
-            {evidence.map((item: EvidenceItem, idx: number) => (
-              <Card
-                key={idx}
-                size="small"
-                style={{ background: 'var(--color-info-soft)' }}
-              >
-                {item.fieldKey && (
-                  <Tag size="small" style={{ marginBottom: 4 }}>
-                    {item.fieldKey}
-                  </Tag>
-                )}
-                <div style={{ fontSize: 13 }}>{item.snippet || '-'}</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {item.page && `第 ${item.page} 页`}
-                  {item.confidence != null &&
-                    ` · 置信度 ${(item.confidence * 100).toFixed(0)}%`}
-                </Text>
-              </Card>
-            ))}
-          </Space>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+            {evidence.map((item: EvidenceItem, idx: number) => {
+              const label = item.fieldKey ? (fieldLabels[item.fieldKey] || item.fieldKey) : '';
+              // 从 normalizedFields 中找到对应字段的值和置信度
+              const fieldData = item.fieldKey ? fieldMap.get(item.fieldKey) : undefined;
+              return (
+                <Card
+                  key={idx}
+                  size="small"
+                  style={{
+                    borderLeft: '3px solid #3370FF',
+                    background: 'var(--color-bg-white)',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {/* 字段标签 */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Tag size="small" color="blue" style={{ borderRadius: 10, maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {label || '未知字段'}
+                      </Tag>
+                      {item.confidence != null && (
+                        <Tag
+                          size="small"
+                          color={confidenceColor(item.confidence)}
+                          style={{ fontWeight: 600, borderRadius: 10 }}
+                        >
+                          {(item.confidence * 100).toFixed(0)}%
+                        </Tag>
+                      )}
+                    </div>
+                    {/* 字段值 */}
+                    {fieldData && fieldData.value !== '-' && (
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-title)' }}>
+                        {fieldData.value}
+                      </div>
+                    )}
+                    {/* 来源摘要 */}
+                    <div style={{ fontSize: 12, color: 'var(--color-text-3)', lineHeight: 1.5 }}>
+                      {item.snippet || '-'}
+                    </div>
+                    {/* 来源页码 */}
+                    {item.page && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        来源：第 {item.page} 页
+                      </Text>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </Card>
       )}
 
-      {/* Feedback */}
-      {result && (
-        <Card
-          style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-          title="复核反馈"
-        >
+      {/* Feedback Drawer */}
+      <Drawer
+        title="复核反馈"
+        visible={feedbackDrawerVisible}
+        onCancel={() => setFeedbackDrawerVisible(false)}
+        width={400}
+        footer={null}
+      >
+        {result && (
           <Form layout="vertical">
             <FormItem label="字段" required>
               <Select
@@ -1107,8 +1188,8 @@ export default function JobDetailPage() {
               提交反馈
             </Button>
           </Form>
-        </Card>
-      )}
+        )}
+      </Drawer>
 
       {/* Running indicator */}
       {isRunning && !result && (

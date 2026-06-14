@@ -1992,17 +1992,38 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
             item.fileName = sourceFile.originalName;
           }
 
-          // 列数据补全：confidence + needsReviewCount
+          // 列数据补全：confidence + needsReviewCount + status 修正
           const result = job.result as Record<string, unknown> | undefined;
           if (result) {
             item.confidence = result.confidence != null ? Number(result.confidence) : null;
-            const fields = (result.fields ?? {}) as Record<string, unknown>;
-            const fieldCount = Object.keys(fields).length;
-            // 计算需复核字段数
-            if (result.reviewRequired === true) {
-              item.needsReviewCount = fieldCount;
+
+            // 使用 normalizedFields 计算需复核字段数（排除空值字段）
+            const nf = result.normalizedFields;
+            if (Array.isArray(nf)) {
+              const isFieldEmpty = (val: unknown) => val == null || val === '' || String(val).toLowerCase() === 'unknown';
+              // 需复核 = 非空字段中置信度 < 0.7 的数量
+              item.needsReviewCount = nf.filter((f: Record<string, unknown>) => {
+                return !isFieldEmpty(f.value) && typeof f.confidence === 'number' && f.confidence < 0.7;
+              }).length;
+
+              // 状态修正：如果后端状态为 partial_completed 或 needs_review，
+              // 但所有非空字段置信度都 >= 0.8，则修正为 completed
+              if (item.status === 'partial_completed' || item.status === 'needs_review') {
+                const nonEmpty = nf.filter((f: Record<string, unknown>) => !isFieldEmpty(f.value));
+                const withConfidence = nonEmpty.filter((f: Record<string, unknown>) => typeof f.confidence === 'number' && f.confidence > 0);
+                if (withConfidence.length > 0 && withConfidence.every((f: Record<string, unknown>) => (f.confidence as number) >= 0.8)) {
+                  item.status = 'completed';
+                }
+              }
             } else {
-              item.needsReviewCount = 0;
+              // fallback：没有 normalizedFields 时使用旧逻辑
+              const fields = (result.fields ?? {}) as Record<string, unknown>;
+              const fieldCount = Object.keys(fields).length;
+              if (result.reviewRequired === true) {
+                item.needsReviewCount = fieldCount;
+              } else {
+                item.needsReviewCount = 0;
+              }
             }
           }
 

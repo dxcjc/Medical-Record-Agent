@@ -1302,6 +1302,16 @@ export default function EvaluationPage() {
   });
   const schemas = schemasData?.items || [];
 
+  // Provider 名称映射
+  const { data: allProvidersData } = useQuery({
+    queryKey: ['providers-all'],
+    queryFn: () => providersApi.list(),
+  });
+  const providerNameMap: Record<string, string> = {};
+  (allProvidersData?.items || []).forEach((p) => {
+    providerNameMap[p.key] = p.displayName || p.key;
+  });
+
   const handleViewMetrics = (runId: string) => {
     setMetricsRunId(runId);
   };
@@ -1385,8 +1395,12 @@ export default function EvaluationPage() {
     },
     {
       title: 'Provider',
-      dataIndex: 'providerKey',
       width: 150,
+      render: (_: unknown, record: EvaluationRun) => {
+        const key = record.providerKey;
+        if (!key) return <span style={{ color: '#999' }}>未指定</span>;
+        return providerNameMap[key] || key;
+      },
     },
     {
       title: '状态',

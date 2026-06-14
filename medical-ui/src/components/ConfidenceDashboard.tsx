@@ -148,12 +148,13 @@ export default function ConfidenceDashboard({
   }, [fields]);
 
   const distribution = useMemo(() => {
-    // 只统计有值字段的置信度分布，空值字段不参与
+    // 统计所有字段的置信度分布，包括空字段
     const nonEmpty = fields.filter((f) => f.value != null && f.value !== '' && f.value !== '-');
+    const empty = fields.length - nonEmpty.length;
     const high = nonEmpty.filter((f) => f.confidence != null && f.confidence >= 0.8).length;
     const medium = nonEmpty.filter((f) => f.confidence != null && f.confidence >= 0.5 && f.confidence < 0.8).length;
     const low = nonEmpty.filter((f) => f.confidence != null && f.confidence < 0.5).length;
-    return { high, medium, low, total: nonEmpty.length };
+    return { high, medium, low, empty, total: fields.length };
   }, [fields]);
 
   const lowConfidenceFields = useMemo(
@@ -273,6 +274,12 @@ export default function ConfidenceDashboard({
                 count={distribution.low}
                 total={distribution.total}
                 color="#F53F3F"
+              />
+              <DistributionBar
+                label="空字段"
+                count={distribution.empty}
+                total={distribution.total}
+                color="#C9CDD4"
               />
             </div>
           </div>

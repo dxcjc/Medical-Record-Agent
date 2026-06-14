@@ -165,7 +165,7 @@ export function createJobsRepository(dependencies: JobsRepositoryDependencies) {
           include: {
             schemaVersion: { select: { displayName: true } },
             sourceFile: { select: { id: true, originalName: true } },
-            result: { select: { confidence: true, reviewRequired: true, fields: true } },
+            result: { select: { confidence: true, reviewRequired: true, fields: true, normalizedFields: true } },
             createdBy: { select: { id: true, displayName: true } },
           }
         }),
