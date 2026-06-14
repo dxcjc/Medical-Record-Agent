@@ -2068,8 +2068,27 @@ function createProviderRegistry(
                 : {}
           }
         ]
-      : [])
+      : env.storage.driver === "local"
+        ? [
+            {
+              key: "local-storage",
+              kind: "storage" as const,
+              displayName: "Local Storage Provider",
+              enabled: true,
+              isDefault: true,
+              isMock: false,
+              config: {
+                driver: env.storage.driver,
+                localDir: env.storage.localDir,
+                bucket: null
+              },
+              secretRefs: {}
+            }
+          ]
+        : [])
   ];
+
+  const environmentProviderKeys = new Set(environmentProviders.map((p) => p.key));
 
   return {
     async list() {
@@ -2095,6 +2114,14 @@ function createProviderRegistry(
       if (input.key.trim().length === 0 || input.displayName.trim().length === 0) {
         throw Object.assign(new Error("PROVIDER_CONFIG_INVALID"), {
           code: "PROVIDER_CONFIG_INVALID",
+          statusCode: 400
+        });
+      }
+
+      // 环境变量 provider 不允许通过 API 修改或 toggle，它们的配置来自部署环境。
+      if (environmentProviderKeys.has(input.key.trim())) {
+        throw Object.assign(new Error("ENV_PROVIDER_NOT_EDITABLE"), {
+          code: "ENV_PROVIDER_NOT_EDITABLE",
           statusCode: 400
         });
       }

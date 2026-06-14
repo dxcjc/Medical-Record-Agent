@@ -224,12 +224,13 @@ export async function registerProviderRoutes(server: FastifyInstance, dependenci
           if (!existing) {
             return reply.status(404).send({ error: "NOT_FOUND", message: "Provider not found" });
           }
+
           const provider = await dependencies.providerService.saveProviderConfig({
             key: params.key,
-            kind: existing.kind as string,
-            displayName: existing.displayName as string,
+            kind: (existing.kind ?? "llm") as string,
+            displayName: (existing.displayName ?? existing.key ?? params.key) as string,
             enabled: body.enabled as boolean,
-            isDefault: existing.isDefault as boolean,
+            isDefault: (existing.isDefault ?? false) as boolean,
             config: (existing.config ?? {}) as Record<string, unknown>,
             secretRefs: (existing.secretRefs ?? {}) as Record<string, string>,
             actor: request.auth as AuthContext

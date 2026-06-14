@@ -35,7 +35,9 @@ export interface SaveProviderConfigRepositoryInput {
  * KMS 或部署平台托管，避免管理页面把生产凭据直接落库。
  */
 export function createProviderRepository(dependencies: ProviderRepositoryDependencies) {
-  const { providerConfig, $transaction } = dependencies;
+  const { providerConfig } = dependencies;
+  // $transaction 不能解构，否则会丢失 Prisma Client 的 this 绑定导致 _engineConfig 未定义
+  const runTransaction = dependencies.$transaction.bind(dependencies);
 
   async function clearDefaultProviderOfSameKind(input: { key: string; kind: ProviderKind }) {
     await providerConfig.updateMany({
@@ -86,7 +88,7 @@ export function createProviderRepository(dependencies: ProviderRepositoryDepende
       };
 
       if (input.isDefault) {
-        const result = await $transaction(async (tx) => {
+        const result = await runTransaction(async (tx) => {
           await tx.providerConfig.updateMany({
             where: {
               kind: input.kind,
@@ -125,7 +127,7 @@ export function createProviderRepository(dependencies: ProviderRepositoryDepende
         return null;
       }
 
-      return $transaction(async (tx) => {
+      return runTransaction(async (tx) => {
         await tx.providerConfig.updateMany({
           where: {
             kind: provider.kind,

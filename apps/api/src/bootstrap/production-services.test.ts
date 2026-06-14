@@ -24,7 +24,8 @@ type ProviderConfigFindUniqueInputStub = {
 };
 
 function createPrismaClientStub() {
-  return {
+  const stub = {
+    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(stub)),
     user: {},
     apiToken: {},
     auditLog: {
@@ -185,6 +186,7 @@ function createPrismaClientStub() {
       createMany: vi.fn(async () => ({ count: 0 }))
     }
   };
+  return stub;
 }
 
 function createProductionEnvStub(): ProductionEnvStub {
@@ -335,15 +337,25 @@ describe("production api services bootstrap", () => {
     expect(JSON.stringify(providers)).not.toContain("mock-ocr");
     expect(JSON.stringify(providers)).not.toContain("mock-model");
     expect(JSON.stringify(providers)).not.toContain("development_placeholder");
-    expect(providers).toEqual([
-      expect.objectContaining({
-        key: "lims-writeback",
-        kind: "lims",
-        secretRefs: {
-          apiToken: "configured"
-        }
-      })
-    ]);
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "lims-writeback",
+          kind: "lims",
+          secretRefs: {
+            apiToken: "configured"
+          }
+        }),
+        expect.objectContaining({
+          key: "local-storage",
+          kind: "storage",
+          displayName: "Local Storage Provider",
+          enabled: true,
+          isDefault: true
+        })
+      ])
+    );
+    expect(providers).toHaveLength(2);
   });
 
   it("无真实 OCR/LLM provider 时阻断识别创建而不是落回 mock", async () => {
@@ -383,6 +395,11 @@ describe("production api services bootstrap", () => {
       }))
     };
 
+    const healthFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK"
+    }));
     const services = createProductionApiServices({
       env: {
         ...createProductionEnvStub(),
@@ -404,6 +421,7 @@ describe("production api services bootstrap", () => {
       },
       prisma: prisma as never,
       limsWritebackAdapter: limsAdapter,
+      providerHealthFetch: healthFetch,
       openAiResponsesClient: {
         responses: {
           create: vi.fn()
@@ -414,7 +432,7 @@ describe("production api services bootstrap", () => {
 
     await expect(
       services.providerService.checkProviderHealth({
-        key: "local-storage",
+        key: "lims-writeback",
         actor: {
           actorUserId: "user-001",
           authType: "jwt",
@@ -424,12 +442,13 @@ describe("production api services bootstrap", () => {
       })
     ).resolves.toEqual(
       expect.objectContaining({
-        key: "local-storage",
-        kind: "storage",
+        key: "lims-writeback",
+        kind: "lims",
         status: "healthy",
-        message: "Storage provider 受控读写删除探针通过。",
         probe: expect.objectContaining({
-          verified: true
+          method: "POST",
+          url: "http://localhost:8090/api/clinical-info/writeback",
+          dryRun: true
         })
       })
     );
