@@ -379,4 +379,126 @@ describe("job orchestrator", () => {
     expect(result.status).toBe("completed");
     expect(result.trace.map((event) => event.node)).toContain("autoDecision");
   });
+
+  it("merges OCR text from multiple documents and runs one extraction", async () => {
+    const ocrCalls: string[] = [];
+    const multiDocOcrProvider: OcrProvider = {
+      providerName: "multi-doc-ocr",
+      recognize: vi.fn(async (input) => {
+        ocrCalls.push(input.documentId);
+        return {
+          providerName: "multi-doc-ocr",
+          pages: [
+            {
+              page: 1,
+              text: `OCR text for ${input.documentId}`,
+              confidence: 0.95
+            }
+          ],
+          blocks: [
+            {
+              page: 1,
+              blockId: `${input.documentId}-block-1`,
+              text: `OCR text for ${input.documentId}`,
+              confidence: 0.95,
+              coordinates: { x: 0, y: 0, width: 100, height: 20 }
+            }
+          ],
+          qualityWarnings: []
+        };
+      })
+    };
+
+    let capturedOcrText = "";
+    const capturingModelProvider = createMockModelProvider({
+      candidates: [candidate()]
+    });
+    const originalExtract = capturingModelProvider.extractFields.bind(capturingModelProvider);
+    capturingModelProvider.extractFields = vi.fn(async (request) => {
+      capturedOcrText = request.ocrText;
+      return originalExtract(request);
+    });
+
+    const repository = createInMemoryJobRepository();
+    const orchestrator = createJobOrchestrator({
+      repository,
+      schema: limsClinicalInfoSchema,
+      ocrProvider: multiDocOcrProvider,
+      modelProvider: capturingModelProvider,
+      knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
+      permissions: [],
+      autoWritebackEnabled: false
+    });
+
+    const result = await orchestrator.start({
+      jobId: "demo-job-multi-doc",
+      document: { documentId: "fallback", fileName: "fallback.png", mimeType: "image/png" },
+      documents: [
+        { documentId: "doc-1", fileName: "page1.png", mimeType: "image/png" },
+        { documentId: "doc-2", fileName: "page2.png", mimeType: "image/png" }
+      ]
+    });
+
+    expect(result.status).not.toBe("failed");
+    expect(ocrCalls).toEqual(["doc-1", "doc-2"]);
+    expect(capturedOcrText).toContain("[文件 1: page1.png]");
+    expect(capturedOcrText).toContain("OCR text for doc-1");
+    expect(capturedOcrText).toContain("[文件 2: page2.png]");
+    expect(capturedOcrText).toContain("OCR text for doc-2");
+    expect(result.ocr?.pages).toHaveLength(2);
+    expect(result.trace.some((event) => event.node === "ocr" && event.status === "completed")).toBe(true);
+  });
+
+  it("continues with successful documents when one document OCR fails", async () => {
+    const multiDocOcrProvider: OcrProvider = {
+      providerName: "partial-ocr",
+      recognize: vi.fn(async (input) => {
+        if (input.documentId === "doc-fail") {
+          throw new ProviderError("OCR 失败", { providerName: "partial-ocr", retryable: false, code: "OCR_FAILED" });
+        }
+        return {
+          providerName: "partial-ocr",
+          pages: [{ page: 1, text: `OCR text for ${input.documentId}`, confidence: 0.95 }],
+          blocks: [{ page: 1, blockId: "b1", text: "text", confidence: 0.95, coordinates: { x: 0, y: 0, width: 1, height: 1 } }],
+          qualityWarnings: []
+        };
+      })
+    };
+
+    let capturedOcrText = "";
+    const capturingModelProvider = createMockModelProvider({
+      candidates: [candidate()]
+    });
+    const originalExtract = capturingModelProvider.extractFields.bind(capturingModelProvider);
+    capturingModelProvider.extractFields = vi.fn(async (request) => {
+      capturedOcrText = request.ocrText;
+      return originalExtract(request);
+    });
+
+    const orchestrator = createJobOrchestrator({
+      repository: createInMemoryJobRepository(),
+      schema: limsClinicalInfoSchema,
+      ocrProvider: multiDocOcrProvider,
+      modelProvider: capturingModelProvider,
+      knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
+      permissions: [],
+      autoWritebackEnabled: false
+    });
+
+    const result = await orchestrator.start({
+      jobId: "demo-job-partial-ocr",
+      document: { documentId: "fallback", fileName: "fallback.png", mimeType: "image/png" },
+      documents: [
+        { documentId: "doc-ok", fileName: "ok.png", mimeType: "image/png" },
+        { documentId: "doc-fail", fileName: "fail.png", mimeType: "image/png" },
+        { documentId: "doc-ok2", fileName: "ok2.png", mimeType: "image/png" }
+      ]
+    });
+
+    expect(result.status).not.toBe("failed");
+    expect(capturedOcrText).toContain("OCR text for doc-ok");
+    expect(capturedOcrText).toContain("OCR text for doc-ok2");
+    expect(capturedOcrText).toContain("【OCR 识别失败】");
+    expect(result.ocr?.qualityWarnings.some((w) => w.message.includes("OCR 识别失败"))).toBe(true);
+  });
 });
