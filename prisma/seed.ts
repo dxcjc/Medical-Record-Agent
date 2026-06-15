@@ -230,6 +230,7 @@ async function main() {
       config: {
         provider: "http",
         endpoint: "http://127.0.0.1:8866/ocr",
+        healthEndpoint: "http://127.0.0.1:8866/",
         timeoutMs: 30000
       },
       secretRefs: {}
@@ -243,6 +244,7 @@ async function main() {
       config: {
         provider: "http",
         endpoint: "http://127.0.0.1:8866/ocr",
+        healthEndpoint: "http://127.0.0.1:8866/",
         timeoutMs: 30000
       },
       secretRefs: {}

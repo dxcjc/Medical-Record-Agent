@@ -20,7 +20,7 @@ import {
   Divider,
 } from '@arco-design/web-react';
 import { toast } from '../components/GlobalToast';
-import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown, IconSwap, IconClockCircle } from '@arco-design/web-react/icon';
+import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown, IconSwap, IconClockCircle, IconUpload, IconDownload } from '@arco-design/web-react/icon';
 import { useSchemas, useDeactivateSchemaVersion, useActivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
@@ -286,6 +286,15 @@ export default function SchemaPage() {
   const [fieldRows, setFieldRows] = useState<EditableField[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Import state
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importJson, setImportJson] = useState('');
+  const [importError, setImportError] = useState('');
+
+  // Deactivate confirm modal state
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<{ id: string; displayName: string } | null>(null);
+
   const schemas = data?.items || [];
   const selected = schemas.find((s) => s.id === selectedId) || null;
   const schemaKey = selected?.schemaKey;
@@ -329,12 +338,21 @@ export default function SchemaPage() {
     setLocalFields(updatedFields);
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleDeactivate = (id: string, displayName?: string) => {
+    setDeactivateTarget({ id, displayName: displayName || '此 Schema' });
+    setShowDeactivateModal(true);
+  };
+
+  const confirmDeactivate = async () => {
+    if (!deactivateTarget) return;
     try {
-      await deactivateMutation.mutateAsync(id);
+      await deactivateMutation.mutateAsync(deactivateTarget.id);
       toast.success('已停用');
     } catch {
       toast.error('操作失败');
+    } finally {
+      setShowDeactivateModal(false);
+      setDeactivateTarget(null);
     }
   };
 
@@ -448,6 +466,60 @@ export default function SchemaPage() {
     }
   }, [form, fieldRows, createDraftMutation, publishDraftMutation, closeDrawer, refetch]);
 
+  // ── Export handler ─────────────────────────────────────────────
+  const handleExport = useCallback((schema: SchemaVersion) => {
+    const exportData = {
+      schemaKey: schema.schemaKey,
+      displayName: schema.displayName,
+      version: schema.version,
+      definition: schema.definition,
+      changelog: schema.changelog,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `schema-${schema.schemaKey}-v${schema.version}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Schema 已导出');
+  }, []);
+
+  // ── Import handler ─────────────────────────────────────────────
+  const handleImport = useCallback(async () => {
+    setImportError('');
+    try {
+      const parsed = JSON.parse(importJson);
+      const schemaKey = parsed.schemaKey;
+      const displayName = parsed.displayName;
+      const definition = parsed.definition;
+      if (!schemaKey || !displayName || !definition?.fields) {
+        setImportError('JSON 格式不正确，需要包含 schemaKey、displayName 和 definition.fields');
+        return;
+      }
+      const { draft } = await createDraftMutation.mutateAsync({
+        schemaKey,
+        displayName,
+        definition,
+      });
+      await publishDraftMutation.mutateAsync({
+        id: draft.id,
+        changelog: parsed.changelog || `导入 - ${displayName}`,
+      });
+      toast.success('Schema 导入成功');
+      setImportModalVisible(false);
+      setImportJson('');
+      refetch();
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        setImportError('JSON 解析失败，请检查格式');
+      } else {
+        setImportError(`导入失败：${(e as Error).message || '未知错误'}`);
+      }
+    }
+  }, [importJson, createDraftMutation, publishDraftMutation, refetch]);
+
   // ── Loading / Error / Empty states ─────────────────────────────
 
   if (error) {
@@ -547,12 +619,20 @@ export default function SchemaPage() {
             返回列表
           </Button>
           <Space>
+            <Button
+              size="small"
+              type="outline"
+              icon={<IconDownload />}
+              onClick={() => handleExport(selected)}
+            >
+              导出
+            </Button>
             {selected.status === 'active' ? (
               <Button
                 size="small"
                 status="warning"
                 loading={deactivateMutation.isPending}
-                onClick={() => handleDeactivate(selected.id)}
+                onClick={() => handleDeactivate(selected.id, selected.displayName)}
               >
                 停用
               </Button>
@@ -700,6 +780,20 @@ export default function SchemaPage() {
             newVersion={selected}
           />
         )}
+
+        {/* 停用确认弹窗 */}
+        <Modal
+          title="确认停用"
+          visible={showDeactivateModal}
+          onOk={confirmDeactivate}
+          onCancel={() => { setShowDeactivateModal(false); setDeactivateTarget(null); }}
+          okText="停用"
+          cancelText="取消"
+          okButtonProps={{ status: 'warning' }}
+          confirmLoading={deactivateMutation.isPending}
+        >
+          <p>确定要停用「{deactivateTarget?.displayName || '此 Schema'}」吗？停用后该版本将不再用于新任务的识别。</p>
+        </Modal>
       </div>
     );
   }
@@ -716,6 +810,17 @@ export default function SchemaPage() {
         onAction={openDrawer}
         onRefresh={() => refetch()}
       />
+
+      {/* 操作栏：导入/导出 */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
+        <Button
+          type="outline"
+          icon={<IconUpload />}
+          onClick={() => { setImportJson(''); setImportError(''); setImportModalVisible(true); }}
+        >
+          导入 Schema
+        </Button>
+      </div>
 
       <Row gutter={[16, 16]}>
         {schemas.map((s) => {
@@ -768,13 +873,24 @@ export default function SchemaPage() {
                 )}
 
                 <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <Button
+                    size="mini"
+                    type="outline"
+                    icon={<IconDownload />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExport(s);
+                    }}
+                  >
+                    导出
+                  </Button>
                   {s.status === 'active' ? (
                     <Button
                       size="mini"
                       status="warning"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeactivate(s.id);
+                        handleDeactivate(s.id, s.displayName);
                       }}
                       loading={deactivateMutation.isPending}
                     >
@@ -812,6 +928,47 @@ export default function SchemaPage() {
         updateFieldRow={updateFieldRow}
         saving={saving}
       />
+
+      {/* 导入 Schema 弹窗 */}
+      <Modal
+        title="导入 Schema"
+        visible={importModalVisible}
+        onCancel={() => { setImportModalVisible(false); setImportJson(''); setImportError(''); }}
+        onOk={handleImport}
+        confirmLoading={createDraftMutation.isPending || publishDraftMutation.isPending}
+        okText="导入"
+        cancelText="取消"
+        style={{ width: 600 }}
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            粘贴导出的 JSON 数据，包含 schemaKey、displayName、definition.fields 等字段。
+          </Text>
+          <Input.TextArea
+            placeholder={`{\n  "schemaKey": "example",\n  "displayName": "示例 Schema",\n  "definition": {\n    "fields": [\n      { "key": "field1", "type": "string", "description": "字段1" }\n    ]\n  }\n}`}
+            value={importJson}
+            onChange={setImportJson}
+            style={{ minHeight: 200, fontFamily: 'monospace', fontSize: 12 }}
+          />
+          {importError && (
+            <Text type="error" style={{ fontSize: 12 }}>{importError}</Text>
+          )}
+        </Space>
+      </Modal>
+
+      {/* 停用确认弹窗 */}
+      <Modal
+        title="确认停用"
+        visible={showDeactivateModal}
+        onOk={confirmDeactivate}
+        onCancel={() => { setShowDeactivateModal(false); setDeactivateTarget(null); }}
+        okText="停用"
+        cancelText="取消"
+        okButtonProps={{ status: 'warning' }}
+        confirmLoading={deactivateMutation.isPending}
+      >
+        <p>确定要停用「{deactivateTarget?.displayName || '此 Schema'}」吗？停用后该版本将不再用于新任务的识别。</p>
+      </Modal>
     </div>
   );
 }

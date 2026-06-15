@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -12,6 +12,7 @@ import {
   Spin,
   Tooltip,
   Badge,
+  Select,
 } from '@arco-design/web-react';
 import { IconQuestionCircle, IconSettings } from '@arco-design/web-react/icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -146,6 +147,7 @@ export default function WritebackPage() {
   const [isRetry, setIsRetry] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<string | undefined>(undefined);
 
   // 可回写任务列表
   const {
@@ -172,6 +174,12 @@ export default function WritebackPage() {
   const eligibleJobs = eligibleData?.items || [];
   const historyItems = historyData?.items || [];
   const historyTotal = historyData?.total || 0;
+
+  // 按状态筛选历史记录（客户端过滤）
+  const filteredHistoryItems = useMemo(() => {
+    if (!historyStatusFilter) return historyItems;
+    return historyItems.filter(item => item.status === historyStatusFilter);
+  }, [historyItems, historyStatusFilter]);
 
   // Build a map of last error per jobId from history for retry tooltip
   const lastErrorMap: Record<string, string> = {};
@@ -422,6 +430,21 @@ export default function WritebackPage() {
 
           <Tabs.TabPane key="history" title="回写历史">
             <div style={{ padding: '16px 0' }}>
+              {/* 状态筛选 */}
+              <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                <Select
+                  placeholder="按状态筛选"
+                  value={historyStatusFilter}
+                  onChange={(val) => { setHistoryStatusFilter(val); setHistoryPage(1); }}
+                  style={{ width: 160 }}
+                  allowClear
+                >
+                  {Object.entries(WRITEBACK_STATUS_LABELS).map(([key, label]) => (
+                    <Select.Option key={key} value={key}>{label}</Select.Option>
+                  ))}
+                </Select>
+              </div>
+
               {historyError ? (
                 renderError(historyError, refetchHistory)
               ) : historyLoading ? (
@@ -437,7 +460,7 @@ export default function WritebackPage() {
               ) : (
                 <Table
                   columns={historyColumns}
-                  data={historyItems}
+                  data={filteredHistoryItems}
                   rowKey="id"
                   pagination={{
                     current: historyPage,

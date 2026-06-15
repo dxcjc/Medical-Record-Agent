@@ -97,6 +97,11 @@ export default function FeedbackPage() {
   // --- Detail modal ---
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackSubmission | null>(null);
 
+  // --- Approve confirm modal ---
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveTarget, setApproveTarget] = useState<FeedbackSubmission | null>(null);
+  const [showBatchApproveModal, setShowBatchApproveModal] = useState(false);
+
   // --- Reject modal ---
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<FeedbackSubmission | null>(null);
@@ -217,14 +222,19 @@ export default function FeedbackPage() {
   /* ------------------------------------------------------------------ */
 
   const handleApprove = useCallback((record: FeedbackSubmission) => {
-    Modal.confirm({
-      title: '确认批准',
-      content: '确认批准此反馈？批准后将写入知识库',
-      okText: '确认批准',
-      cancelText: '取消',
-      onOk: () => approveMutation.mutateAsync(record.id),
-    });
-  }, [approveMutation]);
+    setApproveTarget(record);
+    setShowApproveModal(true);
+  }, []);
+
+  const confirmApprove = useCallback(async () => {
+    if (!approveTarget) return;
+    try {
+      await approveMutation.mutateAsync(approveTarget.id);
+    } finally {
+      setShowApproveModal(false);
+      setApproveTarget(null);
+    }
+  }, [approveTarget, approveMutation]);
 
   const handleReject = useCallback((record: FeedbackSubmission) => {
     setRejectTarget(record);
@@ -235,13 +245,15 @@ export default function FeedbackPage() {
 
   const handleBatchApprove = useCallback(() => {
     if (selectedRowKeys.length === 0) return;
-    Modal.confirm({
-      title: '批量批准',
-      content: `确认批量批准选中的 ${selectedRowKeys.length} 条反馈？批准后将写入知识库`,
-      okText: '确认批准',
-      cancelText: '取消',
-      onOk: () => batchApproveMutation.mutateAsync(selectedRowKeys),
-    });
+    setShowBatchApproveModal(true);
+  }, [selectedRowKeys]);
+
+  const confirmBatchApprove = useCallback(async () => {
+    try {
+      await batchApproveMutation.mutateAsync(selectedRowKeys);
+    } finally {
+      setShowBatchApproveModal(false);
+    }
   }, [selectedRowKeys, batchApproveMutation]);
 
   const handleBatchReject = useCallback(() => {
@@ -706,6 +718,32 @@ export default function FeedbackPage() {
             ]}
           />
         )}
+      </Modal>
+
+      {/* 单条批准确认弹窗 */}
+      <Modal
+        title="确认批准"
+        visible={showApproveModal}
+        onOk={confirmApprove}
+        onCancel={() => { setShowApproveModal(false); setApproveTarget(null); }}
+        okText="确认批准"
+        cancelText="取消"
+        confirmLoading={approveMutation.isPending}
+      >
+        <p>确认批准此反馈？批准后将写入知识库</p>
+      </Modal>
+
+      {/* 批量批准确认弹窗 */}
+      <Modal
+        title="批量批准"
+        visible={showBatchApproveModal}
+        onOk={confirmBatchApprove}
+        onCancel={() => setShowBatchApproveModal(false)}
+        okText="确认批准"
+        cancelText="取消"
+        confirmLoading={batchApproveMutation.isPending}
+      >
+        <p>确认批量批准选中的 {selectedRowKeys.length} 条反馈？批准后将写入知识库</p>
       </Modal>
     </div>
   );

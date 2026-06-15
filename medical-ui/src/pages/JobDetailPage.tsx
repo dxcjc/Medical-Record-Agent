@@ -14,12 +14,14 @@ import {
   Typography,
   Tabs,
   Drawer,
+  Modal,
 } from '@arco-design/web-react';
 import { toast } from '../components/GlobalToast';
-import { useJob } from '../hooks/useJobs';
+import { useJob, useDeleteJob, useRerunJob } from '../hooks/useJobs';
 import { useResult } from '../hooks/useResults';
 import { useSchemas } from '../hooks/useSchemas';
 import { useProviders } from '../hooks/useProviders';
+import { useKnowledgeList } from '../hooks/useKnowledge';
 import { feedbackApi } from '../api/client';
 import StatusTag from '../components/StatusTag';
 import FieldGroup from '../components/FieldGroup';
@@ -46,6 +48,7 @@ import {
   IconChevronDown,
   IconCheckCircle,
   IconDatabase,
+  IconTrash,
 } from '../icons/appIcons';
 import type { TraceStep, EvidenceItem, SchemaField, RecognitionJob, RecognitionResult } from '../api/types';
 
@@ -569,6 +572,36 @@ export default function JobDetailPage() {
   const { data: result, isLoading: resultLoading } = useResult(id!);
   const { data: schemasData } = useSchemas();
   const { data: providersData } = useProviders();
+  const deleteJob = useDeleteJob();
+  const rerunJob = useRerunJob();
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const handleDelete = () => {
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await deleteJob.mutateAsync(id!);
+      toast.success('任务已删除');
+      navigate('/jobs');
+    } catch {
+      toast.error('删除失败');
+    } finally {
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleRerun = async () => {
+    try {
+      await rerunJob.mutateAsync(id!);
+      toast.success('任务已重新提交');
+      refetch();
+    } catch {
+      toast.error('重跑失败');
+    }
+  };
 
   // Provider 名称映射
   const providerNameMap = useMemo(() => {
@@ -623,6 +656,11 @@ export default function JobDetailPage() {
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [highlightedField, setHighlightedField] = useState<string | undefined>(undefined);
 
+  // 字段详情 Drawer 状态
+  const [fieldDetailVisible, setFieldDetailVisible] = useState(false);
+  const [fieldDetailKey, setFieldDetailKey] = useState<string>('');
+  const [fieldReviewLoading, setFieldReviewLoading] = useState(false);
+
   // Dynamic checkbox state for test items (keyed by field key)
   const [testItemSelections, setTestItemSelections] = useState<Record<string, string[]>>({});
 
@@ -645,6 +683,12 @@ export default function JobDetailPage() {
       : null;
   const displayStatus = job ? calculateDisplayStatus(job.status, normalizedFields) : '';
   const fieldMap = new Map(normalizedFields.map((f) => [f.key, f]));
+
+  // 字段详情 Drawer — 关联知识（hooks 必须在 early returns 前声明）
+  const { data: fieldKnowledgeData } = useKnowledgeList(
+    fieldDetailKey ? { fieldKey: fieldDetailKey } : undefined
+  );
+  const fieldKnowledgeEntries = fieldKnowledgeData?.entries || [];
 
   // Parse test items from fields dynamically（hooks 必须在 early returns 前声明）
   const testItemData = useMemo(() => {
@@ -685,10 +729,41 @@ export default function JobDetailPage() {
     }
   };
 
-  // 点击字段值时打开图片查看器并高亮对应区域
+  // 点击字段值时打开字段详情 Drawer
   const handleFieldClickToImageViewer = (fieldKey: string) => {
-    setHighlightedField(fieldKey);
-    setImageViewerVisible(true);
+    setFieldDetailKey(fieldKey);
+    setFieldDetailVisible(true);
+  };
+
+  // 字段审核操作 — 通过
+  const handleFieldApprove = async () => {
+    if (!fieldDetailKey || !id) return;
+    const field = fieldMap.get(fieldDetailKey);
+    setFieldReviewLoading(true);
+    try {
+      await feedbackApi.submit({
+        jobId: id,
+        fieldKey: fieldDetailKey,
+        originalValue: field?.rawValue || field?.value || '',
+        correctedValue: field?.value || '',
+        comment: '字段审核通过',
+      });
+      toast.success('已通过审核');
+      setFieldDetailVisible(false);
+    } catch {
+      toast.error('审核操作失败');
+    } finally {
+      setFieldReviewLoading(false);
+    }
+  };
+
+  // 字段审核操作 — 拒绝（打开反馈抽屉填写修正值）
+  const handleFieldReject = () => {
+    setFeedbackField(fieldDetailKey);
+    setFeedbackCorrection('');
+    setFeedbackComment('');
+    setFieldDetailVisible(false);
+    setFeedbackDrawerVisible(true);
   };
 
   if (error) {
@@ -759,12 +834,23 @@ export default function JobDetailPage() {
           {job.id}
         </Text>
         <StatusTag status={displayStatus} />
+        {['failed', 'completed', 'partial_completed'].includes(job.status) && (
+          <Button
+            type="outline"
+            icon={<IconRefresh />}
+            onClick={handleRerun}
+            loading={rerunJob.isPending}
+            style={{ marginLeft: 'auto' }}
+          >
+            重跑
+          </Button>
+        )}
         {job.sourceFileId && (
           <Button
             type="outline"
             icon={<IconEye />}
             onClick={() => setImageViewerVisible(true)}
-            style={{ marginLeft: 'auto' }}
+            style={{ marginLeft: ['failed', 'completed', 'partial_completed'].includes(job.status) ? 8 : 'auto' }}
           >
             查看原图
           </Button>
@@ -773,11 +859,20 @@ export default function JobDetailPage() {
           <Button
             type="primary"
             onClick={() => setFeedbackDrawerVisible(true)}
-            style={{ marginLeft: job.sourceFileId ? 8 : 'auto' }}
+            style={{ marginLeft: 8 }}
           >
             提交反馈
           </Button>
         )}
+        <Button
+          type="outline"
+          status="danger"
+          icon={<IconTrash size={14} />}
+          onClick={handleDelete}
+          loading={deleteJob.isPending}
+        >
+          删除
+        </Button>
       </div>
 
       {/* Recognition Progress (at top, horizontal) */}
@@ -808,6 +903,45 @@ export default function JobDetailPage() {
       <Tabs defaultActiveTab="results" type="card" style={{ width: '100%' }}>
         <Tabs.TabPane key="results" title="识别结果">
           <Space direction="vertical" size={16} style={{ width: '100%', paddingTop: 16 }}>
+      {/* 失败任务错误提示 */}
+      {job.status === 'failed' && (
+        <Card
+          style={{
+            borderRadius: 8,
+            border: '1px solid var(--color-danger-light-5)',
+            background: 'var(--color-danger-light-1)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <Text style={{ fontWeight: 600, color: 'var(--color-danger-6)' }}>
+                识别失败
+              </Text>
+              <div style={{ marginTop: 4, color: 'var(--color-text-2)' }}>
+                {(() => {
+                  const err = job.error;
+                  if (!err) return '未知错误';
+                  if (typeof err === 'string') return err;
+                  if (typeof err === 'object' && err !== null) {
+                    const e = err as Record<string, unknown>;
+                    return String(e.message || e.error || JSON.stringify(err));
+                  }
+                  return String(err);
+                })()}
+              </div>
+            </div>
+            <Button
+              type="primary"
+              icon={<IconRefresh />}
+              onClick={handleRerun}
+              loading={rerunJob.isPending}
+            >
+              重跑
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <Card
         style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
         title={
@@ -832,6 +966,19 @@ export default function JobDetailPage() {
             { label: '状态', value: <StatusTag status={displayStatus} /> },
             { label: '创建时间', value: formatTime(job.createdAt) },
             { label: '更新时间', value: formatTime(job.updatedAt) },
+            ...(job.startedAt
+              ? [{
+                  label: '耗时',
+                  value: (() => {
+                    const start = new Date(job.startedAt).getTime();
+                    const end = job.completedAt ? new Date(job.completedAt).getTime() : Date.now();
+                    const ms = end - start;
+                    if (ms < 1000) return `${ms}ms`;
+                    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                    return `${(ms / 60000).toFixed(1)}min`;
+                  })(),
+                }]
+              : []),
             ...(confidenceNum != null
               ? [
                   {
@@ -1191,6 +1338,215 @@ export default function JobDetailPage() {
         )}
       </Drawer>
 
+      {/* Field Detail Drawer */}
+      {fieldDetailKey && (() => {
+        const currentField = fieldMap.get(fieldDetailKey);
+        const fieldLabel = fieldLabels[fieldDetailKey] || fieldDetailKey;
+        const fieldConfidence = currentField?.confidence;
+        const fieldRawValue = currentField?.rawValue || '';
+        const fieldValue = currentField?.value || '-';
+        const fieldEvidence = currentField?.evidence || [];
+        const needsReview = (fieldConfidence != null && fieldConfidence < 0.8) || result?.reviewRequired;
+
+        return (
+          <Drawer
+            title={
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <IconInfoCircle style={{ color: '#3370FF', fontSize: 16 }} />
+                字段详情：{fieldLabel}
+              </span>
+            }
+            visible={fieldDetailVisible}
+            onCancel={() => {
+              setFieldDetailVisible(false);
+              setFieldDetailKey('');
+            }}
+            width={480}
+            footer={null}
+          >
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              {/* 提取值 & 置信度 */}
+              <Card size="small" style={{ background: 'var(--color-info-soft)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text type="secondary" style={{ fontSize: 13 }}>提取值</Text>
+                  {fieldConfidence != null && (
+                    <Tag
+                      color={confidenceColor(fieldConfidence)}
+                      style={{ fontWeight: 600 }}
+                    >
+                      置信度 {(fieldConfidence * 100).toFixed(0)}%
+                    </Tag>
+                  )}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-title)' }}>
+                  {fieldValue}
+                </div>
+              </Card>
+
+              {/* 原始值 */}
+              {fieldRawValue && (
+                <div>
+                  <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+                    原始值 (OCR)
+                  </Text>
+                  <div style={{
+                    padding: '8px 12px',
+                    background: 'var(--color-bg-2)',
+                    borderRadius: 'var(--radius-control)',
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    color: 'var(--color-text-2)',
+                  }}>
+                    {fieldRawValue}
+                  </div>
+                </div>
+              )}
+
+              {/* Tabs: OCR 证据 / 关联知识 */}
+              <Tabs type="card" style={{ width: '100%' }}>
+                <Tabs.TabPane key="evidence" title={`OCR 证据 (${fieldEvidence.length})`}>
+                  <div style={{ paddingTop: 12 }}>
+                    {fieldEvidence.length > 0 ? (
+                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        {fieldEvidence.map((ev, idx) => (
+                          <Card
+                            key={idx}
+                            size="small"
+                            style={{ borderLeft: '3px solid #3370FF' }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {ev.snippet && (
+                                <div style={{
+                                  fontSize: 13,
+                                  lineHeight: 1.6,
+                                  padding: '6px 10px',
+                                  background: 'var(--color-info-soft)',
+                                  borderRadius: 'var(--radius-control)',
+                                  fontStyle: 'italic',
+                                }}>
+                                  "{ev.snippet}"
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                {ev.page && (
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    来源：第 {ev.page} 页
+                                  </Text>
+                                )}
+                                {ev.confidence != null && (
+                                  <Tag
+                                    size="small"
+                                    color={confidenceColor(ev.confidence)}
+                                    style={{ fontWeight: 600 }}
+                                  >
+                                    {(ev.confidence * 100).toFixed(0)}%
+                                  </Tag>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </Space>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-3)' }}>
+                        暂无 OCR 证据
+                      </div>
+                    )}
+                  </div>
+                </Tabs.TabPane>
+                <Tabs.TabPane key="knowledge" title={`关联知识 (${fieldKnowledgeEntries.length})`}>
+                  <div style={{ paddingTop: 12 }}>
+                    {fieldKnowledgeEntries.length > 0 ? (
+                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        {fieldKnowledgeEntries.map((entry) => (
+                          <Card
+                            key={entry.id}
+                            size="small"
+                            style={{ borderLeft: '3px solid #00B42A' }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Text style={{ fontWeight: 600, fontSize: 14 }}>
+                                  {entry.title}
+                                </Text>
+                                <Tag size="small" color="green" style={{ borderRadius: 10 }}>
+                                  {entry.kind === 'medical_term' ? '医学术语'
+                                    : entry.kind === 'cancer_alias' ? '肿瘤别名'
+                                    : entry.kind === 'lims_dictionary' ? 'LIMS 字典'
+                                    : entry.kind === 'field_description' ? '字段描述'
+                                    : entry.kind}
+                                </Tag>
+                              </div>
+                              <div style={{
+                                fontSize: 13,
+                                lineHeight: 1.6,
+                                color: 'var(--color-text-2)',
+                                whiteSpace: 'pre-wrap',
+                              }}>
+                                {entry.content}
+                              </div>
+                              {entry.keywords.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                                  {entry.keywords.map((kw, idx) => (
+                                    <Tag key={idx} size="small" color="blue" style={{ borderRadius: 10 }}>
+                                      {kw}
+                                    </Tag>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </Card>
+                        ))}
+                      </Space>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-3)' }}>
+                        暂无关联知识
+                      </div>
+                    )}
+                  </div>
+                </Tabs.TabPane>
+              </Tabs>
+
+              {/* 审核操作 */}
+              {needsReview && (
+                <Card
+                  size="small"
+                  style={{
+                    background: 'var(--color-warning-light-1)',
+                    border: '1px solid var(--color-warning-light-5)',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <Text style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-warning-6)' }}>
+                      该字段需要复核
+                    </Text>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button
+                        type="primary"
+                        status="success"
+                        loading={fieldReviewLoading}
+                        onClick={handleFieldApprove}
+                        style={{ flex: 1 }}
+                      >
+                        ✓ 通过
+                      </Button>
+                      <Button
+                        type="primary"
+                        status="danger"
+                        onClick={handleFieldReject}
+                        style={{ flex: 1 }}
+                      >
+                        ✗ 拒绝
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </Space>
+          </Drawer>
+        );
+      })()}
+
       {/* Running indicator */}
       {isRunning && !result && (
         <Card style={{ borderRadius: 8 }}>
@@ -1247,6 +1603,22 @@ export default function JobDetailPage() {
           setFeedbackField(fieldKey);
         }}
       />
+
+      {/* 删除确认弹窗 */}
+      <Modal
+        title="确认删除"
+        visible={showDeleteModal}
+        onOk={confirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+        okText="删除"
+        cancelText="取消"
+        okButtonProps={{ status: 'danger' }}
+        confirmLoading={deleteJob.isPending}
+        closable
+        maskClosable
+      >
+        <p>删除后不可恢复，确定要删除该任务吗？</p>
+      </Modal>
     </Space>
   );
 }

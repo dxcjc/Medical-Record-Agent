@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Select, Input, Button, Typography, Space, Badge } from '@arco-design/web-react';
-import { IconRefresh, IconSearch, IconFileUp } from '../icons/appIcons';
-import { usePaginatedJobs } from '../hooks/useJobs';
+import { Card, Table, Select, Input, Button, Typography, Space, Badge, Modal } from '@arco-design/web-react';
+import { IconRefresh, IconSearch, IconFileUp, IconTrash } from '../icons/appIcons';
+import { usePaginatedJobs, useDeleteJob } from '../hooks/useJobs';
+import { toast } from '../components/GlobalToast';
 import { useSchemas } from '../hooks/useSchemas';
 import { useProviders } from '../hooks/useProviders';
 import StatusTag from '../components/StatusTag';
@@ -59,6 +60,29 @@ export default function JobListPage() {
   });
   const { data: schemasData } = useSchemas();
   const { data: providersData } = useProviders();
+  const deleteJob = useDeleteJob();
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  const handleDelete = (id: string, e?: Event) => {
+    e?.stopPropagation();
+    setDeleteTargetId(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
+    try {
+      await deleteJob.mutateAsync(deleteTargetId);
+      toast.success('任务已删除');
+    } catch {
+      toast.error('删除失败');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTargetId(null);
+    }
+  };
 
   const jobs = data?.items || [];
   const total = data?.total || 0;
@@ -102,6 +126,7 @@ export default function JobListPage() {
       title: 'Schema',
       dataIndex: 'schemaKey',
       width: 160,
+      sorter: (a: RecognitionJob, b: RecognitionJob) => (a.schemaKey || '').localeCompare(b.schemaKey || ''),
       render: (key: string) => schemaNameMap[key] || formatSchemaKey(key),
     },
     {
@@ -125,6 +150,7 @@ export default function JobListPage() {
       title: '状态',
       dataIndex: 'status',
       width: 110,
+      sorter: (a: RecognitionJob, b: RecognitionJob) => (a.status || '').localeCompare(b.status || ''),
       render: (status: string) => <StatusTag status={status} />,
     },
     {
@@ -201,23 +227,38 @@ export default function JobListPage() {
       title: '创建时间',
       dataIndex: 'createdAt',
       width: 170,
+      sorter: (a: RecognitionJob, b: RecognitionJob) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return ta - tb;
+      },
+      defaultSortOrder: 'descend' as const,
       render: (t: string | null) => (t ? new Date(t).toLocaleString('zh-CN') : '-'),
     },
     {
       title: '操作',
-      width: 80,
+      width: 130,
       fixed: 'right' as const,
       render: (_: unknown, record: RecognitionJob) => (
-        <Button
-          type="text"
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/jobs/${record.id}`);
-          }}
-        >
-          查看
-        </Button>
+        <Space size={4}>
+          <Button
+            type="text"
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/jobs/${record.id}`);
+            }}
+          >
+            查看
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            status="danger"
+            icon={<IconTrash size={14} />}
+            onClick={(e) => handleDelete(record.id, e)}
+          />
+        </Space>
       ),
     },
   ];
@@ -346,6 +387,22 @@ export default function JobListPage() {
           />
         )}
       </Card>
+
+      {/* 删除确认弹窗 */}
+      <Modal
+        title="确认删除"
+        visible={showDeleteModal}
+        onOk={confirmDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTargetId(null); }}
+        okText="删除"
+        cancelText="取消"
+        okButtonProps={{ status: 'danger' }}
+        confirmLoading={deleteJob.isPending}
+        closable
+        maskClosable
+      >
+        <p>删除后不可恢复，确定要删除该任务吗？</p>
+      </Modal>
     </div>
   );
 }

@@ -45,9 +45,9 @@ export interface AuthContext {
 }
 
 export class AuthError extends Error {
-  readonly code: "UNAUTHORIZED" | "FORBIDDEN";
+  readonly code: "UNAUTHORIZED" | "FORBIDDEN" | "INVALID_CREDENTIALS";
 
-  constructor(code: "UNAUTHORIZED" | "FORBIDDEN", message: string) {
+  constructor(code: "UNAUTHORIZED" | "FORBIDDEN" | "INVALID_CREDENTIALS", message: string) {
     super(message);
     this.name = "AuthError";
     this.code = code;
@@ -337,14 +337,14 @@ export function createAuthService(dependencies: AuthServiceDependencies): AuthSe
     async login(input: LoginInput) {
       const user = await dependencies.userRepository.findAuthByEmail(input.email);
       if (!user) {
-        throw new AuthError("UNAUTHORIZED", "UNAUTHORIZED");
+        throw new AuthError("INVALID_CREDENTIALS", "用户名或密码错误");
       }
 
       assertActiveUser(user.status);
 
       const passwordOk = await verifyPassword(input.password, user.passwordHash);
       if (!passwordOk) {
-        throw new AuthError("UNAUTHORIZED", "UNAUTHORIZED");
+        throw new AuthError("INVALID_CREDENTIALS", "用户名或密码错误");
       }
 
       const permissions = flattenPermissions(user.roles);

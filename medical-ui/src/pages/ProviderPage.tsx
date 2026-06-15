@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Tag,
@@ -24,7 +24,8 @@ import {
   useUpdateProvider,
   useDeleteProvider,
 } from '../hooks/useProviders';
-import { ApiError } from '../api/client';
+import { ApiError, jobsApi } from '../api/client';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from '../components/GlobalToast';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -94,6 +95,27 @@ export default function ProviderPage() {
   const [form] = Form.useForm();
 
   const providers = data?.items || [];
+
+  // 获取任务统计数据以计算 Provider 使用次数
+  const { data: jobsData } = useQuery({
+    queryKey: ['jobs-for-provider-stats'],
+    queryFn: () => jobsApi.list(500),
+    staleTime: 30000,
+  });
+
+  const providerUsageMap = useMemo(() => {
+    const map: Record<string, { total: number; completed: number; failed: number }> = {};
+    const jobs = jobsData?.items || [];
+    for (const job of jobs) {
+      const key = job.providerConfig?.providerKey || job.providerConfig?.ocrProviderKey || '';
+      if (!key) continue;
+      if (!map[key]) map[key] = { total: 0, completed: 0, failed: 0 };
+      map[key].total++;
+      if (job.status === 'completed' || job.status === 'partial_completed') map[key].completed++;
+      if (job.status === 'failed') map[key].failed++;
+    }
+    return map;
+  }, [jobsData]);
 
   // Sync formData -> form when modal opens
   useEffect(() => {
@@ -268,6 +290,7 @@ export default function ProviderPage() {
   const renderProviderCard = (p: ProviderConfig) => {
     const endpoint = p.config?.endpoint;
     const showEndpoint = endpoint && endpoint !== '-';
+    const usage = providerUsageMap[p.key];
 
     return (
       <Col key={p.id} xs={24} sm={12} lg={8}>
@@ -302,6 +325,16 @@ export default function ProviderPage() {
               { label: 'Key', value: p.key },
               ...(showEndpoint ? [{ label: 'Endpoint', value: endpoint }] : []),
               { label: '创建时间', value: p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN') : '-' },
+              ...(usage ? [{
+                label: '使用统计',
+                value: (
+                  <Space size={8}>
+                    <Tag size="small" color="blue">共 {usage.total} 次</Tag>
+                    <Tag size="small" color="green">成功 {usage.completed}</Tag>
+                    {usage.failed > 0 && <Tag size="small" color="red">失败 {usage.failed}</Tag>}
+                  </Space>
+                ),
+              }] : []),
             ]}
             style={{ marginBottom: 12 }}
           />

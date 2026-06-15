@@ -109,13 +109,19 @@ async function tryRefreshToken(): Promise<string | null> {
   }
 }
 
+interface RequestOptions extends RequestInit {
+  /** 跳过 401 自动重定向（用于登录接口，401 表示密码错误而非 token 过期） */
+  skip401Redirect?: boolean;
+}
+
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestOptions = {}
 ): Promise<T> {
+  const { skip401Redirect, ...fetchOptions } = options;
   const token = getToken();
   const headers: Record<string, string> = {
-    ...((options.headers as Record<string, string>) || {}),
+    ...((fetchOptions.headers as Record<string, string>) || {}),
   };
 
   if (token) {
@@ -123,14 +129,14 @@ async function request<T>(
   }
 
   // Don't set Content-Type for FormData
-  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+  if (!(fetchOptions.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
   // POST/DELETE/PUT 无 body 自动补 {}
-  const method = (options.method || 'GET').toUpperCase();
-  if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(method) && options.body === undefined) {
-    options.body = JSON.stringify({});
+  const method = (fetchOptions.method || 'GET').toUpperCase();
+  if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(method) && fetchOptions.body === undefined) {
+    fetchOptions.body = JSON.stringify({});
   }
 
   let lastError: unknown;
@@ -139,7 +145,7 @@ async function request<T>(
     let res: Response;
     try {
       res = await fetch(`${API_BASE}${path}`, {
-        ...options,
+        ...fetchOptions,
         headers,
       });
     } catch (error) {
@@ -154,6 +160,18 @@ async function request<T>(
     }
 
     if (res.status === 401) {
+      // 登录接口的 401 表示密码错误，不触发 token 续期和页面跳转
+      if (skip401Redirect) {
+        let body: unknown;
+        try {
+          body = await res.json();
+        } catch {
+          body = null;
+        }
+        const userMessage = getChineseErrorMessage(body, res.status);
+        throw new ApiError(401, body, userMessage);
+      }
+
       // 尝试静默续期（非重试的请求才触发，避免递归）
       if (attempt === 0) {
         const newToken = await tryRefreshToken();
@@ -217,7 +235,7 @@ export const authApi = {
   login: (email: string, password: string) =>
     request<{ accessToken: string; user: { id: string; email: string; displayName: string } }>(
       '/auth/login',
-      { method: 'POST', body: JSON.stringify({ email, password }) }
+      { method: 'POST', body: JSON.stringify({ email, password }), skip401Redirect: true }
     ),
   logout: () =>
     request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),

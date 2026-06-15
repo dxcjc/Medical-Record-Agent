@@ -78,7 +78,7 @@ export async function registerAuthRoutes(server: FastifyInstance, dependencies: 
         return reply.send(payload);
       } catch (error: unknown) {
         const err = error as { code?: string; statusCode?: number; message?: string };
-        const status = err.statusCode === 401 || err.code === "UNAUTHORIZED" ? 401
+        const status = err.statusCode === 401 || err.code === "UNAUTHORIZED" || err.code === "INVALID_CREDENTIALS" ? 401
           : err.statusCode === 403 || err.code === "FORBIDDEN" ? 403
           : typeof err.statusCode === "number" ? err.statusCode
           : 500;

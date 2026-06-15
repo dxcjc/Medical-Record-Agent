@@ -1713,11 +1713,14 @@ async function runStorageHealthProbe(storageProvider: StorageProvider, now: () =
 
 async function runOcrHealthProbe(input: {
   endpoint: string;
+  healthUrl?: string;
   apiKey?: string;
   healthFetch: ProviderHealthFetch;
 }) {
   const startedAt = Date.now();
   const method = "GET";
+  // 优先使用独立的 healthUrl（避免对 POST-only 的 OCR 端点发 GET）
+  const probeUrl = input.healthUrl ?? input.endpoint;
   const requestInit: RequestInit = {
     method
   };
@@ -1730,7 +1733,7 @@ async function runOcrHealthProbe(input: {
 
   try {
     // OCR 健康检查用 GET 最小探针
-    const response = await input.healthFetch(input.endpoint, requestInit);
+    const response = await input.healthFetch(probeUrl, requestInit);
 
     return {
       status: response.ok ? ("healthy" as const) : ("degraded" as const),
@@ -1738,7 +1741,7 @@ async function runOcrHealthProbe(input: {
       message: response.ok ? "HTTP OCR provider 最小健康探针通过。" : "HTTP OCR provider 最小健康探针未通过。",
       probe: {
         method,
-        url: input.endpoint,
+        url: probeUrl,
         statusCode: response.status
       }
     };
@@ -1749,7 +1752,7 @@ async function runOcrHealthProbe(input: {
       message: "HTTP OCR provider 健康探针失败，请检查 endpoint、认证或内网连通性。",
       probe: {
         method,
-        url: input.endpoint
+        url: probeUrl
       }
     };
   }
@@ -2011,10 +2014,15 @@ function createProviderRegistry(
           };
         }
 
+        // 支持独立的健康检查端点（避免对 POST-only 的 OCR 端点发 GET）
+        const healthEndpoint = readOptionalString(config.healthEndpoint);
         const probeInput: Parameters<typeof runOcrHealthProbe>[0] = {
           endpoint,
           healthFetch: providerHealthFetch
         };
+        if (healthEndpoint) {
+          probeInput.healthUrl = healthEndpoint;
+        }
         if (secret.value !== undefined) {
           probeInput.apiKey = secret.value;
         }

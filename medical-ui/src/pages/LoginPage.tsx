@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, Avatar } from '@arco-design/web-react';
 import { toast } from '../components/GlobalToast';
 import { useAuthStore } from '../stores/authStore';
+import { ApiError } from '../api/client';
 import { IconUserRound, IconShield } from '../icons/appIcons';
 
 const FormItem = Form.Item;
@@ -16,16 +17,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('ChangeMe123!');
 
   const handleSubmit = async () => {
-    if (!email || !password) {
-      toast.warning('请输入邮箱和密码');
+    if (!email.trim()) {
+      toast.warning('请输入邮箱');
+      return;
+    }
+    if (!password.trim()) {
+      toast.warning('请输入密码');
       return;
     }
     try {
       await login(email, password);
       toast.success('登录成功');
       navigate('/');
-    } catch {
-      toast.error('登录失败，请检查邮箱和密码');
+    } catch (e: unknown) {
+      const msg = e instanceof ApiError ? e.userMessage
+        : e instanceof Error ? e.message
+        : '登录失败，请检查邮箱和密码';
+      toast.error(msg);
     }
   };
 
@@ -51,7 +59,7 @@ export default function LoginPage() {
           <Text type="secondary">医疗记录智能识别系统</Text>
         </div>
 
-        <Form layout="vertical" onSubmit={handleSubmit}>
+        <Form layout="vertical" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
           <FormItem label="邮箱">
             <Input
               prefix={<IconUserRound size={16} />}
