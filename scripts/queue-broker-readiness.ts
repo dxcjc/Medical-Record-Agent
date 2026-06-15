@@ -3,7 +3,7 @@ import {
   createInProcessJobQueueExecutor,
   createRedisJobQueueAdapter,
   type RedisJobQueueClient
-} from "../apps/api/src/services/api-services";
+} from "../apps/api/src/services/jobQueue";
 
 export type QueueBrokerReadinessStatus = "passed" | "blocked" | "failed";
 

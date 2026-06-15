@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Select, Button, Upload, Tag } from '@arco-design/web-react';
+import { Card, Form, Select, Button, Upload, Tag, Radio } from '@arco-design/web-react';
 import { toast } from '../components/GlobalToast';
 import type { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useSchemas } from '../hooks/useSchemas';
@@ -29,6 +29,7 @@ export default function NewRecognitionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [progressText, setProgressText] = useState('');
   const [filePreviews, setFilePreviews] = useState<Map<string, string>>(new Map());
+  const [createMode, setCreateMode] = useState<'merge' | 'separate'>('merge');
 
   const schemas = schemasData?.items || [];
 
@@ -111,6 +112,24 @@ export default function NewRecognitionPage() {
     return true;
   };
 
+  /** Upload multiple files and create one merged job */
+  const uploadAndCreateMergedJob = async (filesToUpload: File[]): Promise<boolean> => {
+    const storedFiles = [];
+
+    for (let i = 0; i < filesToUpload.length; i++) {
+      setProgressText(`正在上传文件 (${i + 1}/${filesToUpload.length})...`);
+      storedFiles.push(await filesApi.upload(filesToUpload[i]));
+    }
+
+    setProgressText('正在创建合并识别任务...');
+    await createJob.mutateAsync({
+      schemaKey,
+      sourceFileIds: storedFiles.map((file) => file.id),
+    });
+
+    return true;
+  };
+
   const handleSubmit = async () => {
     const filesToUpload = useExample && exampleFile ? [exampleFile] : files;
 
@@ -136,6 +155,19 @@ export default function NewRecognitionPage() {
     const totalFiles = filesToUpload.length;
 
     try {
+      if (createMode === 'merge') {
+        // 合并模式：所有文件上传后创建一个合并任务
+        await uploadAndCreateMergedJob(filesToUpload);
+        createdCount = 1;
+        setProgressText('✅ 合并任务创建成功，正在跳转...');
+        toast.success(`成功创建 1 个合并识别任务（${totalFiles} 个文件）`);
+        setFiles([]);
+        setUseExample(false);
+        setTimeout(() => navigate('/jobs'), 2000);
+        return;
+      }
+
+      // 分别创建模式：每个文件创建一个任务
       for (let i = 0; i < totalFiles; i++) {
         setProgressText(`正在上传文件 (${i + 1}/${totalFiles})...`);
         try {
@@ -375,6 +407,23 @@ export default function NewRecognitionPage() {
                 >
                   {useExample ? '已选中' : '使用示例'}
                 </Button>
+              </div>
+            </FormItem>
+
+            <FormItem label="创建模式">
+              <Radio.Group
+                type="button"
+                value={createMode}
+                onChange={(v) => setCreateMode(v as 'merge' | 'separate')}
+                disabled={submitting}
+              >
+                <Radio value="merge">合并为一个任务</Radio>
+                <Radio value="separate">每个文件分别创建任务</Radio>
+              </Radio.Group>
+              <div style={{ fontSize: 12, color: 'var(--color-text-3)', marginTop: 4 }}>
+                {createMode === 'merge'
+                  ? '合并模式会按上传顺序 OCR 多张图片，并生成一个病例级识别结果'
+                  : '分别模式会为每个文件创建独立的识别任务'}
               </div>
             </FormItem>
 

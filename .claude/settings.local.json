@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem *)",
+      "Bash(dir D:02-Learningagent *)",
+      "Bash(powershell *)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm --filter @medical-record-agent/core build)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm --filter @medical-record-agent/shared build)",
+      "Bash(npx prisma *)",
+      "Bash(npx vitest *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}

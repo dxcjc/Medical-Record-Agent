@@ -20,6 +20,7 @@ export interface RecognitionJobDocumentServiceInput {
 
 export type CreateRecognitionJobServiceInput = Omit<CreateRecognitionJobRouteInput, "document"> & {
   document?: RecognitionJobDocumentServiceInput | undefined;
+  documents?: RecognitionJobDocumentServiceInput[] | undefined;
 };
 
 export interface JobRouteService {
@@ -114,9 +115,9 @@ export async function registerJobRoutes(server: FastifyInstance, dependencies: J
         const result = await dependencies.jobService.listPaginated({
           page: data.page ?? 1,
           pageSize: data.pageSize ?? 20,
-          status: data.status,
-          schemaKey: data.schemaKey,
-          search: data.search,
+          ...(data.status !== undefined ? { status: data.status } : {}),
+          ...(data.schemaKey !== undefined ? { schemaKey: data.schemaKey } : {}),
+          ...(data.search !== undefined ? { search: data.search } : {}),
         });
         return {
           items: result.items,

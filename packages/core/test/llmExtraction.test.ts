@@ -7,8 +7,6 @@ import {
   createLangChainModelProvider,
   createMockModelProvider,
   createModelProvider,
-  createOpenAiLangChainModel,
-  createOpenAiResponsesClient,
   createOpenAiResponsesProvider,
   extractStructuredFields,
   limsClinicalInfoSchema
@@ -187,29 +185,6 @@ describe("LLM extraction engine", () => {
       })
     );
     expect(result.candidates[0]?.fieldKey).toBe("smokingHistory");
-  });
-
-  it("OpenAI Responses SDK client factory exposes responses.create without calling the network", () => {
-    // 生产装配需要注入真实 OpenAI SDK client，但测试只验证 SDK 形状，
-    // 不触发 responses.create，避免在单元测试里访问公网或消耗真实额度。
-    const client = createOpenAiResponsesClient({
-      apiKey: "test-openai-api-key"
-    });
-
-    expect(client.responses.create).toEqual(expect.any(Function));
-  });
-
-  it("OpenAI LangChain ChatModel factory exposes structured-output model without calling the network", () => {
-    // 这里只校验真实 LangChain ChatModel 的装配形状，不触发 invoke，
-    // 避免单元测试访问真实大模型，同时防止生产启动链路继续停留在占位 throw。
-    const model = createOpenAiLangChainModel({
-      apiKey: "test-openai-api-key",
-      baseUrl: "https://llm-gateway.example.test/v1",
-      model: "gpt-4.1-mini"
-    });
-
-    expect(model.invoke).toEqual(expect.any(Function));
-    expect(model.withStructuredOutput).toEqual(expect.any(Function));
   });
 
   it("malformed HTTP model output becomes structured non-retryable provider error without raw text or secrets", async () => {

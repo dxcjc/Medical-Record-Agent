@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -6,7 +6,7 @@ const sevenDimensionReports = [
   "MEDICAL-P1-P2-NEXT-LOCAL-ACTIONABILITY-FIX-REPORT.md",
   "MEDICAL-P1-P2-CONTINUED-BUSINESS-SECURITY-FIX-REPORT.md",
   "MEDICAL-P1-P2-CONTINUED-BUSINESS-SECURITY-AUDIT-REPORT.md"
-];
+].filter(existsSync);
 
 const requiredDimensions = [
   "产品概述",

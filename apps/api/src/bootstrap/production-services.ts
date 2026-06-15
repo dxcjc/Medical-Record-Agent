@@ -6,8 +6,6 @@ import {
   createLimsWritebackAdapter,
   createModelProvider,
   createOcrProvider,
-  createOpenAiLangChainModel,
-  createOpenAiResponsesClient,
   buildGenericJsonPayload,
   limsClinicalInfoSchema,
   runEvaluation,
@@ -24,7 +22,7 @@ import {
   type OcrTextBlock,
   type LimsWritebackAdapter,
   type LimsWritebackExecutionResult,
-  type LangChainModelLike,
+  type StructuredLanguageModel,
   type OpenAiResponsesClientLike,
   type ModelProvider,
   type OcrProvider,
@@ -61,12 +59,16 @@ import { createUserRepository } from "../repositories/user.repository";
 import { createWritebackRepository } from "../repositories/writeback.repository";
 import {
   createApiServices,
-  createRedisJobQueueAdapter,
   type ApiEvaluationRunner,
-  type JobQueueAdapter,
-  type ProviderRegistry,
-  type RedisJobQueueClient
+  type ProviderRegistry
 } from "../services/api-services";
+import {
+  createRedisJobQueueAdapter,
+  type JobQueueAdapter,
+  type RedisJobQueueClient
+} from "../services/jobQueue";
+import { createOpenAiLangChainModel } from "../infrastructure/openAiLangChainModel";
+import { createOpenAiResponsesClient } from "../infrastructure/openAiResponsesClient";
 import { createSchemaService } from "../services/schema.service";
 import { createStatsService } from "../services/stats.service";
 import { createKnowledgeRepository } from "../repositories/knowledge.repository";
@@ -123,7 +125,7 @@ export interface CreateProductionApiServicesOptions {
   redisQueueClient?: RedisJobQueueClient;
   sessionEnv?: Record<string, string | undefined>;
   queueEnv?: Record<string, string | undefined>;
-  langChainModel?: LangChainModelLike;
+  langChainModel?: StructuredLanguageModel;
   openAiResponsesClient?: OpenAiResponsesClientLike;
   now?: () => Date;
 }
@@ -1055,7 +1057,7 @@ function buildModelProviderOptions(options: CreateProductionApiServicesOptions) 
 }
 
 type ProviderRuntimeOptions = {
-  langChainModel?: LangChainModelLike;
+  langChainModel?: StructuredLanguageModel;
   openAiResponsesClient?: OpenAiResponsesClientLike;
   providerRuntimeFetch?: ProviderRuntimeFetch;
   secretResolver: SecretResolver;
@@ -2195,7 +2197,7 @@ function createProviderRegistry(
 
       const normalizedProvider = normalizeProviderConfigRecord({
         ...persistedProvider,
-        enabled: persistedProvider.status !== "disabled"
+        enabled: true
       });
 
       if (normalizedProvider.isMock) {
@@ -2217,7 +2219,7 @@ function createProviderRegistry(
         key,
         kind: persistedProvider.kind as "ocr" | "llm" | "storage" | "lims",
         displayName: persistedProvider.displayName,
-        status: "deleted",
+        status: "disabled",
         isDefault: false,
         config: {},
         secretRefs: {},
@@ -2654,8 +2656,8 @@ export function createProductionApiServices(options: CreateProductionApiServices
           return {
             items: result.items,
             total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
+            ...(result.page !== undefined ? { page: result.page } : {}),
+            ...(result.pageSize !== undefined ? { pageSize: result.pageSize } : {}),
           };
         }
         return result.items;

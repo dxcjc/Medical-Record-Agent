@@ -1,0 +1,586 @@
+{
+  "key": "comprehensive-tumor-evaluation",
+  "label": "肿瘤资料完整评估",
+  "version": "1.0.0",
+  "evidencePolicy": {
+    "required": true,
+    "minConfidence": 0.65,
+    "requireSourceText": true,
+    "requirePageReference": true
+  },
+  "fields": [
+    {
+      "key": "documentTypes",
+      "label": "文档类型",
+      "type": "list",
+      "required": true,
+      "comments": [
+        "识别到的所有文档类型，如病理报告、申请单、基因检测报告、病历资料、药厂申请单等",
+        "可多选，按识别到的顺序列出"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.documentTypes",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "patientName",
+      "label": "患者姓名",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "患者姓名，脱敏后使用",
+        "多页资料和期望截图匹配时使用"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.patientName",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "sourceOrganization",
+      "label": "来源机构",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "医院、检测机构、药厂或报告来源",
+        "如：北京大学第三医院、南京鼓楼医院、Gene+吉因加等"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.sourceOrganization",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "reportDate",
+      "label": "报告日期",
+      "type": "date",
+      "required": false,
+      "comments": [
+        "报告或资料形成日期",
+        "归一化为 ISO 格式 YYYY-MM-DD"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.reportDate",
+        "normalizer": "dateText",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "diagnosisDate",
+      "label": "诊断日期",
+      "type": "date",
+      "required": false,
+      "comments": [
+        "明确诊断日期；无明确日期时不强行输出",
+        "归一化为 ISO 格式 YYYY-MM-DD"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.diagnosisDate",
+        "normalizer": "dateText",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "clinicalDiagnosis",
+      "label": "临床诊断",
+      "type": "string",
+      "required": true,
+      "comments": [
+        "临床诊断或主要诊断原文",
+        "优先保留文档中出现的完整诊断描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.clinicalDiagnosis",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "pathologicalDiagnosis",
+      "label": "病理诊断",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "病理报告中的诊断结论",
+        "如病理报告存在，此字段必填"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.pathologicalDiagnosis",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "primaryTumorType",
+      "label": "原发肿瘤类型",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "如肺腺癌、胃腺癌、乳腺癌、胶质瘤、膀胱癌、肾癌等",
+        "尽量使用标准术语"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.primaryTumorType",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "primarySite",
+      "label": "原发部位",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "肺、胃、乳腺、结直肠、膀胱、肾、脑等",
+        "原发灶未明时此字段留空，使用 primarySiteStatus 标记"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.primarySite",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "primarySiteStatus",
+      "label": "原发灶状态",
+      "type": "enum",
+      "enumMap": {
+        "confirmed": "原发部位明确",
+        "unknownPrimary": "原发灶未明",
+        "suspected": "疑似原发部位",
+        "notMentioned": "未提及"
+      },
+      "required": false,
+      "comments": [
+        "原发部位明确性判断",
+        "文档中未提及原发部位时选 notMentioned"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.primarySiteStatus",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "diagnosisCertainty",
+      "label": "诊断确定性",
+      "type": "enum",
+      "enumMap": {
+        "confirmed": "确诊",
+        "suspected": "疑似",
+        "excluded": "排除或否认",
+        "uncertain": "无法判断"
+      },
+      "required": false,
+      "comments": [
+        "诊断的确定性程度",
+        "根据文档描述的语气判断"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.diagnosisCertainty",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "involvedSites",
+      "label": "累及部位",
+      "type": "list",
+      "required": false,
+      "comments": [
+        "多部位病灶、送检部位、病理累及部位",
+        "列出所有识别到的累及部位"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.involvedSites",
+        "normalizer": "listField",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "metastasisStatus",
+      "label": "转移状态",
+      "type": "enum",
+      "enumMap": {
+        "present": "有转移",
+        "absent": "未见转移",
+        "suspected": "疑似转移",
+        "notMentioned": "未提及"
+      },
+      "required": false,
+      "comments": [
+        "是否有远处转移",
+        "文档中未提及时选 notMentioned"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.metastasisStatus",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "metastasisSites",
+      "label": "转移部位",
+      "type": "list",
+      "required": false,
+      "comments": [
+        "肝、淋巴结、骨、肺等转移部位",
+        "列出所有识别到的转移部位"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.metastasisSites",
+        "normalizer": "listField",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "multiPrimaryOrMultiSiteNote",
+      "label": "多原发/多部位说明",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "多部位或复杂诊断原文摘要",
+        "用于记录难以结构化的复杂诊断描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.multiPrimaryOrMultiSiteNote",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "tumorStage",
+      "label": "肿瘤分期",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "总体分期原文，如 IV 期、T2N1M0、IIIA 期等",
+        "优先保留文档中的原始分期描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.tumorStage",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "tnmStage",
+      "label": "TNM 分期",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "完整 TNM 表达，如 pT2N1M0、cT1N0M0 等",
+        "只有 T 或只有 N 时不要强行补造完整 TNM"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.tnmStage",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "tStage",
+      "label": "T 分期",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "只出现 T 分期时保留，不补造 N/M",
+        "如 T1、T2、T3、T4 等"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.tStage",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "nStage",
+      "label": "N 分期",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "只出现 N 分期时保留，不补造 T/M",
+        "如 N0、N1、N2、N3 等"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.nStage",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "mStage",
+      "label": "M 分期",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "远处转移分期",
+        "如 M0、M1、M1a、M1b 等"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.mStage",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "pathologicalStage",
+      "label": "病理分期",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "病理学分期",
+        "通常以 p 开头，如 pT2N1M0"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.pathologicalStage",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "stageEvidenceCompleteness",
+      "label": "分期完整性",
+      "type": "enum",
+      "enumMap": {
+        "complete": "完整分期",
+        "partial": "部分分期",
+        "absent": "未提及分期",
+        "unclear": "无法判断"
+      },
+      "required": false,
+      "comments": [
+        "分期证据的完整性判断",
+        "只有 T 或只有 N 时选 partial"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.stageEvidenceCompleteness",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "sampleType",
+      "label": "样本类型",
+      "type": "list",
+      "required": false,
+      "comments": [
+        "组织、血液、胸水、石蜡切片等，可多选",
+        "列出所有识别到的样本类型"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.sampleType",
+        "normalizer": "listField",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "sampleSite",
+      "label": "取样部位",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "送检或取样部位",
+        "如肺穿刺、乳腺肿块、淋巴结等"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.sampleSite",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "pathologyNo",
+      "label": "病理号",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "病理报告或申请单中的病理号",
+        "保留原文格式"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.pathologyNo",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "sampleNo",
+      "label": "样本编号",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "样本编号、检测编号等",
+        "保留原文格式"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.sampleNo",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "geneTestItems",
+      "label": "基因检测项目",
+      "type": "list",
+      "required": false,
+      "comments": [
+        "EGFR、NGS panel、MSI 等基因检测项目",
+        "列出所有识别到的检测项目"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.geneTestItems",
+        "normalizer": "listField",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "geneMutationSummary",
+      "label": "基因突变摘要",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "基因检测报告中的关键突变或结果摘要",
+        "简要总结主要发现"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.geneMutationSummary",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "surgeryHistory",
+      "label": "手术史",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "手术名称、时间或有/无/不详",
+        "保留文档中的描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.surgeryHistory",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "treatmentHistory",
+      "label": "治疗史",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "资料中总体治疗史描述",
+        "简要总结治疗情况"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.treatmentHistory",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "medicationHistory",
+      "label": "用药史",
+      "type": "list",
+      "required": false,
+      "comments": [
+        "多药物列表或关键药物名称",
+        "列出所有识别到的药物"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.medicationHistory",
+        "normalizer": "listField",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "radiotherapyHistory",
+      "label": "放疗史",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "放疗相关描述",
+        "保留文档中的描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.radiotherapyHistory",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "chemotherapyHistory",
+      "label": "化疗史",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "化疗方案或化疗史",
+        "保留文档中的描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.chemotherapyHistory",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "targetedTherapyHistory",
+      "label": "靶向治疗史",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "靶向药物或靶向治疗史",
+        "保留文档中的描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.targetedTherapyHistory",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "immunotherapyHistory",
+      "label": "免疫治疗史",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "免疫治疗药物或治疗史",
+        "保留文档中的描述"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.immunotherapyHistory",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "ocrQualityIssue",
+      "label": "OCR 质量问题",
+      "type": "enum",
+      "enumMap": {
+        "none": "无明显质量问题",
+        "blurry": "图片模糊",
+        "skewed": "图片倾斜",
+        "handwritten": "手写内容较多",
+        "multipageOrderRisk": "多页顺序风险",
+        "unreadable": "无法识别",
+        "unclear": "无法判断"
+      },
+      "required": false,
+      "comments": [
+        "OCR 识别质量评估",
+        "根据图片质量和识别结果选择"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.ocrQualityIssue",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "needsManualReviewReason",
+      "label": "需人工审核原因",
+      "type": "list",
+      "required": false,
+      "comments": [
+        "诊断冲突、分期不完整、原发灶未明、OCR 低质等原因",
+        "列出所有需要人工审核的原因"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.needsManualReviewReason",
+        "normalizer": "listField",
+        "writebackMode": "preview"
+      }
+    },
+    {
+      "key": "finalCaseSummary",
+      "label": "病例摘要",
+      "type": "string",
+      "required": false,
+      "comments": [
+        "多页资料聚合后的最终病例摘要",
+        "总结病例的关键信息"
+      ],
+      "adapterHints": {
+        "limsTargetPath": "evaluation.finalCaseSummary",
+        "writebackMode": "preview"
+      }
+    }
+  ]
+}

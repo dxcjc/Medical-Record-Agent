@@ -1,0 +1,561 @@
+{
+  "id": "fixed-medical-image-set-2026-06-15",
+  "label": "固定测试集共45个样本",
+  "schemaKey": "comprehensive-tumor-evaluation",
+  "sensitivity": "real_deidentified",
+  "basePath": "C:/Users/24628/Desktop/固定测试集共45个样本",
+  "groups": [
+    {
+      "id": "group-1",
+      "label": "不同癌种解读匹配",
+      "sampleCount": 10,
+      "fileCount": 11,
+      "description": "覆盖膀胱癌、肛缘肠癌、横纹肌肉瘤、非霍奇金淋巴瘤、肾癌、胶质瘤、食管癌、胃肠道间质瘤、胰腺癌、胃腺癌，验证肿瘤类型识别"
+    },
+    {
+      "id": "group-2",
+      "label": "不同类型病理报告",
+      "sampleCount": 10,
+      "fileCount": 11,
+      "description": "北医三院、不确诊后确诊、字多、不常见格式、局部、南京鼓楼、肠癌肝转移、乳腺癌肝转移、原发灶未明、资料隔页，验证不同报告版式"
+    },
+    {
+      "id": "group-3",
+      "label": "上传的不同类型图片能否准确识别",
+      "sampleCount": 7,
+      "fileCount": 9,
+      "description": "勾选治疗史、手术史、手写申请单、基因报告诊断、乳腺癌含用药、同时上传3张资料、转移用药放疗，验证多种图片类型识别"
+    },
+    {
+      "id": "group-4",
+      "label": "药厂测试",
+      "sampleCount": 3,
+      "fileCount": 3,
+      "description": "模糊、清晰标准、倾斜药厂申请单，验证图片质量鲁棒性"
+    },
+    {
+      "id": "group-5",
+      "label": "资料多样本测试",
+      "sampleCount": 5,
+      "fileCount": 22,
+      "description": "李月娥用药多、马辉资料多、浦慧敏资料多、张宏建、张勇资料多，验证多页资料聚合"
+    },
+    {
+      "id": "group-6",
+      "label": "测基因检测",
+      "sampleCount": 3,
+      "fileCount": 3,
+      "description": "基因检测报告，验证基因检测项目和突变识别"
+    },
+    {
+      "id": "group-7",
+      "label": "测手术分期",
+      "sampleCount": 4,
+      "fileCount": 4,
+      "description": "标准病理学分期、没有提示病理分期、只有N分期、只有T分期，验证分期完整性判断"
+    },
+    {
+      "id": "group-8",
+      "label": "多部位乳腺癌测试能不能准确识别",
+      "sampleCount": 3,
+      "fileCount": 3,
+      "description": "多部位结肠直肠小肠、不同部位乳腺癌、不同部位神经内分泌癌，验证多部位诊断"
+    }
+  ],
+  "samples": [
+    {
+      "id": "260518101",
+      "groupId": "group-1",
+      "label": "膀胱癌",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518101膀胱癌.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "膀胱癌", "单图"],
+      "notes": "膀胱癌诊断匹配"
+    },
+    {
+      "id": "260518102",
+      "groupId": "group-1",
+      "label": "肛缘肠癌",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518102肛缘肠癌.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "肠癌", "单图"],
+      "notes": "肛缘肠癌诊断匹配"
+    },
+    {
+      "id": "260518103",
+      "groupId": "group-1",
+      "label": "横纹肌肉瘤",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518103横纹肌肉瘤.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "肉瘤", "单图"],
+      "notes": "横纹肌肉瘤诊断匹配"
+    },
+    {
+      "id": "260518104",
+      "groupId": "group-1",
+      "label": "非霍奇金淋巴瘤",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518104非霍奇金淋巴瘤.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "淋巴瘤", "单图"],
+      "notes": "非霍奇金淋巴瘤诊断匹配"
+    },
+    {
+      "id": "260518105",
+      "groupId": "group-1",
+      "label": "肾癌",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518105肾癌.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "肾癌", "单图"],
+      "notes": "肾癌诊断匹配"
+    },
+    {
+      "id": "260518106",
+      "groupId": "group-1",
+      "label": "胶质瘤",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518106胶质瘤.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "胶质瘤", "单图"],
+      "notes": "胶质瘤诊断匹配"
+    },
+    {
+      "id": "260518107",
+      "groupId": "group-1",
+      "label": "食管癌",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518107食管癌.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "食管癌", "单图"],
+      "notes": "食管癌诊断匹配"
+    },
+    {
+      "id": "260518108",
+      "groupId": "group-1",
+      "label": "胃肠道间质瘤",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518108胃肠道间质瘤.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "间质瘤", "单图"],
+      "notes": "胃肠道间质瘤诊断匹配"
+    },
+    {
+      "id": "260518109",
+      "groupId": "group-1",
+      "label": "胰腺癌",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518109胰腺癌.png"],
+      "expectedFiles": [],
+      "tags": ["癌种识别", "胰腺癌", "单图"],
+      "notes": "胰腺癌诊断匹配"
+    },
+    {
+      "id": "260518110",
+      "groupId": "group-1",
+      "label": "胃腺癌",
+      "isMultiFile": false,
+      "inputFiles": ["1测试不同癌种解读匹配10/260518110胃腺癌.png"],
+      "expectedFiles": ["1测试不同癌种解读匹配10/260518111胃腺癌应该识别成这样ScreenShot_2026-03-24_110231_557.png"],
+      "tags": ["癌种识别", "胃腺癌", "单图", "期望截图"],
+      "notes": "胃腺癌诊断匹配，附带期望识别结果截图"
+    },
+    {
+      "id": "260518201",
+      "groupId": "group-2",
+      "label": "北医三院病理简单",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518201北医三院病理简单.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "北医三院", "单图"],
+      "notes": "北医三院简单病理报告"
+    },
+    {
+      "id": "260518202",
+      "groupId": "group-2",
+      "label": "病理报告一开始不确诊后来确诊",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518202病理报告一开始不确诊后来确诊.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "确诊演进", "单图"],
+      "notes": "诊断逐步确认，应识别最终诊断"
+    },
+    {
+      "id": "260518203",
+      "groupId": "group-2",
+      "label": "病理报告字多",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518203病理报告字多.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "长文本", "单图"],
+      "notes": "长文本病理报告，测试OCR长文本稳定性"
+    },
+    {
+      "id": "260518204",
+      "groupId": "group-2",
+      "label": "不常见病理报告",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518204不常见病理报告.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "不常见格式", "单图"],
+      "notes": "不常见版式病理报告"
+    },
+    {
+      "id": "260518205",
+      "groupId": "group-2",
+      "label": "另一种形式病理报告局部",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518205另一种形式病理报告，局部。。。.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "局部", "单图"],
+      "notes": "局部病理报告"
+    },
+    {
+      "id": "260518206",
+      "groupId": "group-2",
+      "label": "南京鼓楼医院",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518206南京鼓楼医院3.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "南京鼓楼", "单图"],
+      "notes": "南京鼓楼医院病理报告"
+    },
+    {
+      "id": "260518207",
+      "groupId": "group-2",
+      "label": "肠癌肝转移",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518207绕肠癌肝转移.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "肠癌", "肝转移", "单图"],
+      "notes": "肠癌肝转移，测试原发/转移判断"
+    },
+    {
+      "id": "260518208",
+      "groupId": "group-2",
+      "label": "乳腺癌肝转移",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518208绕乳腺癌肝转移.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "乳腺癌", "肝转移", "单图"],
+      "notes": "乳腺癌肝转移，测试原发/转移判断"
+    },
+    {
+      "id": "260518209",
+      "groupId": "group-2",
+      "label": "原发灶未明",
+      "isMultiFile": false,
+      "inputFiles": ["2测试不同类型病理报告10/260518209原发灶未明.png"],
+      "expectedFiles": [],
+      "tags": ["病理报告", "原发灶未明", "单图"],
+      "notes": "原发灶未明，测试不强行指定原发癌种"
+    },
+    {
+      "id": "260518210",
+      "groupId": "group-2",
+      "label": "资料隔页",
+      "isMultiFile": true,
+      "inputFiles": [
+        "2测试不同类型病理报告10/260518210资料隔页1.png",
+        "2测试不同类型病理报告10/260518210资料隔页2.png"
+      ],
+      "expectedFiles": [],
+      "tags": ["病理报告", "隔页", "多图"],
+      "notes": "资料隔页两张"
+    },
+    {
+      "id": "260518301",
+      "groupId": "group-3",
+      "label": "勾选了治疗史需输出具体不详",
+      "isMultiFile": false,
+      "inputFiles": ["3测试上传的不同类型图片能否准确识别7/260518301勾选了治疗史需输出具体不详.png"],
+      "expectedFiles": [],
+      "tags": ["申请单", "治疗史", "勾选", "单图"],
+      "notes": "勾选治疗史，应输出具体不详"
+    },
+    {
+      "id": "260518302",
+      "groupId": "group-3",
+      "label": "测试文字中手术史能不能识别",
+      "isMultiFile": false,
+      "inputFiles": ["3测试上传的不同类型图片能否准确识别7/260518302测试文字中手术史能不能识别.png"],
+      "expectedFiles": [],
+      "tags": ["手术史", "单图"],
+      "notes": "手术史识别测试"
+    },
+    {
+      "id": "260518303",
+      "groupId": "group-3",
+      "label": "手写申请单",
+      "isMultiFile": false,
+      "inputFiles": ["3测试上传的不同类型图片能否准确识别7/260518303手写申请单.png"],
+      "expectedFiles": [],
+      "tags": ["申请单", "手写", "OCR挑战", "单图"],
+      "notes": "手写申请单，OCR识别挑战"
+    },
+    {
+      "id": "260518305",
+      "groupId": "group-3",
+      "label": "基因检测报告上诊断",
+      "isMultiFile": false,
+      "inputFiles": ["3测试上传的不同类型图片能否准确识别7/260518305基因检测报告上诊断.png"],
+      "expectedFiles": [],
+      "tags": ["基因检测", "诊断", "单图"],
+      "notes": "基因检测报告上的诊断"
+    },
+    {
+      "id": "260518306",
+      "groupId": "group-3",
+      "label": "申请单乳腺癌含用药",
+      "isMultiFile": false,
+      "inputFiles": ["3测试上传的不同类型图片能否准确识别7/260518306申请单乳腺癌含用药.png"],
+      "expectedFiles": [],
+      "tags": ["申请单", "乳腺癌", "用药", "单图"],
+      "notes": "乳腺癌申请单含用药信息"
+    },
+    {
+      "id": "260518307",
+      "groupId": "group-3",
+      "label": "同时上传3张资料余明明",
+      "isMultiFile": true,
+      "inputFiles": [
+        "3测试上传的不同类型图片能否准确识别7/260518307测同时上传3张资料余明明1.png",
+        "3测试上传的不同类型图片能否准确识别7/260518307测同时上传3张资料余明明2.png",
+        "3测试上传的不同类型图片能否准确识别7/260518307测同时上传3张资料余明明3.png"
+      ],
+      "expectedFiles": [],
+      "tags": ["多图", "资料聚合", "余明明"],
+      "notes": "同时上传3张资料，测试多图合并识别"
+    },
+    {
+      "id": "260519304",
+      "groupId": "group-3",
+      "label": "一段话包括转移用药和放疗",
+      "isMultiFile": false,
+      "inputFiles": ["3测试上传的不同类型图片能否准确识别7/260519304一段话包括转移用药和放疗.png"],
+      "expectedFiles": [],
+      "tags": ["转移", "用药", "放疗", "单图"],
+      "notes": "一段话包含转移、用药、放疗信息"
+    },
+    {
+      "id": "260518401",
+      "groupId": "group-4",
+      "label": "药厂模糊",
+      "isMultiFile": false,
+      "inputFiles": ["4药厂测试3/260518401S药厂模糊能识别么creenShot_2026-04-10_145750_505.png"],
+      "expectedFiles": [],
+      "tags": ["药厂", "模糊", "OCR质量", "单图"],
+      "notes": "模糊药厂申请单"
+    },
+    {
+      "id": "260518402",
+      "groupId": "group-4",
+      "label": "药厂清晰标准",
+      "isMultiFile": false,
+      "inputFiles": ["4药厂测试3/260518402测清晰标准申请单能否识别ScreenShot_2026-04-30_150319_846.png"],
+      "expectedFiles": [],
+      "tags": ["药厂", "清晰", "基准", "单图"],
+      "notes": "清晰标准药厂申请单，基准样本"
+    },
+    {
+      "id": "260518403",
+      "groupId": "group-4",
+      "label": "药厂倾斜",
+      "isMultiFile": false,
+      "inputFiles": ["4药厂测试3/260518403倾斜药厂申请单ScreenShot_2026-04-15_143742_061.png"],
+      "expectedFiles": [],
+      "tags": ["药厂", "倾斜", "OCR质量", "单图"],
+      "notes": "倾斜药厂申请单"
+    },
+    {
+      "id": "260518501",
+      "groupId": "group-5",
+      "label": "李月娥用药多",
+      "isMultiFile": true,
+      "inputFiles": [
+        "5资料多样本测试5/260518501李月娥用药多/用药非常多李月娥1.png",
+        "5资料多样本测试5/260518501李月娥用药多/用药非常多李月娥2.png"
+      ],
+      "expectedFiles": [
+        "5资料多样本测试5/260518501李月娥用药多/李月娥应该录入为.png"
+      ],
+      "tags": ["多图", "用药多", "期望截图", "李月娥"],
+      "notes": "用药非常多，附带期望录入结果截图"
+    },
+    {
+      "id": "260518502",
+      "groupId": "group-5",
+      "label": "马辉资料多",
+      "isMultiFile": true,
+      "inputFiles": [
+        "5资料多样本测试5/260518502马辉资料多/ScreenShot_2026-04-21_170216_488.png",
+        "5资料多样本测试5/260518502马辉资料多/马辉1.png",
+        "5资料多样本测试5/260518502马辉资料多/马辉2.png",
+        "5资料多样本测试5/260518502马辉资料多/马辉3.png"
+      ],
+      "expectedFiles": [],
+      "tags": ["多图", "资料多", "马辉"],
+      "notes": "马辉多页资料"
+    },
+    {
+      "id": "260518503",
+      "groupId": "group-5",
+      "label": "浦慧敏资料多",
+      "isMultiFile": true,
+      "inputFiles": [
+        "5资料多样本测试5/260518503浦慧敏资料多/同一样本1.png",
+        "5资料多样本测试5/260518503浦慧敏资料多/同一样本2.png",
+        "5资料多样本测试5/260518503浦慧敏资料多/同一样本3.png"
+      ],
+      "expectedFiles": [
+        "5资料多样本测试5/260518503浦慧敏资料多/浦慧敏应该识别成这样.png"
+      ],
+      "tags": ["多图", "资料多", "期望截图", "浦慧敏"],
+      "notes": "浦慧敏多页资料，附带期望识别结果截图"
+    },
+    {
+      "id": "260518504",
+      "groupId": "group-5",
+      "label": "张宏建",
+      "isMultiFile": true,
+      "inputFiles": [
+        "5资料多样本测试5/260518504张宏建/1.png",
+        "5资料多样本测试5/260518504张宏建/2.png"
+      ],
+      "expectedFiles": [],
+      "tags": ["多图", "张宏建"],
+      "notes": "张宏建资料"
+    },
+    {
+      "id": "260518505",
+      "groupId": "group-5",
+      "label": "张勇资料多",
+      "isMultiFile": true,
+      "inputFiles": [
+        "5资料多样本测试5/260518505张勇资料多/资料多1张勇261005348ScreenShot_2026-03-23_142707_638.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多2张勇261005348.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多3张勇261005348.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多4张勇261005348.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多5张勇261005348.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多6张勇261005348.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多7张勇261005348.png",
+        "5资料多样本测试5/260518505张勇资料多/资料多8张勇261005348.png"
+      ],
+      "expectedFiles": [
+        "5资料多样本测试5/260518505张勇资料多/张勇应该识别成这样.png"
+      ],
+      "tags": ["多图", "资料多", "期望截图", "张勇"],
+      "notes": "张勇8页资料，附带期望识别结果截图"
+    },
+    {
+      "id": "260518601",
+      "groupId": "group-6",
+      "label": "基因检测1",
+      "isMultiFile": false,
+      "inputFiles": ["6测基因检测3/260518601基因检测.png"],
+      "expectedFiles": [],
+      "tags": ["基因检测", "单图"],
+      "notes": "基因检测报告1"
+    },
+    {
+      "id": "260518602",
+      "groupId": "group-6",
+      "label": "基因检测2",
+      "isMultiFile": false,
+      "inputFiles": ["6测基因检测3/260518602基因检测.png"],
+      "expectedFiles": [],
+      "tags": ["基因检测", "单图"],
+      "notes": "基因检测报告2"
+    },
+    {
+      "id": "260518603",
+      "groupId": "group-6",
+      "label": "基因检测3",
+      "isMultiFile": false,
+      "inputFiles": ["6测基因检测3/260518603基因检测.png"],
+      "expectedFiles": [],
+      "tags": ["基因检测", "单图"],
+      "notes": "基因检测报告3"
+    },
+    {
+      "id": "260518701",
+      "groupId": "group-7",
+      "label": "标准病理学分期",
+      "isMultiFile": false,
+      "inputFiles": ["7测手术分期4/260518701标准病理学分期.png"],
+      "expectedFiles": [],
+      "tags": ["分期", "完整分期", "单图"],
+      "notes": "标准病理学分期，应正确抽取完整分期"
+    },
+    {
+      "id": "260518702",
+      "groupId": "group-7",
+      "label": "没有提示病理分期",
+      "isMultiFile": false,
+      "inputFiles": ["7测手术分期4/260518702没有提示病理分期.png"],
+      "expectedFiles": [],
+      "tags": ["分期", "未提及", "负样本", "单图"],
+      "notes": "没有提示病理分期，不应幻觉输出分期"
+    },
+    {
+      "id": "260518703",
+      "groupId": "group-7",
+      "label": "只有N分期",
+      "isMultiFile": false,
+      "inputFiles": ["7测手术分期4/260518703只有N分期.png"],
+      "expectedFiles": [],
+      "tags": ["分期", "部分分期", "N分期", "单图"],
+      "notes": "只有N分期，不补造T/M"
+    },
+    {
+      "id": "260518704",
+      "groupId": "group-7",
+      "label": "只有T分期",
+      "isMultiFile": false,
+      "inputFiles": ["7测手术分期4/260518704只有T分期.png"],
+      "expectedFiles": [],
+      "tags": ["分期", "部分分期", "T分期", "单图"],
+      "notes": "只有T分期，不补造N/M"
+    },
+    {
+      "id": "260518801",
+      "groupId": "group-8",
+      "label": "多部位结肠直肠小肠",
+      "isMultiFile": false,
+      "inputFiles": ["8多部位乳腺癌测试能不能准确识别3/260518801多部位结肠直肠小肠的病理诊断.png"],
+      "expectedFiles": [],
+      "tags": ["多部位", "结肠", "直肠", "小肠", "单图"],
+      "notes": "多部位结肠直肠小肠病理诊断"
+    },
+    {
+      "id": "260518802",
+      "groupId": "group-8",
+      "label": "不同部位乳腺癌",
+      "isMultiFile": false,
+      "inputFiles": ["8多部位乳腺癌测试能不能准确识别3/260518802不同部位乳腺癌测试.png"],
+      "expectedFiles": [],
+      "tags": ["多部位", "乳腺癌", "单图"],
+      "notes": "不同部位乳腺癌测试"
+    },
+    {
+      "id": "260518803",
+      "groupId": "group-8",
+      "label": "不同部位神经内分泌癌",
+      "isMultiFile": false,
+      "inputFiles": ["8多部位乳腺癌测试能不能准确识别3/260518803不同部位神经内分泌癌7.png"],
+      "expectedFiles": [],
+      "tags": ["多部位", "神经内分泌癌", "单图"],
+      "notes": "不同部位神经内分泌癌"
+    }
+  ],
+  "notes": [
+    "本文件是 manifest 草案，先定义样本结构和文件映射。",
+    "后续人工标注 groundTruth 后可转换为 evaluation dataset。",
+    "评估时文件名应可选择脱敏，避免模型从文件名猜答案。",
+    "isMultiFile=true 的样本需要多图合并为一个识别任务评估。",
+    "expectedFiles 中的截图可作为人工标注参考，但不直接参与自动评估。"
+  ]
+}

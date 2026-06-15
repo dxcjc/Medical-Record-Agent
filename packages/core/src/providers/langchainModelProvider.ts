@@ -1,7 +1,7 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 
 import { extractionOutputSchema, parseModelExtractionOutput } from "../engine/extractionEngine";
-import { ProviderError, type LangChainModelProviderConfig, type ModelProvider } from "./providerTypes";
+import { ProviderError, type StructuredModelProviderConfig, type ModelProvider } from "./providerTypes";
 
 function createMalformedOutputError(providerName: string): ProviderError {
   return new ProviderError(`模型结构化输出无效：${providerName} 返回内容不符合字段抽取 schema`, {
@@ -11,7 +11,7 @@ function createMalformedOutputError(providerName: string): ProviderError {
   });
 }
 
-export function createLangChainModelProvider(config: LangChainModelProviderConfig): ModelProvider {
+export function createLangChainModelProvider(config: StructuredModelProviderConfig): ModelProvider {
   const providerName = config.providerName ?? "langchain-model";
 
   return {

@@ -48,7 +48,8 @@ function createSchemaService(): SchemaRouteService {
     publishDraft: vi.fn(async () => ({ id: "version-002", status: "active" })),
     deactivateVersion: vi.fn(async () => ({ id: "version-002", status: "inactive" })),
     rollbackVersion: vi.fn(async () => ({ id: "version-001", status: "active" })),
-    compareVersions: vi.fn(async () => ({ changedVersion: { left: 1, right: 2 } }))
+    compareVersions: vi.fn(async () => ({ changedVersion: { left: 1, right: 2 } })),
+    activateVersion: vi.fn(async () => ({ id: "version-001", status: "active" }))
   };
 }
 

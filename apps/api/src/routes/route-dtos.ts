@@ -302,16 +302,28 @@ const recognitionProviderConfigRouteInputSchema = z
   })
   .strip();
 
+const sourceFileIdsRouteInputSchema = z.array(nonEmptyString).min(1).max(50).optional();
+
 export const recognitionJobRouteInputSchema = z
   .object({
     schemaKey: optionalNonEmptyString,
     schemaVersionId: optionalNonEmptyString,
     sourceFileId: optionalNonEmptyString,
+    sourceFileIds: sourceFileIdsRouteInputSchema,
     document: recognitionDocumentRouteInputSchema.optional(),
     options: jsonObjectSchema.optional(),
     providerConfig: recognitionProviderConfigRouteInputSchema.optional()
   })
-  .strip();
+  .strip()
+  .superRefine((value, context) => {
+    if (value.sourceFileId && value.sourceFileIds?.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "sourceFileId and sourceFileIds cannot be used together",
+        path: ["sourceFileIds"]
+      });
+    }
+  });
 
 export const feedbackRouteInputSchema = z
   .object({

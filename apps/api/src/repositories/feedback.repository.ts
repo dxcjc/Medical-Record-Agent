@@ -53,7 +53,7 @@ export function createFeedbackRepository(dependencies: FeedbackRepositoryDepende
     async listAll(input?: {
       fieldKey?: string;
       jobId?: string;
-      status?: string;
+      status?: FeedbackStatus;
       page?: number;
       pageSize?: number;
       createdFrom?: Date;
@@ -62,7 +62,7 @@ export function createFeedbackRepository(dependencies: FeedbackRepositoryDepende
       const where: {
         fieldKey?: string;
         jobId?: string;
-        status?: string;
+        status?: FeedbackStatus;
         createdAt?: { gte?: Date; lte?: Date };
       } = {};
 

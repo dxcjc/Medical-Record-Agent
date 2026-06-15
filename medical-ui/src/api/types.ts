@@ -51,6 +51,7 @@ export interface RecognitionJob {
   schemaKey: string;
   schemaVersionId?: string;
   sourceFileId?: string;
+  sourceFileIds?: string[];
   createdById?: string;
   createdByName?: string;
   providerConfig: ProviderConfigMap;

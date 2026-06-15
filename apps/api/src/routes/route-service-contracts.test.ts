@@ -19,7 +19,8 @@ const validSchemaService: SchemaRouteService = {
   publishDraft: async () => routeObject,
   deactivateVersion: async () => routeObject,
   rollbackVersion: async () => routeObject,
-  compareVersions: async () => routeObject
+  compareVersions: async () => routeObject,
+  activateVersion: async () => routeObject
 };
 
 void validSchemaService;
@@ -74,7 +75,8 @@ const validFeedbackService: FeedbackRouteService = {
   create: async () => routeObject,
   listByJobId: async () => [],
   listAll: async () => ({ items: [routeObject], total: 1, page: 1, pageSize: 20 }),
-  getFieldStats: async () => []
+  getFieldStats: async () => [],
+  updateStatus: async () => routeObject
 };
 
 void validFeedbackService;
@@ -99,7 +101,8 @@ const scalarSchemaServiceFixture = {
   publishDraft: async () => "not-object",
   deactivateVersion: async () => "not-object",
   rollbackVersion: async () => "not-object",
-  compareVersions: async () => "not-object"
+  compareVersions: async () => "not-object",
+  activateVersion: async () => "not-object"
 };
 
 // @ts-expect-error scalar schema responses must be rejected at compile time
@@ -164,7 +167,9 @@ void invalidResultService;
 const scalarFeedbackServiceFixture = {
   create: async () => "not-object",
   listAll: async () => "not-object",
-  getFieldStats: async () => "not-object"
+  getFieldStats: async () => "not-object",
+  listByJobId: async () => ["not-object"],
+  updateStatus: async () => "not-object"
 };
 
 // @ts-expect-error scalar feedback response must be rejected at compile time

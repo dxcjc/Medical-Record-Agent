@@ -261,7 +261,7 @@ export const jobsApi = {
   },
   get: (id: string) =>
     request<import('./types').RecognitionJob>(`/jobs/${id}`),
-  create: (body: { schemaKey: string; sourceFileId?: string; schemaVersionId?: string; providerConfig?: import('./types').ProviderConfigMap }) =>
+  create: (body: { schemaKey: string; sourceFileId?: string; sourceFileIds?: string[]; schemaVersionId?: string; providerConfig?: import('./types').ProviderConfigMap }) =>
     request<import('./types').RecognitionJob>('/jobs', {
       method: 'POST',
       body: JSON.stringify(body),

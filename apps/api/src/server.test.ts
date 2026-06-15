@@ -82,7 +82,8 @@ function createSchemaRouteService() {
         removed: [],
         unchanged: []
       }
-    }))
+    })),
+    activateVersion: vi.fn(async (input) => ({ id: input.id, status: "active" }))
   };
 }
 
@@ -117,7 +118,8 @@ function createServices(authService = createAuthService()): ApiServerServices {
       create: vi.fn(async () => ({ id: "feedback-001", status: "open" })),
       listByJobId: vi.fn(async () => []),
       listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
-      getFieldStats: vi.fn(async () => [])
+      getFieldStats: vi.fn(async () => []),
+      updateStatus: vi.fn(async () => ({ id: "feedback-001", status: "approved" }))
     },
     writebackService: {
       execute: vi.fn(async () => ({ id: "writeback-001", status: "succeeded" })),

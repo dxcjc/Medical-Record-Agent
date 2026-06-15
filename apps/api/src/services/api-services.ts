@@ -31,6 +31,22 @@ import type { V1JobsListResponse, V1RouteService } from "../routes/v1.routes";
 import type { ApiServerServices } from "../server";
 import type { StorageProvider } from "../storage";
 
+import {
+  createInProcessJobQueueExecutor,
+  createRedisJobQueueAdapter,
+  inProcessJobQueueReadiness,
+  brokerJobQueueReadiness,
+  sanitizeJobExecutionError,
+  type ApiJobQueueExecutor,
+  type JobQueueAdapter,
+  type JobQueueDeadLetter,
+  type JobQueueLease,
+  type JobQueueTask,
+  type RedisJobQueueAdapter,
+  type RedisJobQueueAdapterOptions,
+  type RedisJobQueueClient
+} from "./jobQueue";
+
 export interface ApiRecognitionDocumentInput {
   documentId: string;
   fileName?: string;
@@ -239,98 +255,6 @@ export interface ApiEvaluationRunner {
 
 export type ApiJobExecutionMode = "asynchronous" | "synchronous";
 
-export interface JobQueueTask {
-  name: string;
-  idempotencyKey?: string;
-  payload?: Prisma.InputJsonValue;
-  run(): Promise<void>;
-}
-
-export interface JobQueueDescription {
-  adapter: "in-process" | "broker";
-  brokerProvider?: "redis" | "rabbitmq" | "sqs";
-  productionReady: boolean;
-  blockedReason?:
-    | "QUEUE_BROKER_NOT_CONFIGURED"
-    | "QUEUE_BROKER_ADAPTER_NOT_CONNECTED"
-    | "QUEUE_BROKER_SMOKE_NOT_RUN";
-  capabilities: {
-    durable: boolean;
-    multiInstance: boolean;
-    lease: boolean;
-    retry: boolean;
-    deadLetter: boolean;
-    heartbeat: boolean;
-  };
-  policy: {
-    maxAttempts: number;
-    heartbeatIntervalMs: number;
-  };
-  readiness: {
-    nextAction: string;
-    requiredChecks: string[];
-  };
-}
-
-export interface JobQueueLease {
-  id: string;
-  taskName: string;
-  attempt: number;
-  leasedAt: Date;
-  heartbeatAt: Date;
-  idempotencyKey?: string;
-  payload?: Prisma.InputJsonValue;
-}
-
-export interface JobQueueDeadLetter {
-  taskName: string;
-  attempts: number;
-  error: Prisma.InputJsonValue;
-  failedAt: Date;
-}
-
-export interface JobQueueAdapter {
-  enqueue(task: (() => Promise<void>) | JobQueueTask): void | Promise<void>;
-  drain(): Promise<void>;
-  describe(): JobQueueDescription;
-  leaseNext?(): Promise<JobQueueLease | null>;
-  complete?(leaseId: string): Promise<void>;
-  fail?(leaseId: string, error: unknown): Promise<void>;
-  heartbeat?(leaseId: string): Promise<void>;
-  listDeadLetters?(): Promise<JobQueueDeadLetter[]>;
-}
-
-export type ApiJobQueueExecutor = JobQueueAdapter;
-
-export interface RedisJobQueueClient {
-  rpush(key: string, ...values: string[]): Promise<number>;
-  lpop(key: string): Promise<string | null>;
-  lrange(key: string, start: number, stop: number): Promise<string[]>;
-  set(key: string, value: string, options?: { nx?: boolean; px?: number }): Promise<"OK" | null>;
-  get(key: string): Promise<string | null>;
-  del(...keys: string[]): Promise<number>;
-  pexpire(key: string, milliseconds: number): Promise<number>;
-}
-
-export interface RedisJobQueueAdapterOptions {
-  client: RedisJobQueueClient;
-  queueName: string;
-  deadLetterQueue: string;
-  visibilityTimeoutMs: number;
-  retryLimit: number;
-  heartbeatIntervalMs?: number;
-  idempotencyTtlMs?: number;
-  now?: () => Date;
-}
-
-export interface RedisJobQueueAdapter extends JobQueueAdapter {
-  leaseNext(): Promise<JobQueueLease | null>;
-  complete(leaseId: string): Promise<void>;
-  fail(leaseId: string, error: unknown): Promise<void>;
-  heartbeat(leaseId: string): Promise<void>;
-  listDeadLetters(): Promise<JobQueueDeadLetter[]>;
-}
-
 export interface CreateApiServicesOptions {
   authService: AuthLayerService & AuthRouteService;
   auditService: AuditRouteService & {
@@ -461,419 +385,8 @@ function toRecognitionJobStatus(status: string): RecognitionJobStatus {
   return isTerminalRecognitionStatus(status) || status === "queued" || status === "running" ? status : "failed";
 }
 
-function sanitizeJobExecutionError(error: unknown): Prisma.InputJsonValue {
-  const code =
-    isRecord(error) && typeof error.code === "string" && error.code.length > 0
-      ? error.code
-      : "JOB_EXECUTION_FAILED";
 
-  return {
-    code,
-    message: "识别后台任务执行失败，请查看服务端安全日志或 provider 诊断。"
-  };
-}
 
-const inProcessJobQueueReadiness = {
-  nextAction:
-    "配置 QUEUE_MODE=broker、真实 Redis/RabbitMQ/SQS 与 worker，再运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
-  requiredChecks: [
-    "multi-worker-lease-smoke",
-    "retry-dead-letter-smoke",
-    "heartbeat-status-consistency-smoke",
-    "status-result-consistency-smoke",
-    "idempotency-key-deduplication-smoke"
-  ]
-};
-
-const brokerJobQueueReadiness = {
-  nextAction:
-    "完成真实 Redis/RabbitMQ/SQS worker 绑定，并运行多实例 lease/retry/dead-letter/heartbeat/status-result consistency smoke。",
-  requiredChecks: [
-    "multi-worker-lease-smoke",
-    "retry-dead-letter-smoke",
-    "heartbeat-status-consistency-smoke",
-    "status-result-consistency-smoke",
-    "idempotency-key-deduplication-smoke"
-  ]
-};
-
-export function createInProcessJobQueueExecutor(
-  options: {
-    maxAttempts?: number;
-    heartbeatIntervalMs?: number;
-    now?: () => Date;
-  } = {}
-): ApiJobQueueExecutor {
-  const pending = new Set<Promise<void>>();
-  const leases = new Map<string, JobQueueLease>();
-  const deadLetters: JobQueueDeadLetter[] = [];
-  const maxAttempts = options.maxAttempts ?? 1;
-  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 30_000;
-  const now = options.now ?? (() => new Date());
-  const maxConcurrent = Number(process.env.MAX_CONCURRENT_JOBS ?? "3") || 3;
-  let sequence = 0;
-  let runningJobs = 0;
-  const waitingQueue: Array<() => void> = [];
-
-  function normalizeTask(task: (() => Promise<void>) | JobQueueTask): JobQueueTask {
-    if (typeof task === "function") {
-      return {
-        name: "anonymous",
-        run: task
-      };
-    }
-
-    return task;
-  }
-
-  return {
-    enqueue(task) {
-      const queueTask = normalizeTask(task);
-      const leaseId = `in-process-${++sequence}`;
-
-      const promise = new Promise<void>((resolve) => {
-        function acquireSlot() {
-          if (runningJobs < maxConcurrent) {
-            runningJobs += 1;
-            resolve();
-          } else {
-            waitingQueue.push(acquireSlot);
-          }
-        }
-        acquireSlot();
-      })
-        .then(async () => {
-          for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-            const lease = {
-              id: leaseId,
-              taskName: queueTask.name,
-              attempt,
-              leasedAt: now(),
-              heartbeatAt: now()
-            };
-            leases.set(leaseId, lease);
-
-            try {
-              await queueTask.run();
-              return;
-            } catch (error) {
-              if (attempt >= maxAttempts) {
-                deadLetters.push({
-                  taskName: queueTask.name,
-                  attempts: attempt,
-                  error: sanitizeJobExecutionError(error),
-                  failedAt: now()
-                });
-                throw error;
-              }
-            }
-          }
-        })
-        .catch(() => {
-          // 任务内部负责持久化失败状态；这里吞掉异常，避免后台 promise 变成未处理拒绝。
-        })
-        .finally(() => {
-          leases.delete(leaseId);
-          pending.delete(promise);
-          runningJobs -= 1;
-          const next = waitingQueue.shift();
-          if (next) {
-            next();
-          }
-        });
-
-      pending.add(promise);
-    },
-    async drain() {
-      while (pending.size > 0) {
-        await Promise.allSettled([...pending]);
-      }
-    },
-    describe() {
-      return {
-        adapter: "in-process",
-        productionReady: false,
-        blockedReason: "QUEUE_BROKER_NOT_CONFIGURED",
-        capabilities: {
-          durable: false,
-          multiInstance: false,
-          lease: true,
-          retry: true,
-          deadLetter: true,
-          heartbeat: true
-        },
-        policy: {
-          maxAttempts,
-          heartbeatIntervalMs,
-          maxConcurrent
-        },
-        readiness: inProcessJobQueueReadiness
-      };
-    },
-    async heartbeat(leaseId) {
-      const lease = leases.get(leaseId);
-      if (lease) {
-        leases.set(leaseId, {
-          ...lease,
-          heartbeatAt: now()
-        });
-      }
-    },
-    async listDeadLetters() {
-      return [...deadLetters];
-    }
-  };
-}
-
-type RedisQueuedTaskEnvelope = {
-  id: string;
-  taskName: string;
-  attempt: number;
-  enqueuedAt: string;
-  idempotencyKey?: string;
-  payload?: Prisma.InputJsonValue;
-};
-
-type RedisLeaseEnvelope = RedisQueuedTaskEnvelope & {
-  leaseId: string;
-  leasedAt: string;
-  heartbeatAt: string;
-};
-
-function parseRedisQueuedTaskEnvelope(value: string): RedisQueuedTaskEnvelope | null {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!isRecord(parsed) || typeof parsed.id !== "string" || typeof parsed.taskName !== "string") {
-      return null;
-    }
-
-    return {
-      id: parsed.id,
-      taskName: parsed.taskName,
-      attempt: typeof parsed.attempt === "number" && Number.isFinite(parsed.attempt) ? parsed.attempt : 0,
-      enqueuedAt: typeof parsed.enqueuedAt === "string" ? parsed.enqueuedAt : new Date(0).toISOString(),
-      ...(typeof parsed.idempotencyKey === "string" ? { idempotencyKey: parsed.idempotencyKey } : {}),
-      ...(parsed.payload !== undefined ? { payload: parsed.payload as Prisma.InputJsonValue } : {})
-    };
-  } catch {
-    return null;
-  }
-}
-
-function parseRedisLeaseEnvelope(value: string): RedisLeaseEnvelope | null {
-  const queued = parseRedisQueuedTaskEnvelope(value);
-  if (!queued) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!isRecord(parsed) || typeof parsed.leaseId !== "string") {
-      return null;
-    }
-
-    return {
-      ...queued,
-      leaseId: parsed.leaseId,
-      leasedAt: typeof parsed.leasedAt === "string" ? parsed.leasedAt : new Date(0).toISOString(),
-      heartbeatAt: typeof parsed.heartbeatAt === "string" ? parsed.heartbeatAt : new Date(0).toISOString()
-    };
-  } catch {
-    return null;
-  }
-}
-
-function toRedisQueueLease(envelope: RedisLeaseEnvelope): JobQueueLease {
-  return {
-    id: envelope.leaseId,
-    taskName: envelope.taskName,
-    attempt: envelope.attempt,
-    leasedAt: new Date(envelope.leasedAt),
-    heartbeatAt: new Date(envelope.heartbeatAt),
-    ...(envelope.idempotencyKey !== undefined ? { idempotencyKey: envelope.idempotencyKey } : {}),
-    ...(envelope.payload !== undefined ? { payload: envelope.payload } : {})
-  };
-}
-
-function toRedisDeadLetter(value: string): JobQueueDeadLetter | null {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!isRecord(parsed) || typeof parsed.taskName !== "string") {
-      return null;
-    }
-
-    const failedAt = typeof parsed.failedAt === "string" ? new Date(parsed.failedAt) : new Date(0);
-
-    return {
-      taskName: parsed.taskName,
-      attempts: typeof parsed.attempts === "number" && Number.isFinite(parsed.attempts) ? parsed.attempts : 0,
-      error: toInputJsonValue(parsed.error),
-      failedAt
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Redis broker adapter skeleton.
- *
- * The API process can enqueue and expose broker contract semantics, while a real
- * worker is still required to bind task payloads back to domain execution.
- */
-export function createRedisJobQueueAdapter(options: RedisJobQueueAdapterOptions): RedisJobQueueAdapter {
-  const now = options.now ?? (() => new Date());
-  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? Math.max(1000, Math.floor(options.visibilityTimeoutMs / 2));
-  const idempotencyTtlMs = options.idempotencyTtlMs ?? options.visibilityTimeoutMs * Math.max(1, options.retryLimit);
-  let sequence = 0;
-
-  function leaseKey(leaseId: string) {
-    return `${options.queueName}:lease:${leaseId}`;
-  }
-
-  function idempotencyKey(key: string) {
-    return `${options.queueName}:idem:${key}`;
-  }
-
-  function normalizeTask(task: (() => Promise<void>) | JobQueueTask): JobQueueTask {
-    if (typeof task === "function") {
-      return {
-        name: "anonymous",
-        run: task
-      };
-    }
-
-    return task;
-  }
-
-  function serializeEnvelope(envelope: RedisQueuedTaskEnvelope | RedisLeaseEnvelope) {
-    return JSON.stringify(envelope);
-  }
-
-  return {
-    async enqueue(task) {
-      const queueTask = normalizeTask(task);
-      const enqueuedAt = now().toISOString();
-      const envelope: RedisQueuedTaskEnvelope = {
-        id: `redis-task-${++sequence}`,
-        taskName: queueTask.name,
-        attempt: 0,
-        enqueuedAt,
-        ...(queueTask.idempotencyKey !== undefined ? { idempotencyKey: queueTask.idempotencyKey } : {}),
-        ...(queueTask.payload !== undefined ? { payload: queueTask.payload } : {})
-      };
-
-      if (queueTask.idempotencyKey !== undefined) {
-        const reserved = await options.client.set(idempotencyKey(queueTask.idempotencyKey), serializeEnvelope(envelope), {
-          nx: true,
-          px: idempotencyTtlMs
-        });
-        if (reserved !== "OK") {
-          return;
-        }
-      }
-
-      await options.client.rpush(options.queueName, serializeEnvelope(envelope));
-    },
-    async drain() {
-      // Broker execution requires a separate worker; draining cannot prove real Redis delivery.
-      return undefined;
-    },
-    describe() {
-      return {
-        adapter: "broker",
-        brokerProvider: "redis",
-        productionReady: false,
-        blockedReason: "QUEUE_BROKER_SMOKE_NOT_RUN",
-        capabilities: {
-          durable: true,
-          multiInstance: true,
-          lease: true,
-          retry: true,
-          deadLetter: true,
-          heartbeat: true
-        },
-        policy: {
-          maxAttempts: options.retryLimit,
-          heartbeatIntervalMs
-        },
-        readiness: brokerJobQueueReadiness
-      };
-    },
-    async leaseNext() {
-      const raw = await options.client.lpop(options.queueName);
-      if (!raw) {
-        return null;
-      }
-
-      const queued = parseRedisQueuedTaskEnvelope(raw);
-      if (!queued) {
-        return null;
-      }
-
-      const leaseId = `${queued.id}:attempt-${queued.attempt + 1}`;
-      const leasedAt = now().toISOString();
-      const leaseEnvelope: RedisLeaseEnvelope = {
-        ...queued,
-        attempt: queued.attempt + 1,
-        leaseId,
-        leasedAt,
-        heartbeatAt: leasedAt
-      };
-
-      await options.client.set(leaseKey(leaseId), serializeEnvelope(leaseEnvelope), {
-        px: options.visibilityTimeoutMs
-      });
-
-      return toRedisQueueLease(leaseEnvelope);
-    },
-    async complete(leaseId) {
-      await options.client.del(leaseKey(leaseId));
-    },
-    async fail(leaseId, error) {
-      const raw = await options.client.get(leaseKey(leaseId));
-      const lease = raw ? parseRedisLeaseEnvelope(raw) : null;
-      if (!lease) {
-        return;
-      }
-
-      if (lease.attempt >= options.retryLimit) {
-        await options.client.rpush(
-          options.deadLetterQueue,
-          JSON.stringify({
-            taskName: lease.taskName,
-            attempts: lease.attempt,
-            error: sanitizeJobExecutionError(error),
-            failedAt: now().toISOString()
-          })
-        );
-        await options.client.del(leaseKey(leaseId));
-        return;
-      }
-
-      const retryEnvelope: RedisQueuedTaskEnvelope = {
-        id: lease.id,
-        taskName: lease.taskName,
-        attempt: lease.attempt,
-        enqueuedAt: now().toISOString(),
-        ...(lease.idempotencyKey !== undefined ? { idempotencyKey: lease.idempotencyKey } : {}),
-        ...(lease.payload !== undefined ? { payload: lease.payload } : {})
-      };
-      await options.client.rpush(options.queueName, serializeEnvelope(retryEnvelope));
-      await options.client.del(leaseKey(leaseId));
-    },
-    async heartbeat(leaseId) {
-      await options.client.pexpire(leaseKey(leaseId), options.visibilityTimeoutMs);
-    },
-    async listDeadLetters() {
-      const rows = await options.client.lrange(options.deadLetterQueue, 0, -1);
-      return rows.flatMap((row) => {
-        const item = toRedisDeadLetter(row);
-        return item ? [item] : [];
-      });
-    }
-  };
-}
 
 function createApiServiceError(code: string, statusCode: number) {
   return Object.assign(new Error(code), {
@@ -1840,41 +1353,68 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
           schemaKey?: string;
           schemaVersionId?: string;
           sourceFileId?: string;
+          sourceFileIds?: string[];
           createdById?: string;
           document?: ApiRecognitionDocumentInput;
           options?: unknown;
           providerConfig?: unknown;
         };
         const schemaKey = body.schemaKey ?? "lims-clinical-info";
-        // 真实上传文件链路必须先确认文件仓库和受控存储都可读，再创建识别任务。
-        // 这样文件丢失、storageKey 配错或对象存储故障时，不会留下一个已经排队但永远无法 OCR 的假任务。
-        const preparedDocument =
-          body.sourceFileId !== undefined
-            ? await createStoredFileDocumentInput({
-                sourceFileId: body.sourceFileId,
-                document: body.document ?? {
-                  documentId: body.sourceFileId
-                },
-                fileRepository: repositories.fileRepository,
-                storageProvider: options.storageProvider
-              })
-            : (body.document ?? undefined);
+        const sourceFileIds = Array.isArray(body.sourceFileIds) && body.sourceFileIds.length > 0
+          ? body.sourceFileIds
+          : undefined;
+
+        // 多文件模式下，为每个文件准备 OcrDocumentInput
+        const preparedDocuments = sourceFileIds !== undefined
+          ? await Promise.all(
+              sourceFileIds.map((sourceFileId) =>
+                createStoredFileDocumentInput({
+                  sourceFileId,
+                  document: { documentId: sourceFileId },
+                  fileRepository: repositories.fileRepository,
+                  storageProvider: options.storageProvider
+                })
+              )
+            )
+          : undefined;
+
+        // 单文件模式下，准备单个 OcrDocumentInput
+        const preparedDocument = preparedDocuments === undefined && body.sourceFileId !== undefined
+          ? await createStoredFileDocumentInput({
+              sourceFileId: body.sourceFileId,
+              document: body.document ?? {
+                documentId: body.sourceFileId
+              },
+              fileRepository: repositories.fileRepository,
+              storageProvider: options.storageProvider
+            })
+          : (body.document ?? undefined);
+
         assertRealRecognitionProvidersConfigured(await readProviderAvailability(options.providerRegistry));
+
+        // 多文件时，将完整文件列表保存到 options.sourceFileIds，第一张保存到 sourceFileId
+        const mergedOptions = sourceFileIds !== undefined
+          ? { ...(isRecord(body.options) ? body.options : {}), sourceFileIds }
+          : body.options;
+
         const job = await repositories.jobsRepository.create({
           schemaKey,
           schemaVersionId: body.schemaVersionId ?? null,
-          sourceFileId: body.sourceFileId ?? null,
+          sourceFileId: sourceFileIds?.[0] ?? body.sourceFileId ?? null,
           createdById: body.createdById ?? null,
-          options: toInputJsonValue(body.options),
+          options: toInputJsonValue(mergedOptions),
           providerConfig: toInputJsonValue(body.providerConfig)
         });
         const orchestratorInput: Parameters<ApiRecognitionOrchestrator["start"]>[0] = {
           jobId: job.id,
           schemaKey,
-          document: preparedDocument ?? {
+          document: preparedDocument ?? preparedDocuments?.[0] ?? {
             documentId: job.id
           }
         };
+        if (preparedDocuments !== undefined) {
+          orchestratorInput.documents = preparedDocuments;
+        }
         if (body.schemaVersionId !== undefined) {
           orchestratorInput.schemaVersionId = body.schemaVersionId;
         }
@@ -1973,9 +1513,9 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         const { items, total } = await repositories.jobsRepository.listPaginatedWithRelations({
           skip,
           take: input.pageSize,
-          status: input.status,
-          schemaKey: input.schemaKey,
-          search: input.search,
+          ...(input.status !== undefined ? { status: input.status } : {}),
+          ...(input.schemaKey !== undefined ? { schemaKey: input.schemaKey } : {}),
+          ...(input.search !== undefined ? { search: input.search } : {}),
         });
 
         const mapped = (items as Array<Record<string, unknown>>).map((job) => {
@@ -2063,11 +1603,65 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
         const sourceFileId = typeof original.sourceFileId === "string" ? original.sourceFileId : null;
         const schemaKey = typeof original.schemaKey === "string" ? original.schemaKey : "lims-clinical-info";
 
+        // 恢复多文件任务：从 options.sourceFileIds 读取完整文件列表
+        const originalOptions = isRecord(original.options) ? original.options : {};
+        const originalSourceFileIds = Array.isArray(originalOptions.sourceFileIds)
+          ? originalOptions.sourceFileIds.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+          : [];
+
         const newJob = await repositories.jobsRepository.create({
           schemaKey,
           sourceFileId,
-          createdById: typeof original.createdById === "string" ? original.createdById : null
+          createdById: typeof original.createdById === "string" ? original.createdById : null,
+          options: original.options ?? {}
         });
+
+        // 构建 orchestrator 输入
+        const orchestratorInput: Parameters<ApiRecognitionOrchestrator["start"]>[0] = {
+          jobId: newJob.id,
+          schemaKey,
+          document: { documentId: sourceFileId ?? newJob.id }
+        };
+
+        if (originalSourceFileIds.length > 1) {
+          // 多文件模式：重建所有文档输入
+          const preparedDocuments = await Promise.all(
+            originalSourceFileIds.map((sourceFileId: string) =>
+              createStoredFileDocumentInput({
+                sourceFileId,
+                document: { documentId: sourceFileId },
+                fileRepository: repositories.fileRepository,
+                storageProvider: options.storageProvider
+              })
+            )
+          );
+          orchestratorInput.documents = preparedDocuments;
+          orchestratorInput.document = preparedDocuments[0];
+        } else if (sourceFileId !== null) {
+          // 单文件模式：重建文档输入
+          const preparedDocument = await createStoredFileDocumentInput({
+            sourceFileId,
+            document: { documentId: sourceFileId },
+            fileRepository: repositories.fileRepository,
+            storageProvider: options.storageProvider
+          });
+          orchestratorInput.document = preparedDocument;
+        }
+
+        const originalProviderConfig = isRecord(original.providerConfig) ? original.providerConfig : {};
+        const providerSelection = readProviderSelectionConfig(originalProviderConfig);
+        if (providerSelection) {
+          orchestratorInput.providerConfig = providerSelection;
+        }
+
+        if (jobExecutionMode === "asynchronous") {
+          jobQueueExecutor.enqueue(async () => {
+            await executeRecognitionJob({
+              jobId: newJob.id,
+              orchestratorInput
+            });
+          });
+        }
 
         return assertRouteRecord({ ...newJob, status: "queued" }, "JOB_RERUN_RESPONSE_INVALID");
       },

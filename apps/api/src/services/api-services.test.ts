@@ -3,12 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { SchemaRouteService } from "../routes/schemas.routes";
 import {
   createApiServices,
+  type ApiServiceRepositories
+} from "./api-services";
+import {
   createInProcessJobQueueExecutor,
   createRedisJobQueueAdapter,
-  type ApiServiceRepositories,
   type JobQueueAdapter,
   type RedisJobQueueClient
-} from "./api-services";
+} from "./jobQueue";
 
 function createRedisClientMock(): RedisJobQueueClient {
   const lists = new Map<string, string[]>();
@@ -78,6 +80,7 @@ function createRepositories(): ApiServiceRepositories {
       findById: vi.fn(async () => ({ id: "job-001", status: "completed", sourceFileId: "file-001" })),
       list: vi.fn(async () => []),
       listPaginated: vi.fn(async () => ({ items: [], total: 0 })),
+      listPaginatedWithRelations: vi.fn(async () => ({ items: [], total: 0 })),
       updateStatus: vi.fn(async (input) => ({ id: input.id, ...input })),
       softDelete: vi.fn(async (id) => ({ id, deletedAt: new Date() })),
       listEligibleForWriteback: vi.fn(async () => [])
@@ -90,7 +93,7 @@ function createRepositories(): ApiServiceRepositories {
       create: vi.fn(async (input) => ({ id: "feedback-001", ...input })),
       listByJobId: vi.fn(async () => []),
       listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
-      getFieldStats: vi.fn(async () => [])
+      getFieldStats: vi.fn(async () => []),
     },
     writebackRepository: {
       create: vi.fn(async (input) => ({ id: "writeback-001", ...input })),
@@ -144,6 +147,7 @@ function createSchemaService(): SchemaRouteService {
     validateDraft: vi.fn(async () => ({ valid: true, errors: [] })),
     publishDraft: vi.fn(async (input) => ({ id: "version-002", draftId: input.id, version: 2 })),
     deactivateVersion: vi.fn(async (input) => ({ id: input.id, status: "inactive" })),
+    activateVersion: vi.fn(async (input) => ({ id: input.id, status: "active" })),
     rollbackVersion: vi.fn(async (input) => ({ id: input.id, status: "active" })),
     compareVersions: vi.fn(async (input) => ({
       schemaKey: input.schemaKey,

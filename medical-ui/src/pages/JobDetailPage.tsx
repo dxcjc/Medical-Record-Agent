@@ -964,6 +964,18 @@ export default function JobDetailPage() {
               })(),
             },
             { label: '状态', value: <StatusTag status={displayStatus} /> },
+            {
+              label: '源文件数量',
+              value: (() => {
+                const sourceFileIds = Array.isArray(job.sourceFileIds)
+                  ? job.sourceFileIds
+                  : Array.isArray(job.options?.sourceFileIds)
+                    ? job.options.sourceFileIds
+                    : [];
+                const count = sourceFileIds.length || (job.sourceFileId ? 1 : 0);
+                return count > 0 ? `${count} 个` : '-';
+              })(),
+            },
             { label: '创建时间', value: formatTime(job.createdAt) },
             { label: '更新时间', value: formatTime(job.updatedAt) },
             ...(job.startedAt

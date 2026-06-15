@@ -78,6 +78,7 @@ export interface JobOrchestratorInput {
   jobId: string;
   schemaKey?: string;
   document: OcrDocumentInput;
+  documents?: readonly OcrDocumentInput[];
   providerConfig?: {
     ocrProviderKey?: string;
     providerKey?: string;

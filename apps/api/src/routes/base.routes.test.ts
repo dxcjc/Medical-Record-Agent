@@ -70,7 +70,8 @@ function createSchemaRouteService(): SchemaRouteService {
         removed: [],
         unchanged: []
       }
-    }))
+    })),
+    activateVersion: vi.fn(async (input) => ({ id: input.id, status: "active" }))
   };
 }
 
@@ -537,7 +538,8 @@ describe("base route groups", () => {
       create: vi.fn(async () => ({ id: "feedback-001" })),
       listByJobId: vi.fn(async () => []),
       listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
-      getFieldStats: vi.fn(async () => [])
+      getFieldStats: vi.fn(async () => []),
+      updateStatus: vi.fn(async () => ({ id: "feedback-001", status: "approved" }))
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -579,7 +581,8 @@ describe("base route groups", () => {
       create: vi.fn(async () => ({ id: "feedback-001" })),
       listByJobId: vi.fn(async () => []),
       listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
-      getFieldStats: vi.fn(async () => [])
+      getFieldStats: vi.fn(async () => []),
+      updateStatus: vi.fn(async () => ({ id: "feedback-001", status: "approved" }))
     };
     await registerFeedbackRoutes(server, {
       feedbackService,
@@ -627,7 +630,8 @@ describe("base route groups", () => {
       create: vi.fn(),
       listByJobId: vi.fn(async () => []),
       listAll: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
-      getFieldStats: vi.fn(async () => [])
+      getFieldStats: vi.fn(async () => []),
+      updateStatus: vi.fn(async () => ({ id: "feedback-001", status: "approved" }))
     };
     await registerFeedbackRoutes(server, {
       feedbackService,

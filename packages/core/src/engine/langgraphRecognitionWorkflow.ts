@@ -5,7 +5,7 @@ import { createExtractionAgent, type ExtractionAgentResult } from "../agents/ext
 import { createWritebackAgent, type WritebackAgentResult } from "../agents/writebackAgent";
 import { ProviderError, type OcrResult } from "../providers/providerTypes";
 import { evaluateAutoDecision, type AutoDecisionPolicyResult } from "./autoDecisionPolicy";
-import { runDocumentPipeline } from "./documentPipeline";
+import { runDocumentPipeline, runMultiDocumentPipeline } from "./documentPipeline";
 import type {
   JobError,
   JobOrchestratorConfig,
@@ -37,6 +37,7 @@ type LangGraphRecognitionState = typeof RecognitionWorkflowAnnotation.State;
 const RecognitionWorkflowAnnotation = Annotation.Root({
   jobId: Annotation<string>,
   document: Annotation<JobOrchestratorInput["document"]>,
+  documents: Annotation<JobOrchestratorInput["documents"]>,
   trace: Annotation<RecognitionTraceEvent[]>({
     reducer: (left, right) => left.concat(right),
     default: () => []
@@ -151,13 +152,20 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
 
   const ocrNode = async (state: RecognitionWorkflowState) => {
     try {
-      const result = await runDocumentPipeline({
-        provider: config.ocrProvider,
-        document: state.document
-      });
+      const multiDoc = state.documents;
+      const hasMultipleDocuments = multiDoc !== undefined && multiDoc.length > 0;
+      const result = hasMultipleDocuments
+        ? await runMultiDocumentPipeline({
+            provider: config.ocrProvider,
+            documents: multiDoc
+          })
+        : await runDocumentPipeline({
+            provider: config.ocrProvider,
+            document: state.document
+          });
 
       return {
-        ...trace("ocr", "completed", "OCR 已完成。"),
+        ...trace("ocr", "completed", hasMultipleDocuments ? `OCR 已完成（${multiDoc.length} 个文件）。` : "OCR 已完成。"),
         ocr: result.ocrResult,
         ocrText: result.ocrText
       };
@@ -185,8 +193,10 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
 
     try {
       // 启用视觉增强，用于识别勾选框和手写体
-      const imageBase64 = state.document.content
-        ? Buffer.from(state.document.content).toString('base64')
+      // 多文档模式下不传递 imageBase64，避免只传第一张图误导模型
+      const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 0;
+      const imageBase64 = !hasMultipleDocuments && state.document.content
+        ? Buffer.from(state.document.content).toString("base64")
         : undefined;
 
       const extraction = await extractionAgent.run({

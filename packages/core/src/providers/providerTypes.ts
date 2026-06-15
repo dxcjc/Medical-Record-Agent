@@ -169,18 +169,18 @@ export interface HttpOcrProviderConfig {
   fetchFn?: FetchLike;
 }
 
-export interface LangChainStructuredModelLike {
+export interface StructuredModelLike {
   invoke(input: string): Promise<unknown>;
 }
 
-export interface LangChainModelLike {
-  withStructuredOutput?(schema: Record<string, unknown>): LangChainStructuredModelLike;
+export interface StructuredLanguageModel {
+  withStructuredOutput?(schema: Record<string, unknown>): StructuredModelLike;
   invoke?(input: string): Promise<unknown>;
 }
 
-export interface LangChainModelProviderConfig {
+export interface StructuredModelProviderConfig {
   providerName?: string;
-  model: LangChainModelLike;
+  model: StructuredLanguageModel;
 }
 
 export interface HttpLlmProviderConfig {
@@ -227,7 +227,7 @@ export type ModelProviderFactoryConfig =
     }
   | {
       kind: "langchain";
-      langchain: LangChainModelProviderConfig;
+      langchain: StructuredModelProviderConfig;
     }
   | {
       kind: "http";

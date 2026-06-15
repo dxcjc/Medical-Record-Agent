@@ -25,7 +25,17 @@ const rawEnvSchema = z.object({
   LIMS_BASE_URL: z.string().url("LIMS_BASE_URL 必须是合法 URL").optional(),
   LIMS_CLINICAL_INFO_ENDPOINT: z.string().min(1, "LIMS_CLINICAL_INFO_ENDPOINT 不能为空").optional(),
   LIMS_API_TOKEN: z.string().min(1, "LIMS_API_TOKEN 不能为空").optional(),
-  LIMS_TIMEOUT_MS: z.coerce.number().int().positive().default(10000)
+  LIMS_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+
+  OCR_PROVIDER: z.string().min(1, "OCR_PROVIDER 不能为空").default("none"),
+  OCR_ENDPOINT: z.string().default("http://localhost:8088/ocr"),
+  OCR_API_KEY: z.string().default("replace-with-ocr-api-key"),
+
+  LLM_PROVIDER: z.string().min(1, "LLM_PROVIDER 不能为空").default("none"),
+  LLM_MODEL: z.string().default("unconfigured-real-model"),
+  LLM_BASE_URL: z.string().default("http://localhost:11434/v1"),
+  LLM_API_KEY: z.string().default("replace-with-llm-api-key"),
+  OPENAI_API_KEY: z.string().optional()
 });
 
 const checkedEnvSchema = rawEnvSchema.superRefine((env, context) => {
@@ -40,6 +50,15 @@ const checkedEnvSchema = rawEnvSchema.superRefine((env, context) => {
         });
       }
     }
+  }
+
+  // LangChain 模型链路必须配置 OPENAI_API_KEY
+  if (env.LLM_PROVIDER === "langchain" && !env.OPENAI_API_KEY) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["OPENAI_API_KEY"],
+      message: "LLM_PROVIDER=langchain 时必须设置 OPENAI_API_KEY"
+    });
   }
 });
 
@@ -87,6 +106,20 @@ export function parseEnv(input: NodeJS.ProcessEnv) {
       clinicalInfoEndpoint: env.LIMS_CLINICAL_INFO_ENDPOINT,
       apiToken: env.LIMS_API_TOKEN,
       timeoutMs: env.LIMS_TIMEOUT_MS
+    },
+    providers: {
+      ocr: {
+        provider: env.OCR_PROVIDER,
+        endpoint: env.OCR_ENDPOINT,
+        apiKey: env.OCR_API_KEY
+      },
+      llm: {
+        provider: env.LLM_PROVIDER,
+        model: env.LLM_MODEL,
+        baseUrl: env.LLM_BASE_URL,
+        apiKey: env.LLM_API_KEY,
+        openAiApiKey: env.OPENAI_API_KEY
+      }
     }
   };
 }

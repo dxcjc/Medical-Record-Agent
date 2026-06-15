@@ -37,7 +37,7 @@ async function api(
     headers,
     body:
       options.rawBody ??
-      (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+      (options.body !== undefined ? JSON.stringify(options.body) : null),
   });
   let body: any;
   const ct = res.headers.get("content-type") ?? "";

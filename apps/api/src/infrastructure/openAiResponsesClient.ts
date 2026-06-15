@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-import type { OpenAiResponsesClientLike } from "./providerTypes";
+import type { OpenAiResponsesClientLike } from "@medical-record-agent/core";
 
 export interface CreateOpenAiResponsesClientInput {
   apiKey: string;
