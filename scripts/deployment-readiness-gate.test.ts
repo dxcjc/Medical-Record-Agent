@@ -15,12 +15,12 @@ describe("deployment readiness gate", () => {
     expect(plan.map((check) => check.id)).toEqual([
       "typecheck",
       "unit-tests",
-      "demo-web-styles",
-      "demo-web-mobile",
-      "demo-web-build",
+      "medical-ui-typecheck",
+      "medical-ui-tests",
+      "medical-ui-build",
       "served-app-readiness",
-      "demo-web-smoke",
-      "demo-web-browser-e2e",
+      "web-smoke",
+      "web-browser-e2e",
       "external-blocker-readiness",
       "queue-broker-readiness",
       "production-smoke-real",
@@ -174,7 +174,7 @@ describe("deployment readiness gate", () => {
 
       return {
         exitCode: 0,
-        stdout: check.id === "demo-web-browser-e2e" ? '{"browserE2E":"passed"}' : "ok",
+        stdout: check.id === "web-browser-e2e" ? '{"browserE2E":"passed"}' : "ok",
         stderr: ""
       };
     });
@@ -252,7 +252,7 @@ describe("deployment readiness gate", () => {
 
   it("treats browser E2E blocked as visible but not a local readiness failure when the environment lacks a browser", async () => {
     const runner = vi.fn(async (check): Promise<DeploymentReadinessCommandResult> => {
-      if (check.id === "demo-web-browser-e2e") {
+      if (check.id === "web-browser-e2e") {
         return {
           exitCode: 2,
           stdout: '{"browserE2E":"blocked","reason":"no browser"}',
@@ -277,7 +277,7 @@ describe("deployment readiness gate", () => {
 
     const summary = await runDeploymentReadinessGate({ runner });
 
-    expect(summary.checks.find((check) => check.id === "demo-web-browser-e2e")).toEqual(
+    expect(summary.checks.find((check) => check.id === "web-browser-e2e")).toEqual(
       expect.objectContaining({
         status: "blocked",
         requiredForLocalReadiness: false

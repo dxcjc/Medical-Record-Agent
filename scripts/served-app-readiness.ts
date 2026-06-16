@@ -299,9 +299,9 @@ export async function runServedAppReadiness(
   options: RunServedAppReadinessOptions = {}
 ): Promise<ServedAppReadinessSummary> {
   const now = options.now ?? (() => new Date());
-  const baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.SERVED_APP_BASE_URL ?? "http://localhost:9901");
+  const baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.SERVED_APP_BASE_URL ?? "http://localhost:5173");
   const apiHealthUrl = options.apiHealthUrl ?? process.env.SERVED_APP_API_HEALTH_URL ?? `${baseUrl}/api/health`;
-  const distIndexPath = options.distIndexPath ?? process.env.SERVED_APP_DIST_INDEX ?? "apps/demo-web/dist/index.html";
+  const distIndexPath = options.distIndexPath ?? process.env.SERVED_APP_DIST_INDEX ?? "medical-ui/dist/index.html";
   const fetchImpl = options.fetchImpl ?? fetch;
   const readFile = options.readFile ?? ((path: string) => readFileFromDisk(path, "utf8"));
   const [servedHome, apiHealth, distIndex] = await Promise.all([

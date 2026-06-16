@@ -1,1 +1,0 @@
-{"version":3,"file":"simple-jwt.signer.d.ts","sourceRoot":"","sources":["../../src/auth/simple-jwt.signer.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAoB,SAAS,EAAE,MAAM,gBAAgB,CAAC;AA6DlE,MAAM,WAAW,sBAAsB;IACrC,MAAM,EAAE,MAAM,CAAC;IACf,SAAS,EAAE,MAAM,CAAC;IAClB,GAAG,CAAC,EAAE,MAAM,IAAI,CAAC;CAClB;AAED;;;GAGG;AACH,wBAAgB,qBAAqB,CAAC,OAAO,EAAE,sBAAsB,GAAG,SAAS,CAoDhF"}

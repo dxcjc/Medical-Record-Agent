@@ -88,45 +88,45 @@ export function buildDeploymentReadinessCommandPlan(): DeploymentReadinessCheckP
       requiredForLocalReadiness: true
     },
     {
-      id: "demo-web-styles",
-      label: "demo-web style guards",
+      id: "medical-ui-typecheck",
+      label: "medical-ui TypeScript typecheck",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "--filter", "@medical-record-agent/demo-web", "test:styles"],
+      command: ["corepack", "pnpm", "--filter", "medical-ui", "typecheck"],
       requiredForLocalReadiness: true
     },
     {
-      id: "demo-web-mobile",
-      label: "demo-web mobile guards",
+      id: "medical-ui-tests",
+      label: "medical-ui unit tests",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "--filter", "@medical-record-agent/demo-web", "test:mobile"],
+      command: ["corepack", "pnpm", "--filter", "medical-ui", "test"],
       requiredForLocalReadiness: true
     },
     {
-      id: "demo-web-build",
-      label: "demo-web production build",
+      id: "medical-ui-build",
+      label: "medical-ui production build",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "--filter", "@medical-record-agent/demo-web", "build"],
+      command: ["corepack", "pnpm", "--filter", "medical-ui", "build"],
       requiredForLocalReadiness: true
     },
     {
       id: "served-app-readiness",
-      label: "9901 served app and dist bundle readiness",
+      label: "medical-ui served app and dist bundle readiness",
       phase: "local-readiness",
       command: ["corepack", "pnpm", "readiness:served-app"],
       requiredForLocalReadiness: true
     },
     {
-      id: "demo-web-smoke",
-      label: "demo-web local runtime smoke",
+      id: "web-smoke",
+      label: "medical-ui local runtime smoke",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "smoke:demo-web"],
+      command: ["corepack", "pnpm", "smoke:web"],
       requiredForLocalReadiness: true
     },
     {
-      id: "demo-web-browser-e2e",
-      label: "demo-web browser E2E",
+      id: "web-browser-e2e",
+      label: "medical-ui browser E2E",
       phase: "browser-e2e",
-      command: ["corepack", "pnpm", "e2e:demo-web:browser"],
+      command: ["corepack", "pnpm", "e2e:web:browser"],
       requiredForLocalReadiness: false
     },
     {

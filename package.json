@@ -24,7 +24,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "test:e2e": "playwright test",
-    "smoke:mock": "PRODUCTION_SMOKE_MODE=mock-production PRODUCTION_SMOKE_BASE_URL=http://localhost:9901 npx tsx scripts/production-smoke.ts"
+    "smoke:mock": "PRODUCTION_SMOKE_MODE=mock-production PRODUCTION_SMOKE_BASE_URL=http://localhost:3000 npx tsx scripts/production-smoke.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

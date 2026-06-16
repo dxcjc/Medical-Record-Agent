@@ -80,6 +80,8 @@ export interface ApiRecognitionOrchestrator {
     schemaKey?: string;
     schemaVersionId?: string;
     document: ApiRecognitionDocumentInput;
+    // 多文件任务仍保留 document 作为主文档，同时把完整文档列表传给 core 的 LangGraph 编排。
+    documents?: readonly ApiRecognitionDocumentInput[];
     providerConfig?: ApiProviderSelectionConfig & Prisma.InputJsonObject;
   }): Promise<ApiRecognitionOrchestratorResult>;
 }
@@ -1635,8 +1637,12 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
               })
             )
           );
+          const firstPreparedDocument = preparedDocuments[0];
+          if (!firstPreparedDocument) {
+            throw createApiServiceError("SOURCE_FILE_NOT_FOUND", 404);
+          }
           orchestratorInput.documents = preparedDocuments;
-          orchestratorInput.document = preparedDocuments[0];
+          orchestratorInput.document = firstPreparedDocument;
         } else if (sourceFileId !== null) {
           // 单文件模式：重建文档输入
           const preparedDocument = await createStoredFileDocumentInput({

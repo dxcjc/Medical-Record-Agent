@@ -73,7 +73,7 @@ describe("demo-web basic E2E helpers", () => {
       },
       dist: {
         ok: true,
-        indexPath: "apps/demo-web/dist/index.html",
+        indexPath: "medical-ui/dist/index.html",
         assets: ["/assets/index-CURRENT.js"]
       }
     });

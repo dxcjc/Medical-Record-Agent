@@ -98,8 +98,8 @@ export function buildDemoWebSmokeSummary(input: DemoWebSmokeSummaryInput) {
 function buildDefaultConfig(env: Record<string, string | undefined> = process.env): DemoWebBasicE2EConfig {
   return {
     baseUrl: env.DEMO_WEB_E2E_BASE_URL ?? "http://127.0.0.1:5173",
-    apiHealthUrl: env.DEMO_WEB_E2E_API_HEALTH_URL ?? "http://127.0.0.1:9901/api/health",
-    distIndexPath: env.DEMO_WEB_E2E_DIST_INDEX ?? "apps/demo-web/dist/index.html",
+    apiHealthUrl: env.DEMO_WEB_E2E_API_HEALTH_URL ?? "http://127.0.0.1:3000/api/health",
+    distIndexPath: env.DEMO_WEB_E2E_DIST_INDEX ?? "medical-ui/dist/index.html",
     routes: (env.DEMO_WEB_E2E_ROUTES ?? "/login,/,/recognition/new,/recognition/jobs/demo,/providers,/writeback").split(",").map((route) => route.trim()).filter(Boolean),
     startupTimeoutMs: Number(env.DEMO_WEB_E2E_STARTUP_TIMEOUT_MS ?? 15000)
   };
@@ -170,7 +170,7 @@ async function checkDistBundle(indexPath: string): Promise<DemoWebDistBundleChec
 }
 
 function startDevServer() {
-  return spawn("corepack", ["pnpm", "--dir", "apps/demo-web", "exec", "vite", "--host", "127.0.0.1"], {
+  return spawn("corepack", ["pnpm", "--dir", "medical-ui", "exec", "vite", "--host", "127.0.0.1"], {
     cwd: process.cwd(),
     env: process.env,
     detached: true,

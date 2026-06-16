@@ -3,6 +3,8 @@ node_modules/
 
 # 构建产物
 dist/
+dist2/
+dist-v2/
 build/
 coverage/
 
@@ -13,6 +15,8 @@ coverage/
 
 # 日志文件
 *.log
+*.pyc
+__pycache__/
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
@@ -33,6 +37,9 @@ Thumbs.db
 
 # Codex temporary files
 .codex-*
+
+# 临时排查脚本
+tmp_check*.cjs
 
 # Playwright
 test-results/
