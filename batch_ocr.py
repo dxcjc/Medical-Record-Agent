@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, base64, urllib.request, os
 
-OCR_URL = "http://localhost:8866/ocr"
+OCR_URL = "http://10.0.0.16:8866/ocr"
 image_dir = "固定测试集共45个样本"
 all_images = []
 for root, dirs, files in os.walk(image_dir):
