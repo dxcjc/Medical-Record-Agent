@@ -1,0 +1,179 @@
+{
+  "schemaKey": "pathology-report-v2",
+  "displayName": "病理报告识别 v2",
+  "changelog": "新增病理报告识别 Schema，支持多种病理报告格式",
+  "definition": {
+    "key": "pathology-report-v2",
+    "name": "病理报告识别 v2",
+    "label": "病理报告识别 v2",
+    "version": "2.0.0",
+    "locale": "zh-CN",
+    "description": "通用病理报告识别 Schema，支持手术病理、穿刺活检、细胞学等多种病理报告类型",
+    "fields": [
+      {
+        "key": "patientName",
+        "type": "string",
+        "label": "患者姓名",
+        "required": true,
+        "comments": ["从文档中提取患者姓名，通常在文档顶部"]
+      },
+      {
+        "key": "patientGender",
+        "type": "enum",
+        "label": "性别",
+        "enumMap": {"male": "男", "female": "女", "unknown": "未填写"},
+        "comments": ["从性别字段提取"]
+      },
+      {
+        "key": "patientAge",
+        "type": "string",
+        "label": "年龄",
+        "comments": ["从年龄字段提取，注意手写数字"]
+      },
+      {
+        "key": "hospitalName",
+        "type": "string",
+        "label": "医院名称",
+        "comments": ["从文档头部或页眉提取医院名称"]
+      },
+      {
+        "key": "department",
+        "type": "string",
+        "label": "科室",
+        "comments": ["从送检科室或报告科室字段提取"]
+      },
+      {
+        "key": "pathologyNo",
+        "type": "string",
+        "label": "病理号",
+        "required": true,
+        "comments": ["从病理号/病理编号字段提取，如：2022-21264"]
+      },
+      {
+        "key": "specimenType",
+        "type": "string",
+        "label": "标本类型",
+        "comments": ["从标本类型字段提取，如：手术标本、穿刺活检、内镜活检等"]
+      },
+      {
+        "key": "specimenSite",
+        "type": "string",
+        "label": "标本部位",
+        "comments": ["从送检标本或取材部位字段提取"]
+      },
+      {
+        "key": "pathologicalDiagnosis",
+        "type": "string",
+        "label": "病理诊断",
+        "required": true,
+        "comments": ["从病理诊断/诊断结论字段提取，这是最重要的字段"]
+      },
+      {
+        "key": "tumorType",
+        "type": "string",
+        "label": "肿瘤类型",
+        "comments": ["从诊断中推断的肿瘤类型，如：腺癌、鳞癌、肉瘤等"]
+      },
+      {
+        "key": "tumorGrade",
+        "type": "string",
+        "label": "肿瘤分级",
+        "comments": ["从分级字段提取，如：高分化、中分化、低分化、G1-G4等"]
+      },
+      {
+        "key": "tnmStage",
+        "type": "string",
+        "label": "TNM分期",
+        "comments": ["从分期字段提取TNM分期信息"]
+      },
+      {
+        "key": "tStage",
+        "type": "string",
+        "label": "T分期",
+        "comments": ["从T分期字段提取"]
+      },
+      {
+        "key": "nStage",
+        "type": "string",
+        "label": "N分期",
+        "comments": ["从N分期字段提取"]
+      },
+      {
+        "key": "mStage",
+        "type": "string",
+        "label": "M分期",
+        "comments": ["从M分期字段提取"]
+      },
+      {
+        "key": "lymphNodeStatus",
+        "type": "string",
+        "label": "淋巴结状态",
+        "comments": ["从淋巴结相关字段提取转移情况"]
+      },
+      {
+        "key": "immunohistochemistry",
+        "type": "string",
+        "label": "免疫组化",
+        "comments": ["从免疫组化/IHC字段提取结果，可能包含多个标记物"]
+      },
+      {
+        "key": "molecularTest",
+        "type": "string",
+        "label": "分子检测",
+        "comments": ["从分子检测/基因检测字段提取结果"]
+      },
+      {
+        "key": "microscopicDescription",
+        "type": "string",
+        "label": "镜下所见",
+        "comments": ["从镜下描述/显微镜描述字段提取"]
+      },
+      {
+        "key": "grossDescription",
+        "type": "string",
+        "label": "大体所见",
+        "comments": ["从大体描述/肉眼所见字段提取"]
+      },
+      {
+        "key": "reportDate",
+        "type": "string",
+        "label": "报告日期",
+        "comments": ["从报告日期字段提取"]
+      },
+      {
+        "key": "pathologist",
+        "type": "string",
+        "label": "病理医师",
+        "comments": ["从病理医师/报告医师字段提取"]
+      },
+      {
+        "key": "referringDoctor",
+        "type": "string",
+        "label": "送检医师",
+        "comments": ["从送检医师字段提取"]
+      },
+      {
+        "key": "clinicalDiagnosis",
+        "type": "string",
+        "label": "临床诊断",
+        "comments": ["从临床诊断字段提取"]
+      },
+      {
+        "key": "specialNotes",
+        "type": "string",
+        "label": "特殊说明",
+        "comments": ["从备注、特殊说明等字段提取补充信息"]
+      }
+    ],
+    "validation": {
+      "requiredEvidenceFields": ["patientName", "pathologyNo", "pathologicalDiagnosis"],
+      "missingRequiredFieldDecision": "needs_review"
+    },
+    "evidencePolicy": {
+      "required": true,
+      "minConfidence": 0.6,
+      "requireSourceText": true,
+      "requirePageReference": true
+    }
+  }
+}

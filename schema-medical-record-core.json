@@ -1,0 +1,153 @@
+{
+  "schemaKey": "medical-record-core",
+  "displayName": "病历核心信息识别",
+  "changelog": "v1.1.0: 19字段精简至12字段，逐字段容错解析，字段Comments含正例/反例指导",
+  "definition": {
+    "key": "medical-record-core",
+    "name": "病历核心信息识别",
+    "label": "病历核心信息识别",
+    "version": "1.1.0",
+    "locale": "zh-CN",
+    "description": "基于45个测试样本OCR统计设计的通用病历识别Schema。覆盖病理报告、申请单、基因检测等多种文档类型。字段分三层：必填（3个）、强期望（6个）、选填（3个），共12个字段。",
+    "fields": [
+      {
+        "key": "patientName",
+        "type": "string",
+        "label": "患者姓名",
+        "required": true,
+        "comments": [
+          "从'姓名：'后提取患者姓名",
+          "年龄信息可从同一行'姓名：张三 年龄：45岁'中一并获取，写在括号内，如'张三（45岁）'",
+          "正例：文档写'姓名：张三'→输出'张三'；文档写'姓名：王某某 年龄：62岁'→输出'王某某（62岁）'",
+          "反例：不要将'送检医生：李四'或'主治医师：王五'误认为患者姓名",
+          "反例：不要将医院名称（如'北京协和医院'）误认为患者姓名",
+          "手写体可能识别不准，保留原始OCR文本"
+        ]
+      },
+      {
+        "key": "tumorType",
+        "type": "string",
+        "label": "癌种/肿瘤类型",
+        "required": true,
+        "comments": [
+          "从癌种字段、临床诊断或病理诊断中推断的肿瘤类型",
+          "文档只写'肺癌'就输出'肺癌'，不要自行细化为'非小细胞肺癌'",
+          "正例：文档写'高级别尿路上皮癌'→输出'膀胱癌'；文档写'肺腺癌'→输出'肺腺癌'",
+          "正例：文档写'右乳浸润性导管癌'→输出'乳腺癌'",
+          "反例：不要将'送检医生'或'送检科室'等非诊断字段内容误认为肿瘤类型",
+          "反例：不要将基因突变名（如'EGFR L858R'）误认为肿瘤类型"
+        ]
+      },
+      {
+        "key": "hospitalName",
+        "type": "string",
+        "label": "医院名称",
+        "required": true,
+        "comments": [
+          "从文档头部或页眉提取医院/检测机构名称",
+          "示例：首都医科大学宣武医院、广西医科大学附属肿瘤医院、广州金域医学检验中心"
+        ]
+      },
+      {
+        "key": "patientGender",
+        "type": "enum",
+        "label": "性别",
+        "enumMap": {"male": "男", "female": "女", "unknown": "未填写"},
+        "comments": [
+          "从'性别：□男 ☑女'中判断勾选项",
+          "OCR难以区分□和☑，若无法判断则标记unknown并保留原文"
+        ]
+      },
+      {
+        "key": "sampleType",
+        "type": "string",
+        "label": "样本类型",
+        "comments": [
+          "从'样本类型：'字段提取",
+          "可能是多选，用逗号分隔",
+          "示例：石蜡切片、穿刺活检、血液样本、FFPE组织样本、胸水、手术标本等"
+        ]
+      },
+      {
+        "key": "detectionItems",
+        "type": "string",
+        "label": "检测项目",
+        "comments": [
+          "从基因检测、分子检测区域提取已勾选或列出的检测项目",
+          "示例：1021基因、EGFR、肿瘤40基因、免疫组化、MRD等",
+          "可能是多选，用逗号分隔"
+        ]
+      },
+      {
+        "key": "reportDate",
+        "type": "string",
+        "label": "报告日期",
+        "comments": [
+          "从'报告日期：'或'诊断日期：'或'送检日期：'字段提取",
+          "归一化为YYYY-MM-DD格式，手写日期格式不规范时保留原文"
+        ]
+      },
+      {
+        "key": "treatmentHistory",
+        "type": "string",
+        "label": "治疗史",
+        "comments": [
+          "从治疗史、手术史、用药史、化疗、放疗等字段提取",
+          "可能是勾选项或文字描述，保留原文",
+          "如果文档有勾选'手术☑化疗☑放疗☑'，输出为'手术、化疗、放疗'"
+        ]
+      },
+      {
+        "key": "pathologicalDiagnosis",
+        "type": "string",
+        "label": "病理诊断",
+        "comments": [
+          "从'病理诊断：'字段提取原文",
+          "这是病理报告中最关键的诊断字段"
+        ]
+      },
+      {
+        "key": "clinicalStage",
+        "type": "string",
+        "label": "分期",
+        "comments": [
+          "从分期字段提取TNM分期或总体分期信息",
+          "示例：T2N1M0、IV期、pT2N1M0",
+          "如果文档只有T分期没有N/M，只输出T分期，不要补造N/M"
+        ]
+      },
+      {
+        "key": "geneMutations",
+        "type": "string",
+        "label": "基因突变",
+        "comments": [
+          "从基因检测结果中提取关键突变信息",
+          "示例：EGFR L858R突变、KRAS G12C、ALK融合阳性、BRAF V600E",
+          "仅提取明确报告的突变，不要自行推断"
+        ]
+      },
+      {
+        "key": "notes",
+        "type": "string",
+        "label": "备注",
+        "comments": [
+          "从备注、特殊说明、其他、免疫组化（IHC）、肿瘤标志物、患者ID/病理号、送检医生、科室等字段提取补充信息",
+          "仅提取文档中明确写出的内容，不要自行总结",
+          "免疫组化示例：CK7(+)、TTF-1(+)、Ki-67(约5%)等，按原文记录",
+          "肿瘤标志物示例：CEA 5.2ng/mL、AFP 正常等",
+          "可包含多项信息，用分号分隔"
+        ]
+      }
+    ],
+    "validation": {
+      "requiredEvidenceFields": ["tumorType"],
+      "missingRequiredFieldDecision": "needs_review"
+    },
+    "evidencePolicy": {
+      "required": true,
+      "minConfidence": 0.5,
+      "requireSourceText": true,
+      "requirePageReference": true
+    }
+  }
+}

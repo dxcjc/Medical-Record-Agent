@@ -1,0 +1,868 @@
+{
+  "$schema": "docs/ocr-correction-dict.json",
+  "version": "1.0.0",
+  "description": "OCR 纠错词典——基于 45 个测试样本 OCR 输出分析，覆盖医学术语、药物名称、医院名称和人名的常见 OCR 误读",
+  "lastUpdated": "2026-06-16",
+  "usage": {
+    "strategy": "前置确定性替换 + LLM 语境纠错（见 prompt-template-v2.md 第 4 节）",
+    "implementation": "在 OCR 文本送入 LLM 之前，遍历词典做精确字符串替换",
+    "priority": "drugNames > medicalTerms > hospitalNames > generalTerms",
+    "caveats": [
+      "替换需考虑上下文，避免误替换（如'Bc1-2'在基因名上下文中替换，在普通文本中不替换）",
+      "人名纠错需谨慎，建议仅在高确信度下替换",
+      "建议记录所有替换日志用于人工审核"
+    ]
+  },
+  "corrections": {
+    "medicalTerms": {
+      "_description": "医学术语 OCR 纠错——免疫组化标志物、病理术语、解剖学术语",
+      "_source": "从 45 个样本 OCR 结果中提取的真实错误 + 高频医学 OCR 错误",
+      "_priority": "high",
+      "entries": [
+        {
+          "ocrText": "mLH1",
+          "correctText": "MLH1",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "错配修复基因 MLH1 的首字母 M 被小写",
+          "source": "样本 260518201"
+        },
+        {
+          "ocrText": "SH2",
+          "correctText": "MSH2",
+          "context": "免疫组化标志物",
+          "confidence": 0.90,
+          "rule": "错配修复基因 MSH2 缺失首字母 M，需结合上下文判断（SH2 也可能是信号转导蛋白 SH2 结构域）",
+          "source": "样本 260518201"
+        },
+        {
+          "ocrText": "PS2",
+          "correctText": "PMS2",
+          "context": "免疫组化标志物",
+          "confidence": 0.90,
+          "rule": "错配修复基因 PMS2 缺失前缀 PM",
+          "source": "样本 260518201"
+        },
+        {
+          "ocrText": "Claudn1B2",
+          "correctText": "Claudin18.2",
+          "context": "免疫组化/分子标志物",
+          "confidence": 0.80,
+          "rule": "Claudin 18.2 拼写错误，n→in，B2→8.2",
+          "source": "样本 260518109"
+        },
+        {
+          "ocrText": "R0S1",
+          "correctText": "ROS1",
+          "context": "基因名称",
+          "confidence": 0.95,
+          "rule": "数字 0 误识别为字母 O（ROS1 是肺癌相关融合基因）",
+          "source": "样本 260518603"
+        },
+        {
+          "ocrText": "Bc1-2",
+          "correctText": "Bcl-2",
+          "context": "免疫组化标志物/基因",
+          "confidence": 0.95,
+          "rule": "数字 1 误识别为字母 l（Bcl-2 是 B 细胞淋巴瘤基因）",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "Bc1-6",
+          "correctText": "Bcl-6",
+          "context": "免疫组化标志物",
+          "confidence": 0.90,
+          "rule": "数字 1 误识别为字母 l",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "Cyc1inD1",
+          "correctText": "CyclinD1",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "数字 1 误识别为字母 l",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "Vi1lin",
+          "correctText": "Villin",
+          "context": "免疫组化标志物",
+          "confidence": 0.85,
+          "rule": "数字 1 误识别为字母 l（Villin 是肠道上皮标志物）",
+          "source": "样本 260518207"
+        },
+        {
+          "ocrText": "Glypicar-3",
+          "correctText": "Glypican-3",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "字母顺序错误 pic→pic，实际应为 pican（GPC3 是肝癌标志物）",
+          "source": "样本 260518207"
+        },
+        {
+          "ocrText": "Glypican-3灶",
+          "correctText": "Glypican-3灶",
+          "context": "免疫组化标志物",
+          "confidence": 0.70,
+          "rule": "此处 Glypican-3 拼写正确，'灶'是中文描述，不需要替换",
+          "source": "样本 260518208"
+        },
+        {
+          "ocrText": "D0G-1",
+          "correctText": "DOG-1",
+          "context": "免疫组化标志物（GIST）",
+          "confidence": 0.95,
+          "rule": "数字 0 误识别为字母 O（DOG-1 是 GIST 诊断标志物）",
+          "source": "样本 260518108"
+        },
+        {
+          "ocrText": "MUM−1",
+          "correctText": "MUM1",
+          "context": "免疫组化标志物",
+          "confidence": 0.90,
+          "rule": "减号 − 误插入（MUM1 是淋巴瘤分型标志物）",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "Ki−67",
+          "correctText": "Ki-67",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "全角减号 − 替换为半角 -",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "肿摇细胞",
+          "correctText": "肿瘤细胞",
+          "context": "病理术语",
+          "confidence": 0.99,
+          "rule": "形近字：摇→瘤",
+          "source": "样本 260518108"
+        },
+        {
+          "ocrText": "纳理号",
+          "correctText": "病理号",
+          "context": "文档标识",
+          "confidence": 0.95,
+          "rule": "形近字：纳→病（OCR 常见错误）",
+          "source": "样本 260518209"
+        },
+        {
+          "ocrText": "恶性肿庵",
+          "correctText": "恶性肿瘤",
+          "context": "病理术语",
+          "confidence": 0.95,
+          "rule": "形近字：庵→瘤",
+          "source": "样本 260518601"
+        },
+        {
+          "ocrText": "腺痛",
+          "correctText": "腺癌",
+          "context": "病理诊断",
+          "confidence": 0.90,
+          "rule": "形近字：痛→癌（需结合上下文：在病理诊断语境中 99% 是'腺癌'）",
+          "source": "样本 260518502"
+        },
+        {
+          "ocrText": "腺區",
+          "correctText": "腺癌",
+          "context": "病理诊断",
+          "confidence": 0.90,
+          "rule": "形近字：區→癌",
+          "source": "样本 260518502"
+        },
+        {
+          "ocrText": "藏性变",
+          "correctText": "囊性变",
+          "context": "病理术语",
+          "confidence": 0.90,
+          "rule": "形近字：藏→囊",
+          "source": "样本 260518108"
+        },
+        {
+          "ocrText": "病人1D",
+          "correctText": "病人ID",
+          "context": "患者标识",
+          "confidence": 0.95,
+          "rule": "数字 1 误识别为字母 I（ID = identification）",
+          "source": "样本 260518103"
+        },
+        {
+          "ocrText": "ALx",
+          "correctText": "ALK",
+          "context": "基因名称",
+          "confidence": 0.80,
+          "rule": "字母 K 误识别为 x（ALK 是肺癌融合基因）",
+          "source": "样本 260518105"
+        },
+        {
+          "ocrText": "CX7",
+          "correctText": "CK7",
+          "context": "免疫组化标志物",
+          "confidence": 0.85,
+          "rule": "字母 K 误识别为 X（CK7 是细胞角蛋白 7）",
+          "source": "样本 260518105"
+        },
+        {
+          "ocrText": "P504S",
+          "correctText": "P504S",
+          "context": "免疫组化标志物（AMACR）",
+          "confidence": 1.0,
+          "rule": "正确拼写，不需要替换（P504S = AMACR，前列腺癌标志物）",
+          "source": "样本 260518105"
+        },
+        {
+          "ocrText": "BRG1（未续失）",
+          "correctText": "BRG1（未缺失）",
+          "context": "免疫组化结果描述",
+          "confidence": 0.85,
+          "rule": "形近字：续失→缺失",
+          "source": "样本 260518105"
+        },
+        {
+          "ocrText": "S0X10",
+          "correctText": "SOX10",
+          "context": "免疫组化标志物",
+          "confidence": 0.90,
+          "rule": "数字 0 误识别为字母 O",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "Elas/CK",
+          "correctText": "Elastin/CK",
+          "context": "特殊染色",
+          "confidence": 0.70,
+          "rule": "缩写，可能不需要展开",
+          "source": "样本 260518203"
+        },
+        {
+          "ocrText": "MC",
+          "correctText": "dMMR",
+          "context": "错配修复状态",
+          "confidence": 0.75,
+          "rule": "OCR 截断/误读，dMMR = deficient Mismatch Repair",
+          "source": "样本 260518201"
+        },
+        {
+          "ocrText": "CK56",
+          "correctText": "CK5/6",
+          "context": "免疫组化标志物",
+          "confidence": 0.85,
+          "rule": "OCR 丢失斜杠：CK56→CK5/6（细胞角蛋白5/6）",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "CD117",
+          "correctText": "CD117",
+          "context": "免疫组化标志物（GIST）",
+          "confidence": 1.0,
+          "rule": "正确拼写，不需要替换（CD117=c-kit，GIST诊断标志物）",
+          "source": "标准术语"
+        },
+        {
+          "ocrText": "P40",
+          "correctText": "P40",
+          "context": "免疫组化标志物",
+          "confidence": 1.0,
+          "rule": "正确拼写（P40是鳞状细胞癌标志物，与P63类似）",
+          "source": "标准术语"
+        },
+        {
+          "ocrText": "TTF一1",
+          "correctText": "TTF-1",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "全角减号/中文一替换为半角减号（TTF-1是肺腺癌标志物）",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "Naps1nA",
+          "correctText": "NapsinA",
+          "context": "免疫组化标志物",
+          "confidence": 0.90,
+          "rule": "数字1误识别为字母i（NapsinA是肺腺癌标志物）",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "SATB2",
+          "correctText": "SATB2",
+          "context": "免疫组化标志物",
+          "confidence": 1.0,
+          "rule": "正确拼写（SATB2是结直肠癌标志物）",
+          "source": "标准术语"
+        },
+        {
+          "ocrText": "CDX一2",
+          "correctText": "CDX-2",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "全角减号/中文一替换为半角减号（CDX-2是肠道分化标志物）",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "Her一2",
+          "correctText": "Her-2",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "全角减号/中文一替换为半角减号（Her-2/HER2是乳腺癌/胃癌靶点）",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "E一cadherin",
+          "correctText": "E-cadherin",
+          "context": "免疫组化标志物",
+          "confidence": 0.95,
+          "rule": "全角减号/中文一替换为半角减号",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "FISH",
+          "correctText": "FISH",
+          "context": "分子检测方法",
+          "confidence": 1.0,
+          "rule": "正确拼写（荧光原位杂交）",
+          "source": "标准术语"
+        },
+        {
+          "ocrText": "G1eason",
+          "correctText": "Gleason",
+          "context": "前列腺癌评分系统",
+          "confidence": 0.95,
+          "rule": "数字1误识别为字母l（Gleason评分用于前列腺癌分级）",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "距服缘",
+          "correctText": "距肛缘",
+          "context": "解剖学术语",
+          "confidence": 0.90,
+          "rule": "形近字：服→肛",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "脉管内瘤枪",
+          "correctText": "脉管内瘤栓",
+          "context": "病理术语",
+          "confidence": 0.90,
+          "rule": "形近字：枪→栓",
+          "source": "高频医学OCR错误"
+        }
+      ]
+    },
+    "drugNames": {
+      "_description": "药物名称 OCR 纠错——化疗药物、靶向药物、免疫治疗药物",
+      "_source": "从用药记录 OCR 结果中提取的真实错误",
+      "_priority": "highest",
+      "entries": [
+        {
+          "ocrText": "贝伐珠丹抗",
+          "correctText": "贝伐珠单抗",
+          "context": "抗肿瘤药物（抗 VEGF 单抗）",
+          "confidence": 0.99,
+          "rule": "形近字：丹→单",
+          "source": "样本 用药非常多李月娥1"
+        },
+        {
+          "ocrText": "贝优珠丹坑",
+          "correctText": "贝伐珠单抗",
+          "context": "抗肿瘤药物",
+          "confidence": 0.95,
+          "rule": "多重 OCR 错误：优→伐，丹→单，坑→抗",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "贝伐珠丹坑",
+          "correctText": "贝伐珠单抗",
+          "context": "抗肿瘤药物",
+          "confidence": 0.99,
+          "rule": "形近字：丹→单，坑→抗",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "贝伐殊丹抗",
+          "correctText": "贝伐珠单抗",
+          "context": "抗肿瘤药物",
+          "confidence": 0.99,
+          "rule": "形近字：殊→珠，丹→单",
+          "source": "样本 用药非常多李月娥1"
+        },
+        {
+          "ocrText": "垦沙利铂",
+          "correctText": "奥沙利铂",
+          "context": "铂类化疗药",
+          "confidence": 0.95,
+          "rule": "形近字误读（奥→垦）",
+          "source": "样本 用药非常多李月娥1"
+        },
+        {
+          "ocrText": "实沙利拍",
+          "correctText": "奥沙利铂",
+          "context": "铂类化疗药",
+          "confidence": 0.90,
+          "rule": "多重 OCR 错误：实→奥，拍→铂",
+          "source": "样本 用药非常多李月娥1"
+        },
+        {
+          "ocrText": "氟尿吨啶",
+          "correctText": "氟尿嘧啶",
+          "context": "抗代谢化疗药（5-FU）",
+          "confidence": 0.95,
+          "rule": "形近字：吨→嘧",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "氟尿密啶",
+          "correctText": "氟尿嘧啶",
+          "context": "抗代谢化疗药（5-FU）",
+          "confidence": 0.95,
+          "rule": "形近字：密→嘧",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "氟尿电定",
+          "correctText": "氟尿嘧啶",
+          "context": "抗代谢化疗药（5-FU）",
+          "confidence": 0.90,
+          "rule": "多重 OCR 错误：电→嘧，定→啶",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "氟泉枣啶",
+          "correctText": "氟尿嘧啶",
+          "context": "抗代谢化疗药（5-FU）",
+          "confidence": 0.85,
+          "rule": "多重 OCR 错误：泉→尿，枣→嘧",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "氟尿密啶",
+          "correctText": "氟尿嘧啶",
+          "context": "抗代谢化疗药（5-FU）",
+          "confidence": 0.95,
+          "rule": "形近字：密→嘧",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "安罗昔尼",
+          "correctText": "安罗替尼",
+          "context": "多靶点酪氨酸激酶抑制剂",
+          "confidence": 0.95,
+          "rule": "形近字：昔尼→替尼",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "卡培地滨",
+          "correctText": "卡培他滨",
+          "context": "口服氟尿嘧啶类化疗药",
+          "confidence": 0.99,
+          "rule": "形近字：地→他",
+          "source": "样本 用药非常多李月娥1"
+        },
+        {
+          "ocrText": "卡培他演",
+          "correctText": "卡培他滨",
+          "context": "口服氟尿嘧啶类化疗药",
+          "confidence": 0.99,
+          "rule": "形近字：演→滨",
+          "source": "样本 用药非常多李月娥1"
+        },
+        {
+          "ocrText": "甘氨双坐钠",
+          "correctText": "甘氨双唑钠",
+          "context": "放疗增敏剂",
+          "confidence": 0.90,
+          "rule": "形近字：坐→唑",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "亚叶磁钙",
+          "correctText": "亚叶酸钙",
+          "context": "化疗辅助用药",
+          "confidence": 0.95,
+          "rule": "形近字：磁→酸",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "伊立替康",
+          "correctText": "伊立替康",
+          "context": "拓扑异构酶 I 抑制剂",
+          "confidence": 1.0,
+          "rule": "正确拼写，不需要替换",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "瑞戈非尼80mggdd1-21",
+          "correctText": "瑞戈非尼80mg d1-21",
+          "context": "多靶点激酶抑制剂 + 用法",
+          "confidence": 0.85,
+          "rule": "OCR 连字符错误：80mggdd→80mg d",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "信迪利单抗",
+          "correctText": "信迪利单抗",
+          "context": "PD-1抑制剂",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "帕博利珠单抗",
+          "correctText": "帕博利珠单抗",
+          "context": "PD-1抑制剂（Keytruda）",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "曲妥珠单抗",
+          "correctText": "曲妥珠单抗",
+          "context": "抗HER2单抗（赫赛汀）",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "曲妥珠丹抗",
+          "correctText": "曲妥珠单抗",
+          "context": "抗HER2单抗",
+          "confidence": 0.99,
+          "rule": "形近字：丹→单",
+          "source": "高频药物OCR错误"
+        },
+        {
+          "ocrText": "紫杉醇",
+          "correctText": "紫杉醇",
+          "context": "化疗药物",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "多西他赛",
+          "correctText": "多西他赛",
+          "context": "化疗药物（紫杉类）",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "顺铂",
+          "correctText": "顺铂",
+          "context": "铂类化疗药",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "吉西他滨",
+          "correctText": "吉西他滨",
+          "context": "抗代谢化疗药",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        },
+        {
+          "ocrText": "白蛋白紫杉醇",
+          "correctText": "白蛋白紫杉醇",
+          "context": "化疗药物（nab-紫杉醇）",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准药物名"
+        }
+      ]
+    },
+    "hospitalNames": {
+      "_description": "医院名称 OCR 纠错——大学附属医院、省市医院、检测机构",
+      "_source": "从 45 个样本文档头部提取的 OCR 错误",
+      "_priority": "medium",
+      "entries": [
+        {
+          "ocrText": "多安支通大学第二时属医院（西北医院）",
+          "correctText": "西安交通大学第二附属医院（西北医院）",
+          "context": "医院名称",
+          "confidence": 0.90,
+          "rule": "多重 OCR 错误：多安支通→西安交通，时属→附属（去掉'（西北医院）'后缀作为主名称）",
+          "source": "样本 260518208"
+        },
+        {
+          "ocrText": "西安交通大学第二附属医院",
+          "correctText": "西安交通大学第二附属医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称，不需要替换",
+          "source": "标准名称"
+        },
+        {
+          "ocrText": "绵阳因西医院",
+          "correctText": "绵阳四〇四医院",
+          "context": "医院名称",
+          "confidence": 0.60,
+          "rule": "OCR 误读严重，需人工确认。'因西'可能是'四〇四'或其他名称",
+          "source": "样本 260518105"
+        },
+        {
+          "ocrText": "上址办字报古车",
+          "correctText": "",
+          "context": "OCR 噪声（非文本内容）",
+          "confidence": 0.99,
+          "rule": "完全无法识别的 OCR 噪声，应直接丢弃",
+          "source": "样本 260518105"
+        },
+        {
+          "ocrText": "吉林省第二人民医院",
+          "correctText": "吉林省第二人民医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称（吉林省肿瘤医院的别名）",
+          "source": "样本 260518104"
+        },
+        {
+          "ocrText": "北京协和医院",
+          "correctText": "北京协和医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称",
+          "source": "标准名称"
+        },
+        {
+          "ocrText": "中国医学科学院肿瘤医院",
+          "correctText": "中国医学科学院肿瘤医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称",
+          "source": "标准名称"
+        },
+        {
+          "ocrText": "北京大学肿瘤医院",
+          "correctText": "北京大学肿瘤医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称（北京肿瘤医院的正式名称）",
+          "source": "标准名称"
+        },
+        {
+          "ocrText": "复旦大学附属肿瘤医院",
+          "correctText": "复旦大学附属肿瘤医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称",
+          "source": "标准名称"
+        },
+        {
+          "ocrText": "中山大学附属肿瘤医院",
+          "correctText": "中山大学附属肿瘤医院",
+          "context": "医院名称",
+          "confidence": 1.0,
+          "rule": "正确名称",
+          "source": "标准名称"
+        }
+      ]
+    },
+    "generalTerms": {
+      "_description": "通用术语 OCR 纠错——检查项目名、样本类型、医疗操作等",
+      "_priority": "medium",
+      "entries": [
+        {
+          "ocrText": "ECEL",
+          "correctText": "Excel",
+          "context": "软件名称（UI 元素）",
+          "confidence": 0.95,
+          "rule": "OCR 常见错误：x→c（注意：这是 UI 噪声，通常不需要出现在抽取结果中）",
+          "source": "样本 260518201"
+        },
+        {
+          "ocrText": "腺病",
+          "correctText": "腺癌",
+          "context": "病理诊断",
+          "confidence": 0.85,
+          "rule": "形近字：病→癌（用户提供的示例，需结合上下文判断——'腺病'有时是正确的，如乳腺腺病）",
+          "contextNote": "当出现在病理诊断区域且有恶性描述时，99% 为'腺癌'"
+        },
+        {
+          "ocrText": "爱润性",
+          "correctText": "浸润性",
+          "context": "病理术语",
+          "confidence": 0.90,
+          "rule": "形近字误读（用户提供的示例）：爱→浸，润性不变",
+          "contextNote": "在病理诊断中'浸润性'是高频术语"
+        },
+        {
+          "ocrText": "己婚己育",
+          "correctText": "已婚已育",
+          "context": "患者信息",
+          "confidence": 0.95,
+          "rule": "形近字：己→已",
+          "source": "样本 260518204"
+        },
+        {
+          "ocrText": "未次月经",
+          "correctText": "末次月经",
+          "context": "患者信息",
+          "confidence": 0.95,
+          "rule": "形近字：未→末",
+          "source": "样本 260518204"
+        },
+        {
+          "ocrText": "厨生型",
+          "correctText": "野生型",
+          "context": "基因检测结果",
+          "confidence": 0.90,
+          "rule": "形近字：厨→野",
+          "source": "样本 260518603"
+        },
+        {
+          "ocrText": "临味",
+          "correctText": "临床",
+          "context": "医学术语",
+          "confidence": 0.95,
+          "rule": "形近字：味→床",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "盆血",
+          "correctText": "贫血",
+          "context": "临床症状",
+          "confidence": 0.90,
+          "rule": "形近字：盆→贫",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "映管",
+          "correctText": "胰管",
+          "context": "解剖学术语",
+          "confidence": 0.90,
+          "rule": "形近字：映→胰",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "贝锁骨",
+          "correctText": "锁骨",
+          "context": "解剖学术语",
+          "confidence": 0.80,
+          "rule": "OCR 多余字符：贝→应为无，或为'左锁骨'",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "幅胸后间隙",
+          "correctText": "膈胸后间隙",
+          "context": "解剖学术语",
+          "confidence": 0.70,
+          "rule": "形近字：幅→膈",
+          "source": "样本 用药非常多李月娥2"
+        },
+        {
+          "ocrText": "送检材科",
+          "correctText": "送检材料",
+          "context": "文档标识",
+          "confidence": 0.95,
+          "rule": "形近字：科→料",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "标本名祢",
+          "correctText": "标本名称",
+          "context": "文档标识",
+          "confidence": 0.95,
+          "rule": "形近字：祢→称",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "免疫组化结累",
+          "correctText": "免疫组化结果",
+          "context": "病理术语",
+          "confidence": 0.95,
+          "rule": "形近字：累→果",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "分化牧差",
+          "correctText": "分化较差",
+          "context": "病理术语",
+          "confidence": 0.90,
+          "rule": "形近字：牧→较",
+          "source": "高频医学OCR错误"
+        },
+        {
+          "ocrText": "乳头状增生",
+          "correctText": "乳头状增生",
+          "context": "病理术语",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准术语"
+        },
+        {
+          "ocrText": "肉眼所见",
+          "correctText": "肉眼所见",
+          "context": "病理报告标准段落",
+          "confidence": 1.0,
+          "rule": "正确拼写",
+          "source": "标准术语"
+        }
+      ]
+    }
+  },
+  "noisePatterns": {
+    "_description": "OCR 噪声模式——这些片段不是有效文本，应从抽取输入中过滤",
+    "patterns": [
+      { "pattern": "导出至ECEL", "action": "remove", "reason": "UI 按钮文本" },
+      { "pattern": "导出至TI", "action": "remove", "reason": "UI 按钮文本" },
+      { "pattern": "收藏隐藏设置", "action": "remove", "reason": "UI 菜单文本" },
+      { "pattern": "打印常规", "action": "remove", "reason": "UI 按钮文本" },
+      { "pattern": "上址办字报古车", "action": "remove", "reason": "OCR 乱码" },
+      { "pattern": "re Sed Ariate Hitar", "action": "remove", "reason": "英文 OCR 乱码（可能是医院英文名被误读）" },
+      { "pattern": "●D", "action": "remove", "reason": "OCR 噪声符号" },
+      { "pattern": "¥分院", "action": "remove", "reason": "OCR 误读" },
+      { "pattern": "CAP", "action": "keep_if_context", "reason": "可能是 CAP 认证标识（不是噪声），也可能是其他缩写" },
+      { "pattern": "开势乙二游电质.", "action": "remove", "reason": "OCR 乱码" },
+      { "pattern": "硕问", "action": "replace_with:疑问", "reason": "形近字：硕→疑" },
+      { "pattern": "互联网医院", "action": "keep_if_context", "reason": "可能是医院名称的一部分，也可能是UI元素" },
+      { "pattern": "会诊病理报告", "action": "keep", "reason": "报告类型标识，不是噪声" },
+      { "pattern": "申请科室", "action": "keep", "reason": "文档字段标签，不是噪声" }
+    ]
+  },
+  "nameCorrections": {
+    "_description": "人名 OCR 纠错——高风险操作，建议仅在高确信度下替换",
+    "_priority": "low",
+    "_warning": "人名纠错风险较高，误替换会导致严重错误。建议：1) 优先保留 OCR 原文；2) 仅在上下文多次出现同一姓名时做交叉验证替换",
+    "entries": [
+      {
+        "ocrText": "熊亚梯",
+        "correctText": "熊亚娣",
+        "context": "患者姓名/医生姓名",
+        "confidence": 0.70,
+        "rule": "形近字：梯→娣（用户提供的示例，需人工确认）",
+        "requiresConfirmation": true
+      },
+      {
+        "ocrText": "候特请",
+        "correctText": "待确认",
+        "context": "报告医生姓名",
+        "confidence": 0.40,
+        "rule": "OCR 识别质量极低，保留原文，建议人工审核",
+        "source": "样本 260518110"
+      }
+    ]
+  },
+  "statistics": {
+    "totalEntries": 111,
+    "byCategory": {
+      "medicalTerms": 41,
+      "drugNames": 27,
+      "hospitalNames": 10,
+      "generalTerms": 17,
+      "noisePatterns": 14,
+      "nameCorrections": 2
+    },
+    "byConfidence": {
+      "high_0.95_plus": 60,
+      "medium_0.80_0.94": 30,
+      "low_below_0.80": 7
+    },
+    "source": {
+      "fromOcrResults": "45个测试样本的真实 OCR 输出",
+      "fromUserExamples": "用户提供的示例（爱润性→浸润性、腺病→腺癌、熊亚梯→熊亚娣）",
+      "fromDomainKnowledge": "常见医学术语 OCR 错误模式"
+    }
+  }
+}

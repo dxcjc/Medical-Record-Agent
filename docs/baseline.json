@@ -1,0 +1,545 @@
+{
+  "version": "1.0.0",
+  "schemaKey": "medical-record-core",
+  "generatedAt": "2026-06-16",
+  "description": "回归评估基线数据 — 基于 docs/test-cases.json 中各测试用例的 notes 提取期望字段和期望值。null 表示该字段在该样本中不期望有值（选填字段），'__ANY__' 表示仅验证非空。",
+  "fieldPriority": {
+    "patientName":           { "level": "required",  "description": "患者姓名，必填" },
+    "tumorType":             { "level": "required",  "description": "癌种/肿瘤类型，必填" },
+    "hospitalName":          { "level": "required",  "description": "医院名称，必填" },
+    "patientGender":         { "level": "strong",    "description": "性别，强期望" },
+    "sampleType":            { "level": "strong",    "description": "样本类型，强期望" },
+    "detectionItems":        { "level": "strong",    "description": "检测项目，强期望" },
+    "reportDate":            { "level": "strong",    "description": "报告日期，强期望" },
+    "treatmentHistory":      { "level": "strong",    "description": "治疗史，强期望" },
+    "pathologicalDiagnosis": { "level": "strong",    "description": "病理诊断，强期望" },
+    "clinicalStage":         { "level": "optional",  "description": "分期，选填" },
+    "geneMutations":         { "level": "optional",  "description": "基因突变，选填" },
+    "notes":                 { "level": "optional",  "description": "备注，选填" }
+  },
+  "samples": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "膀胱癌",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "验证系统能否正确识别膀胱癌，tumorType 应为'膀胱癌'"
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "肛缘肠癌",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "注意区分肛缘和直肠"
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "横纹肌肉瘤",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "罕见肿瘤类型，非上皮来源肿瘤"
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "非霍奇金淋巴瘤",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "注意不要与霍奇金淋巴瘤混淆"
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "肾癌",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "验证系统能否正确识别肾癌"
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "胶质瘤",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "中枢神经系统肿瘤"
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "食管癌",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "验证系统能否正确识别食管癌"
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "胃肠道间质瘤",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "注意区分GIST与胃腺癌等上皮来源肿瘤"
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "胰腺癌",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "验证系统能否正确识别胰腺癌"
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "胃腺癌",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "有参考图片 TC010-REF 可用于对比验证"
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "reportDate": "__ANY__"
+      },
+      "notes": "北医三院简单格式病理报告，验证基础字段提取能力"
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "reportDate": "__ANY__"
+      },
+      "notes": "先未确诊后确诊，验证系统提取最终确诊的病理诊断"
+    },
+    {
+      "tcId": "TC013",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "reportDate": "__ANY__",
+        "notes": "__ANY__"
+      },
+      "notes": "文字较多的病理报告（原 test-cases 中 expectedFields 含 immunohistochemistry，对应 schema 的 notes 字段）"
+    },
+    {
+      "tcId": "TC014",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
+      },
+      "notes": "非标准格式病理报告，验证对异形格式的鲁棒性"
+    },
+    {
+      "tcId": "TC015",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "不同形式的局部病理报告"
+    },
+    {
+      "tcId": "TC016",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "南京鼓楼医院",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "reportDate": "__ANY__"
+      },
+      "notes": "南京鼓楼医院格式"
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "notes": "__ANY__"
+      },
+      "notes": "肠癌肝转移，metastasis→notes 中应包含'肝转移'信息，treatmentHistory→notes 中应包含治疗史"
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "notes": "__ANY__"
+      },
+      "notes": "乳腺癌肝转移，metastasis→notes 中应包含'肝转移'信息"
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "原发灶未明，tumorType 应如实反映'原发灶未明'"
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "reportDate": "__ANY__"
+      },
+      "notes": "跨页病理报告，验证多页合并能力"
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "勾选治疗史，验证 treatmentHistory 输出具体值而非'不详'"
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "文字中嵌入手术史信息"
+    },
+    {
+      "tcId": "TC023",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "手写申请单，OCR难度高，允许部分不准确"
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "detectionItems": "__ANY__",
+        "geneMutations": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
+      },
+      "notes": "基因检测报告，验证检测项目和基因突变信息"
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "含用药信息的乳腺癌申请单"
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "余明明",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "患者余明明，3张资料同时上传，验证多图合并"
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "treatmentHistory": "__ANY__",
+        "notes": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "一段文字中包含转移、用药和放疗信息，metastasis→notes 中应包含转移信息"
+    },
+    {
+      "tcId": "TC028",
+      "category": "药厂申请单",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "模糊药厂申请单，允许字段不完全准确"
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "reportDate": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "清晰标准药厂申请单，应能完整提取"
+    },
+    {
+      "tcId": "TC030",
+      "category": "药厂申请单",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "倾斜药厂申请单，验证对倾斜图片的处理"
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "expectedValues": {
+        "patientName": "李月娥",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "患者李月娥，多张用药记录，验证 treatmentHistory 合并"
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "expectedValues": {
+        "patientName": "马辉",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "treatmentHistory": "__ANY__",
+        "reportDate": "__ANY__"
+      },
+      "notes": "患者马辉，4张资料合并"
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "expectedValues": {
+        "patientName": "浦慧敏",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "treatmentHistory": "__ANY__"
+      },
+      "notes": "患者浦慧敏，同一样本不同页"
+    },
+    {
+      "tcId": "TC034",
+      "category": "多样本资料",
+      "expectedValues": {
+        "patientName": "张宏建",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
+      },
+      "notes": "患者张宏建，2张资料合并"
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "expectedValues": {
+        "patientName": "张勇",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "treatmentHistory": "__ANY__",
+        "reportDate": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "患者张勇，8张资料大规模合并，最复杂的多样本场景"
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "detectionItems": "__ANY__",
+        "geneMutations": "__ANY__"
+      },
+      "notes": "基因检测报告（样本1），验证 testItems→detectionItems 和 geneMutations"
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "detectionItems": "__ANY__",
+        "geneMutations": "__ANY__"
+      },
+      "notes": "基因检测报告（样本2）"
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "detectionItems": "__ANY__",
+        "geneMutations": "__ANY__"
+      },
+      "notes": "基因检测报告（样本3）"
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "clinicalStage": "__ANY__"
+      },
+      "notes": "标准病理学TNM分期，staging→clinicalStage"
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__"
+      },
+      "notes": "无分期信息，clinicalStage 应为空/null，不应编造"
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "clinicalStage": "__ANY__"
+      },
+      "notes": "仅有N分期，clinicalStage 只应输出N分期，不应自行补造T/M"
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "clinicalStage": "__ANY__"
+      },
+      "notes": "仅有T分期，clinicalStage 只应输出T分期，不应自行补造N/M"
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "多部位（结肠、直肠、小肠）病理诊断，验证不混淆部位信息"
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "不同部位乳腺癌，验证区分不同象限/部位"
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "expectedValues": {
+        "patientName": "__ANY__",
+        "tumorType": "__ANY__",
+        "hospitalName": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__",
+        "sampleType": "__ANY__"
+      },
+      "notes": "不同部位神经内分泌癌"
+    }
+  ]
+}

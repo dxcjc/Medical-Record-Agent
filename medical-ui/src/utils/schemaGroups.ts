@@ -10,9 +10,8 @@ export interface FieldGroup {
 const GROUP_LABELS: Record<string, string> = {
   patientInfo: '患者信息',
   referralInfo: '送检信息',
-  clinicalDiagnosis: '临床诊断',
   sampleInfo: '样本信息',
-  testItems: '检测项目',
+  detectionItems: '检测项目',
   testProduct: '检测产品',
   other: '其他',
 };
@@ -21,33 +20,32 @@ const GROUP_LABELS: Record<string, string> = {
 const FIELD_TO_GROUP: Record<string, string> = {
   patientName: 'patientInfo',
   patientGender: 'patientInfo',
-  patientAge: 'patientInfo',
   outpatientNo: 'patientInfo',
   phone: 'patientInfo',
   idNumber: 'patientInfo',
   ethnicity: 'patientInfo',
-  referringDoctor: 'referralInfo',
   referralDate: 'referralInfo',
-  pathologyNo: 'referralInfo',
   sampleNo: 'referralInfo',
   clinicRoom: 'referralInfo',
-  tumorType: 'clinicalDiagnosis',
-  tumorCategory: 'clinicalDiagnosis',
+  tumorType: 'other',
+  tumorCategory: 'other',
+  clinicalStage: 'other',
   sampleType: 'sampleInfo',
   bloodSample: 'sampleInfo',
   samplePrepTime: 'sampleInfo',
   tumorCellPercent: 'sampleInfo',
-  testItemsLung: 'testItems',
-  testItemsGI: 'testItems',
-  testItemsOther: 'testItems',
+  detectionItemsLung: 'detectionItems',
+  detectionItemsGI: 'detectionItems',
+  detectionItemsOther: 'detectionItems',
   testProvider: 'testProduct',
   documentNo: 'testProduct',
   documentVersion: 'testProduct',
   transfusionHistory: 'other',
+  notes: 'other',
 };
 
 /** 分组排序 */
-const GROUP_ORDER = ['patientInfo', 'referralInfo', 'clinicalDiagnosis', 'sampleInfo', 'testItems', 'testProduct', 'other'];
+const GROUP_ORDER = ['patientInfo', 'referralInfo', 'sampleInfo', 'detectionItems', 'testProduct', 'other'];
 
 /**
  * 从 Schema definition 的 fields 数组按业务归属分组。
@@ -124,10 +122,10 @@ export function extractEnumOptions(fields: SchemaField[]): Record<string, string
 }
 
 /**
- * 从 Schema fields 中按分组提取 test items 字段的 key 列表。
+ * 从 Schema fields 中按分组提取 detection items 字段的 key 列表。
  */
 export function getTestItemFieldKeys(fields: SchemaField[]): string[] {
   return fields
-    .filter(f => f.key.startsWith('testItems') || f.key.startsWith('testItem'))
+    .filter(f => f.key.startsWith('detectionItems') || f.key.startsWith('detectionItem'))
     .map(f => f.key);
 }

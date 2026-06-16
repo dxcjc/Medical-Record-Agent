@@ -1,0 +1,474 @@
+[
+  {
+    "id": "TC001",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518101膀胱癌.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "膀胱癌识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别膀胱癌，tumorType 应为'膀胱癌'"
+  },
+  {
+    "id": "TC002",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518102肛缘肠癌.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "肛缘肠癌识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别肛缘肠癌，注意区分肛缘和直肠"
+  },
+  {
+    "id": "TC003",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518103横纹肌肉瘤.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "横纹肌肉瘤识别",
+    "priority": "P0",
+    "notes": "罕见肿瘤类型，验证系统能否正确识别横纹肌肉瘤（非上皮来源肿瘤）"
+  },
+  {
+    "id": "TC004",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518104非霍奇金淋巴瘤.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "非霍奇金淋巴瘤识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别非霍奇金淋巴瘤，注意不要与霍奇金淋巴瘤混淆"
+  },
+  {
+    "id": "TC005",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518105肾癌.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "肾癌识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别肾癌"
+  },
+  {
+    "id": "TC006",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518106胶质瘤.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "胶质瘤识别",
+    "priority": "P0",
+    "notes": "中枢神经系统肿瘤，验证系统能否正确识别胶质瘤"
+  },
+  {
+    "id": "TC007",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518107食管癌.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "食管癌识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别食管癌"
+  },
+  {
+    "id": "TC008",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518108胃肠道间质瘤.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "胃肠道间质瘤（GIST）识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别胃肠道间质瘤，注意区分GIST与胃腺癌等上皮来源肿瘤"
+  },
+  {
+    "id": "TC009",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518109胰腺癌.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "胰腺癌识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别胰腺癌"
+  },
+  {
+    "id": "TC010",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518110胃腺癌.png"],
+    "category": "癌种识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "胃腺癌识别",
+    "priority": "P0",
+    "notes": "验证系统能否正确识别胃腺癌，有参考图片 TC010-REF 可用于对比验证"
+  },
+  {
+    "id": "TC010-REF",
+    "files": ["固定测试集共45个样本/1测试不同癌种解读匹配10/260518111胃腺癌应该识别成这样ScreenShot_2026-03-24_110231_557.png"],
+    "category": "癌种识别",
+    "expectedFields": [],
+    "testFocus": "TC010 胃腺癌的预期输出参考",
+    "priority": "REF",
+    "notes": "参考图片，非测试样本。用于验证 TC010 的识别结果是否正确"
+  },
+  {
+    "id": "TC011",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518201北医三院病理简单.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "reportDate"],
+    "testFocus": "简单病理报告识别",
+    "priority": "P0",
+    "notes": "北医三院简单格式病理报告，验证基础字段提取能力"
+  },
+  {
+    "id": "TC012",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518202病理报告一开始不确诊后来确诊.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "reportDate"],
+    "testFocus": "初始未确诊后确诊的病理报告",
+    "priority": "P0",
+    "notes": "报告中先未确诊后确诊，验证系统能否提取最终确诊的病理诊断而非初始不确定的诊断"
+  },
+  {
+    "id": "TC013",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518203病理报告字多.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "reportDate", "immunohistochemistry"],
+    "testFocus": "文字量大的病理报告",
+    "priority": "P1",
+    "notes": "文字较多的病理报告，验证大量文本中能否准确提取关键字段"
+  },
+  {
+    "id": "TC014",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518204不常见病理报告.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "pathologicalDiagnosis"],
+    "testFocus": "不常见格式病理报告",
+    "priority": "P1",
+    "notes": "非标准格式病理报告，验证系统对异形格式的鲁棒性"
+  },
+  {
+    "id": "TC015",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518205另一种形式病理报告，局部。。。.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "pathologicalDiagnosis", "sampleType"],
+    "testFocus": "另一种形式的局部病理报告",
+    "priority": "P1",
+    "notes": "不同形式的病理报告，可能仅包含局部信息，验证系统能否正确处理不完整格式"
+  },
+  {
+    "id": "TC016",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518206南京鼓楼医院3.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "reportDate"],
+    "testFocus": "南京鼓楼医院病理报告",
+    "priority": "P1",
+    "notes": "特定医院（南京鼓楼医院）格式的病理报告，验证不同医院格式的兼容性"
+  },
+  {
+    "id": "TC017",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518207绕肠癌肝转移.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "metastasis", "treatmentHistory"],
+    "testFocus": "肠癌肝转移识别",
+    "priority": "P0",
+    "notes": "包含转移信息的肠癌病例，验证 metastasis 字段能否正确提取'肝转移'"
+  },
+  {
+    "id": "TC018",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518208绕乳腺癌肝转移.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "metastasis", "treatmentHistory"],
+    "testFocus": "乳腺癌肝转移识别",
+    "priority": "P0",
+    "notes": "包含转移信息的乳腺癌病例，验证 metastasis 字段能否正确提取'肝转移'"
+  },
+  {
+    "id": "TC019",
+    "files": ["固定测试集共45个样本/2测试不同类型病理报告10/260518209原发灶未明.png"],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "pathologicalDiagnosis", "sampleType"],
+    "testFocus": "原发灶未明的识别",
+    "priority": "P0",
+    "notes": "原发灶不明的病例，验证系统对不确定诊断的处理，tumorType 应如实反映'原发灶未明'"
+  },
+  {
+    "id": "TC020",
+    "files": [
+      "固定测试集共45个样本/2测试不同类型病理报告10/260518210资料隔页1.png",
+      "固定测试集共45个样本/2测试不同类型病理报告10/260518210资料隔页2.png"
+    ],
+    "category": "病理报告类型",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "reportDate"],
+    "testFocus": "跨页病理报告识别",
+    "priority": "P0",
+    "notes": "同一份报告分页拍照（隔页），验证系统能否正确合并多页内容，识别结果应与单份报告一致"
+  },
+  {
+    "id": "TC021",
+    "files": ["固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518301勾选了治疗史需输出具体不详.png"],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "treatmentHistory"],
+    "testFocus": "勾选治疗史的识别",
+    "priority": "P0",
+    "notes": "文档中勾选了治疗史选项，验证 treatmentHistory 字段能否输出具体值，而非模糊的'不详'"
+  },
+  {
+    "id": "TC022",
+    "files": ["固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518302测试文字中手术史能不能识别.png"],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "treatmentHistory"],
+    "testFocus": "文字中手术史的识别",
+    "priority": "P0",
+    "notes": "手术史信息嵌入在正文中（非勾选形式），验证 treatmentHistory 字段能否从叙述文本中提取手术史"
+  },
+  {
+    "id": "TC023",
+    "files": ["固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518303手写申请单.png"],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName"],
+    "testFocus": "手写申请单识别",
+    "priority": "P1",
+    "notes": "手写文档，OCR难度较高，验证系统对手写体的识别能力，允许部分字段不完全准确"
+  },
+  {
+    "id": "TC024",
+    "files": ["固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518305基因检测报告上诊断.png"],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "testItems", "geneMutations", "pathologicalDiagnosis"],
+    "testFocus": "基因检测报告上的诊断信息识别",
+    "priority": "P0",
+    "notes": "基因检测报告，验证能否提取检测项目和基因突变信息，同时识别诊断字段"
+  },
+  {
+    "id": "TC025",
+    "files": ["固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518306申请单乳腺癌含用药.png"],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "treatmentHistory"],
+    "testFocus": "含用药信息的乳腺癌申请单",
+    "priority": "P0",
+    "notes": "乳腺癌申请单中包含用药信息，验证 treatmentHistory 能否提取用药史"
+  },
+  {
+    "id": "TC026",
+    "files": [
+      "固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518307测同时上传3张资料余明明1.png",
+      "固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518307测同时上传3张资料余明明2.png",
+      "固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260518307测同时上传3张资料余明明3.png"
+    ],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "treatmentHistory"],
+    "testFocus": "同时上传3张资料的合并识别",
+    "priority": "P0",
+    "notes": "患者余明明的3张资料同时上传，验证系统能否正确合并多张图片识别结果，patientName 应一致为'余明明'"
+  },
+  {
+    "id": "TC027",
+    "files": ["固定测试集共45个样本/3测试上传的不同类型图片能否准确识别7/260519304一段话包括转移用药和放疗.png"],
+    "category": "图片类型识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "treatmentHistory", "metastasis", "pathologicalDiagnosis", "sampleType"],
+    "testFocus": "一段文字中包含转移、用药和放疗信息",
+    "priority": "P0",
+    "notes": "文档中一段文字同时包含转移、用药和放疗信息，验证系统能否同时提取 treatmentHistory 和 metastasis"
+  },
+  {
+    "id": "TC028",
+    "files": ["固定测试集共45个样本/4药厂测试3/260518401S药厂模糊能识别么creenShot_2026-04-10_145750_505.png"],
+    "category": "药厂申请单",
+    "expectedFields": ["patientName", "tumorType", "hospitalName"],
+    "testFocus": "模糊药厂申请单识别",
+    "priority": "P1",
+    "notes": "模糊的药厂申请单图片，验证OCR对低质量图片的识别能力，允许字段不完全准确"
+  },
+  {
+    "id": "TC029",
+    "files": ["固定测试集共45个样本/4药厂测试3/260518402测清晰标准申请单能否识别ScreenShot_2026-04-30_150319_846.png"],
+    "category": "药厂申请单",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "reportDate", "treatmentHistory"],
+    "testFocus": "清晰标准药厂申请单识别",
+    "priority": "P0",
+    "notes": "清晰标准的药厂申请单，应能完整提取所有关键字段"
+  },
+  {
+    "id": "TC030",
+    "files": ["固定测试集共45个样本/4药厂测试3/260518403倾斜药厂申请单ScreenShot_2026-04-15_143742_061.png"],
+    "category": "药厂申请单",
+    "expectedFields": ["patientName", "tumorType", "hospitalName"],
+    "testFocus": "倾斜药厂申请单识别",
+    "priority": "P1",
+    "notes": "图片倾斜的药厂申请单，验证系统对倾斜/旋转图片的处理能力，是否需要预处理纠偏"
+  },
+  {
+    "id": "TC031",
+    "files": [
+      "固定测试集共45个样本/5资料多样本测试5/260518501李月娥用药多/用药非常多李月娥1.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518501李月娥用药多/用药非常多李月娥2.png"
+    ],
+    "category": "多样本资料",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "treatmentHistory"],
+    "testFocus": "多张用药记录合并识别",
+    "priority": "P0",
+    "notes": "患者李月娥有多张用药记录图片，验证多张图片的 treatmentHistory 合并能力。有参考图 TC031-REF"
+  },
+  {
+    "id": "TC031-REF",
+    "files": ["固定测试集共45个样本/5资料多样本测试5/260518501李月娥用药多/李月娥应该录入为.png"],
+    "category": "多样本资料",
+    "expectedFields": [],
+    "testFocus": "TC031 李月娥的预期输出参考",
+    "priority": "REF",
+    "notes": "参考图片，非测试样本。用于验证 TC031 的识别结果是否正确"
+  },
+  {
+    "id": "TC032",
+    "files": [
+      "固定测试集共45个样本/5资料多样本测试5/260518502马辉资料多/ScreenShot_2026-04-21_170216_488.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518502马辉资料多/马辉1.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518502马辉资料多/马辉2.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518502马辉资料多/马辉3.png"
+    ],
+    "category": "多样本资料",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "treatmentHistory", "reportDate"],
+    "testFocus": "4张资料合并识别",
+    "priority": "P0",
+    "notes": "患者马辉的4张资料，验证多文档合并识别能力，patientName 应为'马辉'"
+  },
+  {
+    "id": "TC033",
+    "files": [
+      "固定测试集共45个样本/5资料多样本测试5/260518503浦慧敏资料多/同一样本1.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518503浦慧敏资料多/同一样本2.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518503浦慧敏资料多/同一样本3.png"
+    ],
+    "category": "多样本资料",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "treatmentHistory"],
+    "testFocus": "同一样本不同页的合并识别",
+    "priority": "P0",
+    "notes": "患者浦慧敏的3张同一样本资料，验证同一患者多页资料的合并识别。有参考图 TC033-REF"
+  },
+  {
+    "id": "TC033-REF",
+    "files": ["固定测试集共45个样本/5资料多样本测试5/260518503浦慧敏资料多/浦慧敏应该识别成这样.png"],
+    "category": "多样本资料",
+    "expectedFields": [],
+    "testFocus": "TC033 浦慧敏的预期输出参考",
+    "priority": "REF",
+    "notes": "参考图片，非测试样本。用于验证 TC033 的识别结果是否正确"
+  },
+  {
+    "id": "TC034",
+    "files": [
+      "固定测试集共45个样本/5资料多样本测试5/260518504张宏建/1.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518504张宏建/2.png"
+    ],
+    "category": "多样本资料",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis"],
+    "testFocus": "2张资料合并识别",
+    "priority": "P1",
+    "notes": "患者张宏建的2张资料，验证多文档合并识别，patientName 应为'张宏建'"
+  },
+  {
+    "id": "TC035",
+    "files": [
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多1张勇261005348ScreenShot_2026-03-23_142707_638.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多2张勇261005348.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多3张勇261005348.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多4张勇261005348.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多5张勇261005348.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多6张勇261005348.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多7张勇261005348.png",
+      "固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/资料多8张勇261005348.png"
+    ],
+    "category": "多样本资料",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "patientGender", "pathologicalDiagnosis", "treatmentHistory", "reportDate", "sampleType"],
+    "testFocus": "8张资料大规模合并识别",
+    "priority": "P0",
+    "notes": "患者张勇的8张资料（文件名含患者ID 261005348），验证大量多文档的合并识别能力，是最复杂的多样本场景。有参考图 TC035-REF"
+  },
+  {
+    "id": "TC035-REF",
+    "files": ["固定测试集共45个样本/5资料多样本测试5/260518505张勇资料多/张勇应该识别成这样.png"],
+    "category": "多样本资料",
+    "expectedFields": [],
+    "testFocus": "TC035 张勇的预期输出参考",
+    "priority": "REF",
+    "notes": "参考图片，非测试样本。用于验证 TC035 的识别结果是否正确"
+  },
+  {
+    "id": "TC036",
+    "files": ["固定测试集共45个样本/6测基因检测3/260518601基因检测.png"],
+    "category": "基因检测",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "testItems", "geneMutations"],
+    "testFocus": "基因检测报告识别（样本1）",
+    "priority": "P0",
+    "notes": "基因检测报告，重点验证 testItems（检测项目）和 geneMutations（基因突变）字段的提取"
+  },
+  {
+    "id": "TC037",
+    "files": ["固定测试集共45个样本/6测基因检测3/260518602基因检测.png"],
+    "category": "基因检测",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "testItems", "geneMutations"],
+    "testFocus": "基因检测报告识别（样本2）",
+    "priority": "P0",
+    "notes": "基因检测报告，验证不同基因检测报告格式的兼容性"
+  },
+  {
+    "id": "TC038",
+    "files": ["固定测试集共45个样本/6测基因检测3/260518603基因检测.png"],
+    "category": "基因检测",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "testItems", "geneMutations"],
+    "testFocus": "基因检测报告识别（样本3）",
+    "priority": "P0",
+    "notes": "基因检测报告，验证不同基因检测报告格式的兼容性"
+  },
+  {
+    "id": "TC039",
+    "files": ["固定测试集共45个样本/7测手术分期4/260518701标准病理学分期.png"],
+    "category": "手术分期",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "staging"],
+    "testFocus": "标准病理学TNM分期识别",
+    "priority": "P0",
+    "notes": "标准格式的病理学分期，验证 staging 字段能否正确提取完整TNM分期（如 T2N1M0）"
+  },
+  {
+    "id": "TC040",
+    "files": ["固定测试集共45个样本/7测手术分期4/260518702没有提示病理分期.png"],
+    "category": "手术分期",
+    "expectedFields": ["patientName", "tumorType", "hospitalName"],
+    "testFocus": "无分期信息时的处理",
+    "priority": "P0",
+    "notes": "文档中没有分期提示，验证 staging 字段应为空/null，不应编造分期信息"
+  },
+  {
+    "id": "TC041",
+    "files": ["固定测试集共45个样本/7测手术分期4/260518703只有N分期.png"],
+    "category": "手术分期",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "staging"],
+    "testFocus": "仅有N分期时的识别",
+    "priority": "P0",
+    "notes": "只有N分期没有T/M分期，验证 staging 字段只输出N分期（如 N1），不应自行补造T/M分期"
+  },
+  {
+    "id": "TC042",
+    "files": ["固定测试集共45个样本/7测手术分期4/260518704只有T分期.png"],
+    "category": "手术分期",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "staging"],
+    "testFocus": "仅有T分期时的识别",
+    "priority": "P0",
+    "notes": "只有T分期没有N/M分期，验证 staging 字段只输出T分期（如 T2），不应自行补造N/M分期"
+  },
+  {
+    "id": "TC043",
+    "files": ["固定测试集共45个样本/8多部位乳腺癌测试能不能准确识别3/260518801多部位结肠直肠小肠的病理诊断.png"],
+    "category": "多部位识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "pathologicalDiagnosis", "sampleType"],
+    "testFocus": "多部位（结肠、直肠、小肠）病理诊断识别",
+    "priority": "P0",
+    "notes": "涉及多个消化道部位（结肠、直肠、小肠），验证系统能否准确区分不同部位的病理诊断，不混淆部位信息"
+  },
+  {
+    "id": "TC044",
+    "files": ["固定测试集共45个样本/8多部位乳腺癌测试能不能准确识别3/260518802不同部位乳腺癌测试.png"],
+    "category": "多部位识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "pathologicalDiagnosis", "sampleType"],
+    "testFocus": "不同部位乳腺癌识别",
+    "priority": "P0",
+    "notes": "不同部位的乳腺癌，验证系统能否区分乳腺不同象限/部位的病理诊断"
+  },
+  {
+    "id": "TC045",
+    "files": ["固定测试集共45个样本/8多部位乳腺癌测试能不能准确识别3/260518803不同部位神经内分泌癌7.png"],
+    "category": "多部位识别",
+    "expectedFields": ["patientName", "tumorType", "hospitalName", "pathologicalDiagnosis", "sampleType"],
+    "testFocus": "不同部位神经内分泌癌识别",
+    "priority": "P0",
+    "notes": "不同部位的神经内分泌癌，验证系统能否准确识别神经内分泌癌类型及其发病部位"
+  }
+]

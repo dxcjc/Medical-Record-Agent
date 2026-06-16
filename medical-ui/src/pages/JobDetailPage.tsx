@@ -65,9 +65,8 @@ const { Option } = Select;
 const GROUP_ICON_MAP: Record<string, React.ReactNode> = {
   patientInfo: <IconUser style={{ color: '#3370FF', fontSize: 16 }} />,
   referralInfo: <IconSend style={{ color: '#3370FF', fontSize: 16 }} />,
-  clinicalDiagnosis: <IconCode style={{ color: '#3370FF', fontSize: 16 }} />,
   sampleInfo: <IconBeaker style={{ color: '#3370FF', fontSize: 16 }} />,
-  testItems: <IconApps style={{ color: '#3370FF', fontSize: 16 }} />,
+  detectionItems: <IconApps style={{ color: '#3370FF', fontSize: 16 }} />,
   testProduct: <IconStorage style={{ color: '#3370FF', fontSize: 16 }} />,
   other: <IconInfoCircle style={{ color: '#3370FF', fontSize: 16 }} />,
 };
@@ -631,20 +630,20 @@ export default function JobDetailPage() {
     return groups;
   }, [fieldGroups]);
 
-  // 从 Schema 动态提取 testItems 的选项
+  // 从 Schema 动态提取 detectionItems 的选项
   const testItemOptions = useMemo(() => {
     const options: Record<string, string[]> = {};
     for (const field of schemaFields) {
-      if (field.key.startsWith('testItems') || field.key.startsWith('testItem')) {
+      if (field.key.startsWith('detectionItems') || field.key.startsWith('detectionItem')) {
         options[field.key] = extractOptionsFromComments(field);
       }
     }
     return options;
   }, [schemaFields]);
 
-  // 获取 test item 字段 keys
+  // 获取 detection item 字段 keys
   const testItemKeys = useMemo(() =>
-    schemaFields.filter(f => f.key.startsWith('testItems') || f.key.startsWith('testItem')).map(f => f.key),
+    schemaFields.filter(f => f.key.startsWith('detectionItems') || f.key.startsWith('detectionItem')).map(f => f.key),
     [schemaFields]
   );
 
@@ -1024,7 +1023,7 @@ export default function JobDetailPage() {
       )}
 
       {/* Small field groups (<=2 fields) rendered full-width */}
-      {fieldGroups.filter(g => g.key !== 'testItems' && g.fields.length <= 2).map((group) => (
+      {fieldGroups.filter(g => g.key !== 'detectionItems' && g.fields.length <= 2).map((group) => (
         <Row gutter={16} key={group.key}>
           <Col xs={24} lg={24}>
             <FieldGroup
@@ -1040,7 +1039,7 @@ export default function JobDetailPage() {
 
       {/* Larger field groups (>2 fields) in two-column layout */}
       {(() => {
-        const displayGroups = fieldGroups.filter(g => g.key !== 'testItems' && g.fields.length > 2);
+        const displayGroups = fieldGroups.filter(g => g.key !== 'detectionItems' && g.fields.length > 2);
         const rows: typeof displayGroups[] = [];
         for (let i = 0; i < displayGroups.length; i += 2) {
           rows.push(displayGroups.slice(i, i + 2));
@@ -1062,7 +1061,7 @@ export default function JobDetailPage() {
         ));
       })()}
 
-      {/* Checkbox Matrix: Test Items (full width, dynamic from Schema) */}
+      {/* Checkbox Matrix: Detection Items (full width, dynamic from Schema) */}
       {testItemKeys.length > 0 && (
         <Card
           style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}

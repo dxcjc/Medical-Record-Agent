@@ -1,0 +1,620 @@
+{
+  "$schema": "docs/cancer-type-mapping.json",
+  "version": "1.0.0",
+  "description": "癌种知识库映射表——覆盖测试集 10 种癌种 + 常见补充癌种，用于 tumorType 字段标准化和 RAG 上下文注入",
+  "lastUpdated": "2026-06-16",
+  "usage": {
+    "promptIntegration": "注入 buildExtractionPrompt() 的 RAG 上下文段落，辅助 LLM 正确识别癌种",
+    "normalizerIntegration": "用于 post-extraction 阶段的癌种名称归一化",
+    "matchingStrategy": "优先精确匹配 standardName，其次匹配 aliases 中的任一别名，最后根据 primarySite + pathologyTypes 推断"
+  },
+  "cancerTypes": [
+    {
+      "id": "bladder",
+      "standardName": "膀胱癌",
+      "aliases": {
+        "chinese": ["膀胱恶性肿瘤", "膀胱尿路上皮癌", "膀胱移行细胞癌", "尿路上皮癌"],
+        "english": ["bladder cancer", "bladder carcinoma", "bladder urothelial carcinoma", "TCC", "transitional cell carcinoma"],
+        "pathologySpecific": ["高级别尿路上皮癌", "低级别尿路上皮癌", "尿路上皮癌", "移行细胞癌", "膀胱鳞状细胞癌", "膀胱腺癌"]
+      },
+      "primarySite": {
+        "organ": "膀胱",
+        "anatomicalRegion": "泌尿系统",
+        "relatedOrgans": ["输尿管", "肾盂", "尿道"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "尿路上皮癌",
+          "icdOCode": "8120/3",
+          "proportion": "~90%",
+          "aliases": ["移行细胞癌", "TCC"]
+        },
+        {
+          "name": "鳞状细胞癌",
+          "icdOCode": "8070/3",
+          "proportion": "~3-7%",
+          "aliases": ["膀胱鳞癌"]
+        },
+        {
+          "name": "腺癌",
+          "icdOCode": "8140/3",
+          "proportion": "~2%",
+          "aliases": ["膀胱腺癌"]
+        }
+      ],
+      "typicalIHCMarkers": ["CK7(+)", "CK20(+/-)", "GATA3(+)", "P63(+)", "CK5/6(+)"],
+      "commonGeneTests": ["FGFR3", "TERT", "RB1", "TP53"],
+      "inferenceRules": [
+        "病理诊断含'尿路上皮癌'且送检部位为膀胱 → 膀胱癌",
+        "临床诊断含'膀胱恶性肿瘤' → 膀胱癌",
+        "病理诊断含'移行细胞癌' → 膀胱癌（旧称）",
+        "注意区分：肾盂/输尿管尿路上皮癌不属于膀胱癌",
+        "高级别尿路上皮癌/低级别尿路上皮癌 → 标准名称'膀胱癌'（当送检部位为膀胱时）"
+      ],
+      "disambiguation": [
+        "尿路上皮癌也可发生在肾盂、输尿管、尿道，需结合部位判断",
+        "前列腺腺癌合并膀胱癌时，以主要诊断为准"
+      ]
+    },
+    {
+      "id": "anal-rectal",
+      "standardName": "肛缘肠癌",
+      "aliases": {
+        "chinese": ["肛缘癌", "肛管癌", "肛门癌", "直肠肛管癌", "肛缘直肠癌"],
+        "english": ["anal cancer", "anal margin cancer", "anal canal cancer", "anorectal cancer"],
+        "pathologySpecific": ["肛缘腺癌", "肛管鳞状细胞癌", "肛缘鳞癌", "肛管基底细胞样癌"]
+      },
+      "primarySite": {
+        "organ": "肛管/肛缘",
+        "anatomicalRegion": "消化系统-结直肠肛门",
+        "relatedOrgans": ["直肠", "结肠", "肛周皮肤"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "鳞状细胞癌",
+          "icdOCode": "8070/3",
+          "proportion": "~75%",
+          "aliases": ["肛管鳞癌", "泄殖腔源性癌"]
+        },
+        {
+          "name": "腺癌",
+          "icdOCode": "8140/3",
+          "proportion": "~15%",
+          "aliases": ["肛缘腺癌", "肛管腺癌"]
+        },
+        {
+          "name": "基底细胞样癌",
+          "icdOCode": "8083/3",
+          "proportion": "~10%",
+          "aliases": ["cloacogenic carcinoma"]
+        }
+      ],
+      "typicalIHCMarkers": ["CK7(+/-)", "CK20(+/-)", "p16(+)", "HPV相关"],
+      "commonGeneTests": ["HPV检测", "KRAS", "NRAS", "BRAF", "MSI"],
+      "inferenceRules": [
+        "病理诊断含'距肛缘XXcm处'且为腺癌 → 结直肠癌（非肛缘癌），需注意距离",
+        "病理诊断含'肛管/肛缘'且为鳞癌 → 肛缘癌",
+        "距肛缘 15cm 以上通常归为结肠癌，15cm 以下归为直肠癌/肛缘癌"
+      ],
+      "disambiguation": [
+        "'距肛缘 15cm 处中分化腺癌'是直肠癌/肠癌，不是肛缘癌",
+        "肛缘癌以鳞癌为主，腺癌少见",
+        "HPV 感染与肛管鳞癌密切相关"
+      ]
+    },
+    {
+      "id": "rhabdomyosarcoma",
+      "standardName": "横纹肌肉瘤",
+      "aliases": {
+        "chinese": ["横纹肌肉瘤", "胚胎性横纹肌肉瘤", "腺泡状横纹肌肉瘤", "多形性横纹肌肉瘤"],
+        "english": ["rhabdomyosarcoma", "RMS", "embryonal rhabdomyosarcoma", "alveolar rhabdomyosarcoma", "pleomorphic rhabdomyosarcoma"],
+        "pathologySpecific": ["梭形细胞横纹肌肉瘤", "硬化型横纹肌肉瘤", "葡萄簇肉瘤"]
+      },
+      "primarySite": {
+        "organ": "软组织",
+        "anatomicalRegion": "间叶组织",
+        "relatedOrgans": ["头颈部", "泌尿生殖系统", "四肢", "躯干", "眼眶"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "胚胎性横纹肌肉瘤",
+          "icdOCode": "8910/3",
+          "proportion": "~60%",
+          "aliases": ["葡萄簇型", "梭形细胞型"]
+        },
+        {
+          "name": "腺泡状横纹肌肉瘤",
+          "icdOCode": "8920/3",
+          "proportion": "~20%",
+          "aliases": ["alveolar RMS"]
+        },
+        {
+          "name": "多形性横纹肌肉瘤",
+          "icdOCode": "8901/3",
+          "proportion": "~5%",
+          "aliases": ["pleomorphic RMS"]
+        },
+        {
+          "name": "梭形细胞/硬化型横纹肌肉瘤",
+          "icdOCode": "8912/3",
+          "proportion": "~15%",
+          "aliases": ["spindle cell/sclerosing RMS"]
+        }
+      ],
+      "typicalIHCMarkers": ["Desmin(+)", "Myogenin(+/-)", "MyoD1(+/-)", "SMA(+/-)", "ALK(+/-)"],
+      "commonGeneTests": ["FOXO1融合", "PAX3/7-FOXO1", "MYOD1突变", "NGS辅助分型"],
+      "inferenceRules": [
+        "病理诊断含'横纹肌肉瘤'或'横纹肌'标志物阳性 → 横纹肌肉瘤",
+        "注意亚型：梭形细胞型、硬化型、腺泡型等",
+        "横纹肌肉瘤是非上皮来源肿瘤，不要归入'癌'"
+      ],
+      "disambiguation": [
+        "横纹肌肉瘤不是'癌'——它是肉瘤（间叶来源），不要归为'横纹肌肉瘤癌'",
+        "需与其他小圆细胞肿瘤鉴别（如 Ewing 肉瘤、淋巴瘤等）",
+        "Myogenin 阳性是诊断关键标志物，但部分亚型可阴性"
+      ]
+    },
+    {
+      "id": "non-hodgkin-lymphoma",
+      "standardName": "非霍奇金淋巴瘤",
+      "aliases": {
+        "chinese": ["非霍奇金淋巴瘤", "非何杰金淋巴瘤", "NHL", "弥漫大 B 细胞淋巴瘤", "DLBCL"],
+        "english": ["non-Hodgkin lymphoma", "NHL", "diffuse large B-cell lymphoma", "DLBCL", "follicular lymphoma", "mantle cell lymphoma"],
+        "pathologySpecific": ["弥漫性大 B 细胞淋巴瘤（非特指型）", "滤泡性淋巴瘤", "套细胞淋巴瘤", "边缘区淋巴瘤", "Burkitt 淋巴瘤", "T 细胞淋巴瘤"]
+      },
+      "primarySite": {
+        "organ": "淋巴系统",
+        "anatomicalRegion": "血液/淋巴系统",
+        "relatedOrgans": ["淋巴结", "脾脏", "骨髓", "扁桃体", "韦氏环"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "弥漫性大 B 细胞淋巴瘤",
+          "icdOCode": "9680/3",
+          "proportion": "~30-40%",
+          "aliases": ["DLBCL", "弥漫大 B"]
+        },
+        {
+          "name": "滤泡性淋巴瘤",
+          "icdOCode": "9690/3",
+          "proportion": "~20%",
+          "aliases": ["FL", "滤泡淋巴瘤"]
+        },
+        {
+          "name": "套细胞淋巴瘤",
+          "icdOCode": "9673/3",
+          "proportion": "~6%",
+          "aliases": ["MCL"]
+        },
+        {
+          "name": "外周 T 细胞淋巴瘤",
+          "icdOCode": "9702/3",
+          "proportion": "~7%",
+          "aliases": ["PTCL"]
+        }
+      ],
+      "typicalIHCMarkers": ["CD20(+)", "CD79a(+)", "PAX5(+)", "BCL-2(+)", "BCL-6(+)", "CD10(+/-)", "MUM1(+/-)", "Ki-67(高)"],
+      "commonGeneTests": ["BCL2重排", "MYC重排", "BCL6重排", "FISH检测", "IGH基因重排"],
+      "inferenceRules": [
+        "病理诊断含'非霍奇金淋巴瘤' → 非霍奇金淋巴瘤",
+        "病理诊断含'弥漫性大 B 细胞淋巴瘤' → 非霍奇金淋巴瘤（DLBCL 是 NHL 的亚型）",
+        "CD20(+) B 细胞标志物阳性支持 B 细胞 NHL",
+        "不要与'霍奇金淋巴瘤'混淆"
+      ],
+      "disambiguation": [
+        "非霍奇金淋巴瘤是一大类疾病，DLBCL 是最常见的亚型",
+        "Hans 模型用于 DLBCL 分型：生发中心 B 细胞型(GCB) vs 非生发中心型(Non-GCB)",
+        "不要将淋巴瘤归入'癌'——它是淋巴造血系统恶性肿瘤",
+        "霍奇金淋巴瘤和非霍奇金淋巴瘤是两种完全不同的疾病"
+      ]
+    },
+    {
+      "id": "renal",
+      "standardName": "肾癌",
+      "aliases": {
+        "chinese": ["肾癌", "肾细胞癌", "肾恶性肿瘤", "肾肿瘤"],
+        "english": ["renal cell carcinoma", "RCC", "kidney cancer", "renal cancer"],
+        "pathologySpecific": ["透明细胞肾细胞癌", "乳头状肾细胞癌", "嫌色细胞肾细胞癌", "FH 缺陷型肾细胞癌", "集合管癌"]
+      },
+      "primarySite": {
+        "organ": "肾脏",
+        "anatomicalRegion": "泌尿系统",
+        "relatedOrgans": ["肾盂", "输尿管", "肾上腺"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "透明细胞肾细胞癌",
+          "icdOCode": "8310/3",
+          "proportion": "~70-80%",
+          "aliases": ["clear cell RCC", "ccRCC"]
+        },
+        {
+          "name": "乳头状肾细胞癌",
+          "icdOCode": "8260/3",
+          "proportion": "~10-15%",
+          "aliases": ["papillary RCC", "pRCC", "I 型/II 型"]
+        },
+        {
+          "name": "嫌色细胞肾细胞癌",
+          "icdOCode": "8317/3",
+          "proportion": "~5%",
+          "aliases": ["chromophobe RCC", "chRCC"]
+        },
+        {
+          "name": "FH 缺陷型肾细胞癌",
+          "icdOCode": "8318/3",
+          "proportion": "罕见",
+          "aliases": ["FH-deficient RCC", "遗传性平滑肌瘤病和肾细胞癌综合征", "HLRCC"]
+        }
+      ],
+      "typicalIHCMarkers": ["PAX8(+)", "CA-IX(+)", "CD10(+)", "Vimentin(+)", "RCC(+)", "EMA(+)", "TFE3(+/-)"],
+      "commonGeneTests": ["VHL突变", "FH基因", "TFE3融合", "MET突变"],
+      "inferenceRules": [
+        "病理诊断含'肾细胞癌'或'肾恶性肿瘤' → 肾癌",
+        "送检部位为'右肾'/'左肾'且为恶性肿瘤 → 肾癌",
+        "注意亚型：透明细胞型最常见，FH 缺陷型需基因检测确认",
+        "病理诊断含'肾细胞癌'→ 映射为'肾癌'（标准名称），不要输出'肾细胞癌'"
+      ],
+      "disambiguation": [
+        "肾盂尿路上皮癌不属于肾细胞癌——它属于尿路上皮癌",
+        "肾嫌色细胞癌与嗜酸细胞腺瘤需鉴别",
+        "FH 缺陷型肾细胞癌高度恶性，需注意与遗传综合征的关联"
+      ]
+    },
+    {
+      "id": "glioma",
+      "standardName": "胶质瘤",
+      "aliases": {
+        "chinese": ["胶质瘤", "脑胶质瘤", "神经胶质瘤", "胶质母细胞瘤"],
+        "english": ["glioma", "brain glioma", "glioblastoma", "GBM", "astrocytoma", "oligodendroglioma"],
+        "pathologySpecific": ["弥漫性胶质瘤", "胶质母细胞瘤", "星形细胞瘤", "少突胶质细胞瘤", "室管膜瘤", "弥漫性中线胶质瘤"]
+      },
+      "primarySite": {
+        "organ": "中枢神经系统",
+        "anatomicalRegion": "神经系统",
+        "relatedOrgans": ["大脑", "小脑", "脑干", "脊髓", "丘脑"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "胶质母细胞瘤",
+          "icdOCode": "9440/3",
+          "proportion": "~45%",
+          "aliases": ["GBM", "glioblastoma multiforme", "WHO 4 级"]
+        },
+        {
+          "name": "弥漫性星形细胞瘤",
+          "icdOCode": "9400/3",
+          "proportion": "~25%",
+          "aliases": ["astrocytoma", "WHO 2-3 级"]
+        },
+        {
+          "name": "少突胶质细胞瘤",
+          "icdOCode": "9450/3",
+          "proportion": "~10%",
+          "aliases": ["oligodendroglioma"]
+        },
+        {
+          "name": "弥漫性胶质瘤（未分型）",
+          "icdOCode": "9380/3",
+          "proportion": "~20%",
+          "aliases": ["diffuse glioma", "需分子检测分型"]
+        }
+      ],
+      "typicalIHCMarkers": ["GFAP(+)", "IDH1(R132H)(+/-)", "ATRX(+/-)", "P53(+/-)", "Olig2(+)", "Ki-67(变异大)"],
+      "commonGeneTests": ["IDH1/2突变", "1p/19q共缺失", "TERT启动子突变", "MGMT启动子甲基化", "H3K27M突变"],
+      "inferenceRules": [
+        "病理诊断含'胶质瘤'且送检部位为颅内/脑 → 胶质瘤",
+        "病理诊断含'弥漫性胶质瘤，WHO 3 级' → 胶质瘤",
+        "注意：胶质瘤不称'癌'——它是神经上皮来源肿瘤"
+      ],
+      "disambiguation": [
+        "胶质瘤不是'癌'——不要写'胶质癌'或'脑癌'",
+        "WHO 分级（2-4 级）比分型名称更重要",
+        "IDH 突变状态是关键预后因素",
+        "2021 WHO CNS 肿瘤分类已改为分子分型为主"
+      ]
+    },
+    {
+      "id": "esophageal",
+      "standardName": "食管癌",
+      "aliases": {
+        "chinese": ["食管癌", "食道癌", "食管恶性肿瘤"],
+        "english": ["esophageal cancer", "esophageal carcinoma", "EC"],
+        "pathologySpecific": ["食管鳞状细胞癌", "食管腺癌", "食管小细胞癌", "食管未分化癌"]
+      },
+      "primarySite": {
+        "organ": "食管",
+        "anatomicalRegion": "消化系统",
+        "relatedOrgans": ["胃", "贲门", "咽喉"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "鳞状细胞癌",
+          "icdOCode": "8070/3",
+          "proportion": "~90%（中国）",
+          "aliases": ["食管鳞癌", "esophageal SCC"]
+        },
+        {
+          "name": "腺癌",
+          "icdOCode": "8140/3",
+          "proportion": "~10%（中国）",
+          "aliases": ["食管腺癌", "Barrett 食管相关腺癌"]
+        }
+      ],
+      "typicalIHCMarkers": ["P40(+)", "CK5/6(+)", "P63(+)", "CK7(+/-)", "CK20(+/-)", "HER2(+/-)"],
+      "commonGeneTests": ["HER2扩增", "PD-L1(CPS)", "FGFR1扩增", "TP53"],
+      "inferenceRules": [
+        "送检材料含'食管'且为鳞状细胞癌 → 食管癌",
+        "病理诊断含'食管XXcm'位点描述 + 恶性肿瘤 → 食管癌",
+        "注意与胃癌鉴别：食管胃交界处肿瘤按位置区分",
+        "病理诊断为食管的鳞状细胞癌时，标准名称为'食管癌'，不要细化为'食管鳞状细胞癌'"
+      ],
+      "disambiguation": [
+        "食管下段与胃贲门交界处的肿瘤归属需要根据肿瘤中心位置判断",
+        "中国以鳞癌为主，西方国家腺癌比例逐年上升",
+        "食管胃交界部腺癌（AEG）按 Siewert 分型"
+      ]
+    },
+    {
+      "id": "gist",
+      "standardName": "胃肠道间质瘤",
+      "aliases": {
+        "chinese": ["胃肠道间质瘤", "间质瘤", "GIST", "胃肠间质瘤"],
+        "english": ["gastrointestinal stromal tumor", "GIST", "GI stromal tumor"],
+        "pathologySpecific": ["梭形细胞型 GIST", "上皮样型 GIST", "混合型 GIST"]
+      },
+      "primarySite": {
+        "organ": "胃肠道",
+        "anatomicalRegion": "消化系统-间叶组织",
+        "relatedOrgans": ["胃", "小肠", "结肠", "直肠", "食管", "网膜", "肠系膜"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "梭形细胞型",
+          "icdOCode": "8936/3",
+          "proportion": "~70%",
+          "aliases": ["spindle cell type"]
+        },
+        {
+          "name": "上皮样型",
+          "icdOCode": "8936/3",
+          "proportion": "~20%",
+          "aliases": ["epithelioid type"]
+        },
+        {
+          "name": "混合型",
+          "icdOCode": "8936/3",
+          "proportion": "~10%",
+          "aliases": ["mixed type"]
+        }
+      ],
+      "typicalIHCMarkers": ["CD117(c-kit)(+)", "DOG-1(+)", "CD34(+/-)", "SMA(+/-)", "S-100(+/-)", "Ki-67(通常低)"],
+      "commonGeneTests": ["KIT(CD117)突变", "PDGFRA突变", "BRAF V600E", "SDH缺陷", "NTRK融合"],
+      "inferenceRules": [
+        "病理诊断含'胃肠道间质瘤'或'间质瘤' → 胃肠道间质瘤",
+        "CD117(c-kit)(+) 和 DOG-1(+) 是 GIST 的诊断标志",
+        "GIST 不是上皮来源的'癌'，不要归入胃癌或肠癌",
+        "标准名称为'胃肠道间质瘤'（4字'胃肠道'），不要简写为'胃肠间质瘤'（3字'胃肠'）"
+      ],
+      "disambiguation": [
+        "GIST 是间叶来源肿瘤，不是'癌'——不要写'胃肠道间质癌'",
+        "不要将 GIST 与平滑肌瘤、神经鞘瘤混淆（需免疫组化鉴别）",
+        "KIT 外显子 11 突变最常见，对伊马替尼敏感",
+        "空肠 GIST 可侵犯结肠，但原发部位仍按 GIST 记录"
+      ]
+    },
+    {
+      "id": "pancreatic",
+      "standardName": "胰腺癌",
+      "aliases": {
+        "chinese": ["胰腺癌", "胰腺恶性肿瘤", "胰腺导管腺癌", "胰头癌"],
+        "english": ["pancreatic cancer", "pancreatic carcinoma", "pancreatic ductal adenocarcinoma", "PDAC"],
+        "pathologySpecific": ["导管腺癌", "胰腺导管腺癌", "胰腺神经内分泌肿瘤", "胰腺浆液性囊腺瘤", "胰腺粘液性囊性肿瘤"]
+      },
+      "primarySite": {
+        "organ": "胰腺",
+        "anatomicalRegion": "消化系统",
+        "relatedOrgans": ["十二指肠", "胆总管", "脾脏", "胃"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "导管腺癌",
+          "icdOCode": "8500/3",
+          "proportion": "~85%",
+          "aliases": ["PDAC", "胰腺导管腺癌", "浸润性导管癌"]
+        },
+        {
+          "name": "胰腺神经内分泌肿瘤",
+          "icdOCode": "8150/3",
+          "proportion": "~5%",
+          "aliases": ["PanNET", "胰岛细胞瘤", "NET"]
+        },
+        {
+          "name": "胰腺腺鳞癌",
+          "icdOCode": "8560/3",
+          "proportion": "~2-5%",
+          "aliases": ["adenosquamous carcinoma"]
+        }
+      ],
+      "typicalIHCMarkers": ["CK8/18(+)", "CK19(+)", "E-cadherin(+)", "S100P(+)", "DPC4(+/-)", "MUC1(+)", "SMAD4(+/-)"],
+      "commonGeneTests": ["KRAS突变", "BRCA1/2", "MSI", "NTRK融合", "NRG1融合", "PALB2"],
+      "inferenceRules": [
+        "病理诊断含'胰体尾'/'胰头' + 腺癌 → 胰腺癌",
+        "送检标本含'胰体尾+脾脏'切除标本 → 胰腺癌",
+        "DPC4/SMAD4 缺失支持胰腺导管腺癌诊断"
+      ],
+      "disambiguation": [
+        "胰腺神经内分泌肿瘤(PanNET)与胰腺导管腺癌是完全不同的疾病",
+        "壶腹周围癌（十二指肠乳头癌）需与胰头癌鉴别",
+        "新辅助化疗后的病理评估需注意退缩分级（TRG）"
+      ]
+    },
+    {
+      "id": "gastric-adenocarcinoma",
+      "standardName": "胃腺癌",
+      "aliases": {
+        "chinese": ["胃腺癌", "胃癌", "胃恶性肿瘤", "胃浸润性腺癌"],
+        "english": ["gastric adenocarcinoma", "gastric cancer", "stomach cancer", "GC"],
+        "pathologySpecific": ["中-低分化腺癌", "高分化腺癌", "粘液腺癌", "印戒细胞癌", "胃管状腺癌", "胃乳头状腺癌"]
+      },
+      "primarySite": {
+        "organ": "胃",
+        "anatomicalRegion": "消化系统",
+        "relatedOrgans": ["食管", "十二指肠", "胃周淋巴结", "大网膜"]
+      },
+      "pathologyTypes": [
+        {
+          "name": "腺癌（非特指型）",
+          "icdOCode": "8140/3",
+          "proportion": "~90%",
+          "aliases": ["gastric adenocarcinoma NOS"]
+        },
+        {
+          "name": "粘液腺癌",
+          "icdOCode": "8480/3",
+          "proportion": "~5%",
+          "aliases": ["mucinous adenocarcinoma"]
+        },
+        {
+          "name": "印戒细胞癌",
+          "icdOCode": "8490/3",
+          "proportion": "~5%",
+          "aliases": ["signet ring cell carcinoma"]
+        }
+      ],
+      "typicalIHCMarkers": ["HER2(+/-)", "PD-L1(CPS)", "MSH2(+)", "MSH6(+)", "MLH1(+/-)", "PMS2(+/-)", "Ki-67(变异大)"],
+      "commonGeneTests": ["HER2扩增", "MSI", "EBER", "PD-L1", "FGFR2扩增", "Claudin18.2"],
+      "inferenceRules": [
+        "病理诊断含'胃小弯'/'胃体'/'胃窦' + 腺癌 → 胃腺癌",
+        "送检标本为'全胃切除' + 腺癌 → 胃腺癌",
+        "分化程度常见描述：高分化、中分化、低分化、中-低分化",
+        "当病理诊断为胃的腺癌时，标准名称为'胃腺癌'，不要简写为'胃癌'"
+      ],
+      "disambiguation": [
+        "胃腺癌 ≈ 胃癌（腺癌是最常见的胃癌组织学类型）",
+        "胃 GIST 不是胃癌——它是间质瘤",
+        "胃淋巴瘤不是胃癌——它是淋巴造血系统肿瘤",
+        "食管胃交界部腺癌(Siewert II 型)归属需要特别判断"
+      ]
+    },
+    {
+      "id": "lung",
+      "standardName": "肺癌",
+      "aliases": {
+        "chinese": ["肺癌", "肺恶性肿瘤", "支气管肺癌"],
+        "english": ["lung cancer", "lung carcinoma", "bronchogenic carcinoma"],
+        "pathologySpecific": ["肺腺癌", "肺鳞癌", "小细胞肺癌", "大细胞肺癌", "非小细胞肺癌", "浸润性非黏液性腺癌"]
+      },
+      "primarySite": {
+        "organ": "肺",
+        "anatomicalRegion": "呼吸系统",
+        "relatedOrgans": ["支气管", "胸膜", "纵隔"]
+      },
+      "pathologyTypes": [
+        { "name": "腺癌", "icdOCode": "8140/3", "proportion": "~40%", "aliases": ["LUAD", "肺腺癌", "浸润性腺癌"] },
+        { "name": "鳞状细胞癌", "icdOCode": "8070/3", "proportion": "~25%", "aliases": ["LUSC", "肺鳞癌"] },
+        { "name": "小细胞肺癌", "icdOCode": "8041/3", "proportion": "~15%", "aliases": ["SCLC"] },
+        { "name": "大细胞癌", "icdOCode": "8012/3", "proportion": "~5%", "aliases": ["LCC"] }
+      ],
+      "typicalIHCMarkers": ["TTF-1(+)", "NapsinA(+)", "CK7(+)", "P40(+/-)", "CK5/6(+/-)", "ALK(ventana)(+/-)", "ROS1(+/-)"],
+      "commonGeneTests": ["EGFR", "ALK融合", "ROS1", "BRAF V600E", "KRAS G12C", "MET外显子14跳跃", "RET融合", "HER2", "NTRK", "PD-L1"],
+      "inferenceRules": [
+        "病变部位为'肺'且为腺癌 → 肺腺癌",
+        "新辅助治疗后需评估治疗反应（TRG 分级）",
+        "免疫组化 TTF-1(+) 支持肺腺癌诊断"
+      ],
+      "disambiguation": [
+        "NSCLC（非小细胞肺癌）包含腺癌和鳞癌——文档有细分时用细分名称",
+        "小细胞肺癌(SCLC)与非小细胞肺癌是完全不同的治疗方案",
+        "转移性肺癌需区分原发 vs 转移"
+      ]
+    },
+    {
+      "id": "breast",
+      "standardName": "乳腺癌",
+      "aliases": {
+        "chinese": ["乳腺癌", "乳癌", "乳腺恶性肿瘤"],
+        "english": ["breast cancer", "breast carcinoma", "BC"],
+        "pathologySpecific": ["浸润性导管癌", "浸润性小叶癌", "导管原位癌", "小叶原位癌", "囊内乳头状癌", "实性乳头状癌"]
+      },
+      "primarySite": {
+        "organ": "乳腺",
+        "anatomicalRegion": "女性生殖系统",
+        "relatedOrgans": ["腋窝淋巴结", "胸壁"]
+      },
+      "pathologyTypes": [
+        { "name": "浸润性导管癌", "icdOCode": "8500/3", "proportion": "~70%", "aliases": ["IDC", "非特殊类型"] },
+        { "name": "浸润性小叶癌", "icdOCode": "8520/3", "proportion": "~10%", "aliases": ["ILC"] },
+        { "name": "导管原位癌", "icdOCode": "8500/2", "proportion": "~15%", "aliases": ["DCIS"] }
+      ],
+      "typicalIHCMarkers": ["ER(+/-)", "PR(+/-)", "Her-2(+/-)", "Ki-67", "GATA3(+)", "E-cadherin(+)", "Calponin(+/-)"],
+      "commonGeneTests": ["HER2", "BRCA1/2", "PIK3CA", "ESR1", "PD-L1"],
+      "inferenceRules": [
+        "送检部位含'乳腺'/'乳' + 浸润性癌 → 乳腺癌",
+        "分子分型：Luminal A/B、HER2 阳性、三阴性——根据 ER/PR/HER2 判断",
+        "新辅助治疗后评估需用 Miller-Payne 分级"
+      ],
+      "disambiguation": [
+        "男性也可患乳腺癌，不要因性别排除",
+        "乳腺原位癌和浸润癌是不同的临床分期",
+        "多灶性乳腺癌需注明最大浸润灶大小"
+      ]
+    },
+    {
+      "id": "colorectal",
+      "standardName": "结直肠癌",
+      "aliases": {
+        "chinese": ["结直肠癌", "大肠癌", "直肠癌", "结肠癌", "肠癌", "肛缘肠癌", "肛缘癌", "肛管癌"],
+        "english": ["colorectal cancer", "CRC", "colon cancer", "rectal cancer"],
+        "pathologySpecific": ["中分化腺癌", "低分化腺癌", "高-中分化腺癌", "粘液腺癌", "印戒细胞癌"]
+      },
+      "primarySite": {
+        "organ": "结直肠",
+        "anatomicalRegion": "消化系统",
+        "relatedOrgans": ["阑尾", "肛管", "小肠"]
+      },
+      "pathologyTypes": [
+        { "name": "腺癌", "icdOCode": "8140/3", "proportion": "~95%", "aliases": ["结直肠腺癌"] },
+        { "name": "粘液腺癌", "icdOCode": "8480/3", "proportion": "~10%", "aliases": ["mucinous carcinoma"] },
+        { "name": "印戒细胞癌", "icdOCode": "8490/3", "proportion": "~1%", "aliases": ["signet ring cell carcinoma"] }
+      ],
+      "typicalIHCMarkers": ["CK20(+)", "CDX-2(+)", "CK7(-)", "SATB2(+)", "MLH1(+/-)", "MSH2(+/-)", "MSH6(+/-)", "PMS2(+/-)"],
+      "commonGeneTests": ["KRAS", "NRAS", "BRAF V600E", "MSI", "HER2", "NTRK", "林奇综合征"],
+      "inferenceRules": [
+        "'距肛缘 15cm 处' + 腺癌 → 结直肠癌（取位置判断结肠/直肠）",
+        "肝脏转移 + 免疫组化 CK20(+)/CK7(-) → 来源考虑结直肠",
+        "转移性肠癌：病理诊断'符合转移性肠癌'→ 原发结直肠癌",
+        "肛缘部位的腺癌或'肛缘肠癌'应映射为'结直肠癌'，肛缘属于消化系统-结直肠肛门区域"
+      ],
+      "disambiguation": [
+        "结肠癌和直肠癌有时统称结直肠癌，分开记录更精确",
+        "右半结肠癌和左半结肠癌的分子特征不同",
+        "十二指肠癌不属于结直肠癌"
+      ]
+    }
+  ],
+  "inferencePriority": [
+    "1. 病理诊断中的组织学类型 + 部位",
+    "2. 临床诊断字段的癌种描述",
+    "3. 送检标本部位 + 组织学类型推断",
+    "4. 免疫组化标志物组合推断",
+    "5. 基因检测报告中的癌种信息"
+  ],
+  "specialCases": {
+    "unknownPrimary": {
+      "description": "原发灶未明",
+      "keywords": ["原发灶未明", "原发灶不明", "来源不明", "待查原发灶"],
+      "handling": "tumorType 应如实输出'原发灶未明'，不要强行指定癌种"
+    },
+    "metastatic": {
+      "description": "转移性肿瘤",
+      "keywords": ["转移性", "继发性", "转移癌"],
+      "handling": "tumorType 应取原发部位癌种，而非转移部位。如'肝脏穿刺...符合转移性肠癌'→ tumorType='肠癌'"
+    },
+    "dualPrimary": {
+      "description": "双原发肿瘤",
+      "keywords": ["双原发", "多原发", "第二原发"],
+      "handling": "以主要诊断/主要治疗的癌种为准，备注中标注另一癌种"
+    }
+  }
+}

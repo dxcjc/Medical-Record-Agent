@@ -213,46 +213,78 @@ function matchesSchemaFieldValue(
 export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDraft): ModelFieldCandidate[] | null {
   const root = typeof output === "string" ? parseJsonObject(output) : output;
   if (!isRecord(root)) {
+    console.error("[parseModelExtractionOutput] 根节点不是有效对象", { rawOutput: typeof output === "string" ? output : JSON.stringify(output) });
     return null;
   }
   if (!hasOnlyKeys(root, ["fields"])) {
+    console.error("[parseModelExtractionOutput] 根节点包含非法键", { keys: Object.keys(root), rawOutput: JSON.stringify(root) });
     return null;
   }
   if (!Array.isArray(root.fields)) {
+    console.error("[parseModelExtractionOutput] fields 不是数组", { rawOutput: JSON.stringify(root) });
     return null;
   }
 
   if (root.fields.length === 0) {
+    console.warn("[parseModelExtractionOutput] fields 数组为空");
     return null;
   }
 
   const candidates: ModelFieldCandidate[] = [];
-  for (const item of root.fields) {
+  const parseErrors: Array<{ index: number; fieldKey: string; reason: string; rawItem: unknown }> = [];
+
+  for (let index = 0; index < root.fields.length; index++) {
+    const item = root.fields[index];
+
     if (!isRecord(item)) {
-      return null;
+      parseErrors.push({ index, fieldKey: "(非对象)", reason: "字段项不是有效对象", rawItem: item });
+      continue;
     }
+
+    const fieldKey = typeof item.fieldKey === "string" ? item.fieldKey : "(未知)";
     if (!hasOnlyKeys(item, ["fieldKey", "value", "rawValue", "confidence", "evidence"])) {
-      return null;
+      parseErrors.push({ index, fieldKey, reason: `包含非法键: ${Object.keys(item).join(",")}`, rawItem: item });
+      continue;
+    }
+
+    const schemaField = typeof item.fieldKey === "string" ? getSchemaField(schema, item.fieldKey) : undefined;
+
+    if (typeof item.fieldKey !== "string") {
+      parseErrors.push({ index, fieldKey: "(非字符串)", reason: "fieldKey 不是字符串", rawItem: item });
+      continue;
+    }
+    if (schemaField === undefined) {
+      parseErrors.push({ index, fieldKey, reason: "fieldKey 在 Schema 中不存在", rawItem: item });
+      continue;
+    }
+    if (!isCandidateValue(item.value)) {
+      parseErrors.push({ index, fieldKey, reason: "value 类型不合法", rawItem: item });
+      continue;
+    }
+    if (!matchesSchemaFieldValue(item.value, schemaField)) {
+      parseErrors.push({ index, fieldKey, reason: "value 与 Schema 字段类型不匹配", rawItem: item });
+      continue;
+    }
+    if (typeof item.rawValue !== "string") {
+      parseErrors.push({ index, fieldKey, reason: "rawValue 不是字符串", rawItem: item });
+      continue;
+    }
+    if (!isFiniteNumber(item.confidence) || item.confidence < 0 || item.confidence > 1) {
+      parseErrors.push({ index, fieldKey, reason: `confidence 不合法: ${item.confidence}`, rawItem: item });
+      continue;
     }
 
     const evidence = item.evidence;
-    const schemaField = typeof item.fieldKey === "string" ? getSchemaField(schema, item.fieldKey) : undefined;
-    if (
-      typeof item.fieldKey !== "string" ||
-      schemaField === undefined ||
-      !isCandidateValue(item.value) ||
-      !matchesSchemaFieldValue(item.value, schemaField) ||
-      typeof item.rawValue !== "string" ||
-      !isFiniteNumber(item.confidence) ||
-      item.confidence < 0 ||
-      item.confidence > 1 ||
-      !Array.isArray(evidence) ||
-      (item.value !== null && evidence.length === 0)
-    ) {
-      return null;
+    if (!Array.isArray(evidence)) {
+      parseErrors.push({ index, fieldKey, reason: "evidence 不是数组", rawItem: item });
+      continue;
+    }
+    if (item.value !== null && evidence.length === 0) {
+      parseErrors.push({ index, fieldKey, reason: "value 非空但 evidence 为空", rawItem: item });
+      continue;
     }
 
-    const mappedEvidence = evidence.map((evidenceItem) => {
+    const mappedEvidence = evidence.map((evidenceItem, evidenceIndex) => {
       if (
         !isRecord(evidenceItem) ||
         !hasOnlyKeys(evidenceItem, ["snippet", "startOffset", "endOffset", "pageNumber", "blockId"]) ||
@@ -288,7 +320,8 @@ export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDr
     });
 
     if (mappedEvidence.some((evidenceItem) => evidenceItem === null)) {
-      return null;
+      parseErrors.push({ index, fieldKey, reason: "evidence 条目解析失败", rawItem: item });
+      continue;
     }
 
     candidates.push({
@@ -298,6 +331,25 @@ export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDr
       confidence: item.confidence,
       evidence: mappedEvidence as ModelFieldCandidate["evidence"]
     });
+  }
+
+  // 输出解析错误日志，帮助调试但不阻断有效字段
+  if (parseErrors.length > 0) {
+    console.warn("[parseModelExtractionOutput] 部分字段解析失败（已跳过）", {
+      totalFields: root.fields.length,
+      successCount: candidates.length,
+      errorCount: parseErrors.length,
+      errors: parseErrors.map(({ index, fieldKey, reason }) => ({ index, fieldKey, reason })),
+      rawFailedItems: parseErrors.map(({ fieldKey, rawItem }) => ({ fieldKey, rawItem }))
+    });
+  }
+
+  if (candidates.length === 0) {
+    console.error("[parseModelExtractionOutput] 所有字段均解析失败", {
+      totalFields: root.fields.length,
+      parseErrors: parseErrors.map(({ index, fieldKey, reason }) => ({ index, fieldKey, reason }))
+    });
+    return null;
   }
 
   return candidates;

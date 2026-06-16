@@ -1,0 +1,3943 @@
+{
+  "reportMeta": {
+    "generatedAt": "2026-06-15T20:29:12.251861+00:00",
+    "durationSeconds": 3540.1,
+    "apiBase": "http://127.0.0.1:3000",
+    "schemaKey": "medical-record-core",
+    "filter": {
+      "category": null,
+      "priority": "P0"
+    }
+  },
+  "overall": {
+    "totalSamples": 37,
+    "completedSamples": 35,
+    "failedSamples": 2,
+    "fieldMetrics": {
+      "totalFields": 180,
+      "matchedFields": 32,
+      "missingFields": 148,
+      "spuriousFields": 0,
+      "recall": "17.8%",
+      "precision": "100.0%",
+      "f1": "30.2%"
+    },
+    "sampleMetrics": {
+      "perfectSamples": 0,
+      "perfectRate": "0.0%"
+    }
+  },
+  "byCategory": {
+    "癌种识别": {
+      "totalSamples": 10,
+      "completedSamples": 10,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 50,
+        "matchedFields": 20,
+        "missingFields": 30,
+        "spuriousFields": 0,
+        "recall": "40.0%",
+        "precision": "100.0%",
+        "f1": "57.1%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "病理报告类型": {
+      "totalSamples": 6,
+      "completedSamples": 6,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 37,
+        "matchedFields": 4,
+        "missingFields": 33,
+        "spuriousFields": 0,
+        "recall": "10.8%",
+        "precision": "100.0%",
+        "f1": "19.5%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "图片类型识别": {
+      "totalSamples": 6,
+      "completedSamples": 6,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 31,
+        "matchedFields": 2,
+        "missingFields": 29,
+        "spuriousFields": 0,
+        "recall": "6.5%",
+        "precision": "100.0%",
+        "f1": "12.1%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "药厂申请单": {
+      "totalSamples": 1,
+      "completedSamples": 0,
+      "failedSamples": 1,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "多样本资料": {
+      "totalSamples": 4,
+      "completedSamples": 3,
+      "failedSamples": 1,
+      "fieldMetrics": {
+        "totalFields": 17,
+        "matchedFields": 0,
+        "missingFields": 17,
+        "spuriousFields": 0,
+        "recall": "0.0%",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "基因检测": {
+      "totalSamples": 3,
+      "completedSamples": 3,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 15,
+        "matchedFields": 3,
+        "missingFields": 12,
+        "spuriousFields": 0,
+        "recall": "20.0%",
+        "precision": "100.0%",
+        "f1": "33.3%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "手术分期": {
+      "totalSamples": 4,
+      "completedSamples": 4,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 15,
+        "matchedFields": 3,
+        "missingFields": 12,
+        "spuriousFields": 0,
+        "recall": "20.0%",
+        "precision": "100.0%",
+        "f1": "33.3%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "多部位识别": {
+      "totalSamples": 3,
+      "completedSamples": 3,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 15,
+        "matchedFields": 0,
+        "missingFields": 15,
+        "spuriousFields": 0,
+        "recall": "0.0%",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    }
+  },
+  "byField": {
+    "patientName": {
+      "fieldKey": "patientName",
+      "priority": "required",
+      "total": 35,
+      "matched": 0,
+      "missing": 35,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "tumorType": {
+      "fieldKey": "tumorType",
+      "priority": "required",
+      "total": 35,
+      "matched": 0,
+      "missing": 35,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "hospitalName": {
+      "fieldKey": "hospitalName",
+      "priority": "required",
+      "total": 35,
+      "matched": 0,
+      "missing": 35,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "patientGender": {
+      "fieldKey": "patientGender",
+      "priority": "strong",
+      "total": 18,
+      "matched": 10,
+      "missing": 8,
+      "spurious": 0,
+      "accuracy": "55.6%"
+    },
+    "pathologicalDiagnosis": {
+      "fieldKey": "pathologicalDiagnosis",
+      "priority": "strong",
+      "total": 24,
+      "matched": 10,
+      "missing": 14,
+      "spurious": 0,
+      "accuracy": "41.7%"
+    },
+    "reportDate": {
+      "fieldKey": "reportDate",
+      "priority": "strong",
+      "total": 4,
+      "matched": 0,
+      "missing": 4,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "metastasis": {
+      "fieldKey": "metastasis",
+      "priority": "optional",
+      "total": 3,
+      "matched": 3,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "100.0%"
+    },
+    "treatmentHistory": {
+      "fieldKey": "treatmentHistory",
+      "priority": "strong",
+      "total": 10,
+      "matched": 2,
+      "missing": 8,
+      "spurious": 0,
+      "accuracy": "20.0%"
+    },
+    "sampleType": {
+      "fieldKey": "sampleType",
+      "priority": "strong",
+      "total": 5,
+      "matched": 0,
+      "missing": 5,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "testItems": {
+      "fieldKey": "testItems",
+      "priority": "optional",
+      "total": 4,
+      "matched": 4,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "100.0%"
+    },
+    "geneMutations": {
+      "fieldKey": "geneMutations",
+      "priority": "optional",
+      "total": 4,
+      "matched": 0,
+      "missing": 4,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "staging": {
+      "fieldKey": "staging",
+      "priority": "optional",
+      "total": 3,
+      "matched": 3,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "100.0%"
+    }
+  },
+  "failures": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "testFocus": "膀胱癌识别",
+      "jobId": "cmqfly83800idwmactwub3chq",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "膀胱癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "testFocus": "肛缘肠癌识别",
+      "jobId": "cmqflzvo900inwmacpkby3rft",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肛缘肠癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "testFocus": "横纹肌肉瘤识别",
+      "jobId": "cmqfm1qyh00ixwmackerg40ie",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "横纹肌肉瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "testFocus": "非霍奇金淋巴瘤识别",
+      "jobId": "cmqfm4h5300j7wmacy3n2tq2a",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "非霍奇金淋巴瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "testFocus": "肾癌识别",
+      "jobId": "cmqfm5p9z00jhwmacsadhmjvq",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肾癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "testFocus": "胶质瘤识别",
+      "jobId": "cmqfm8fg700jrwmacd0x182mm",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胶质瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "testFocus": "食管癌识别",
+      "jobId": "cmqfm985200k1wmacc86zn3nm",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "食管癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "testFocus": "胃肠道间质瘤（GIST）识别",
+      "jobId": "cmqfmbql500kbwmacws8x52ly",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃肠道间质瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "testFocus": "胰腺癌识别",
+      "jobId": "cmqfmcyr600klwmacryk3k7sd",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胰腺癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "testFocus": "胃腺癌识别",
+      "jobId": "cmqfmeu1j00kvwmacjw2gbn20",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃腺癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "testFocus": "简单病理报告识别",
+      "jobId": "cmqfmghm500l5wmacf2pja8je",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "testFocus": "初始未确诊后确诊的病理报告",
+      "jobId": "cmqfmj02o00lfwmacv2x9i4y6",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "testFocus": "肠癌肝转移识别",
+      "jobId": "cmqfmkvdb00lpwmacvokzyetc",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "testFocus": "乳腺癌肝转移识别",
+      "jobId": "cmqfmndt400lzwmacx1zof186",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "testFocus": "原发灶未明的识别",
+      "jobId": "cmqfmpojq00m9wmacj9v1jxxu",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "testFocus": "跨页病理报告识别",
+      "jobId": "cmqfmqwoi00mnwmacyblpo648",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "testFocus": "勾选治疗史的识别",
+      "jobId": "cmqfmtf5400mxwmacfixoohdv",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "testFocus": "文字中手术史的识别",
+      "jobId": "cmqfmvi5700n7wmacan2fqnz4",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "testFocus": "基因检测报告上的诊断信息识别",
+      "jobId": "cmqfmwy0w00nhwmac6ibpgag7",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "testFocus": "含用药信息的乳腺癌申请单",
+      "jobId": "cmqfmxyft00nrwmacoiktdc30",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "testFocus": "同时上传3张资料的合并识别",
+      "jobId": "cmqfn1jir00o9wmacg8amhboy",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "余明明",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "testFocus": "一段文字中包含转移、用药和放疗信息",
+      "jobId": "cmqfn4wus00ojwmacav49w35h",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "testFocus": "多张用药记录合并识别",
+      "jobId": "cmqfn9alt00p5wmaccj3o6zr4",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "李月娥",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "testFocus": "4张资料合并识别",
+      "jobId": "cmqfnc0ta00prwmac7n58l0fu",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "马辉",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "testFocus": "同一样本不同页的合并识别",
+      "jobId": "cmqfngohe00q9wmacnh7dfwea",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "浦慧敏",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "error": "HTTP 400 http://127.0.0.1:3000/files: {\"error\":\"BAD_REQUEST\",\"message\":\"Invalid file upload payload\"}"
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "testFocus": "基因检测报告识别（样本1）",
+      "jobId": "cmqfnju5l00qtwmacexr7b7ud",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "testFocus": "基因检测报告识别（样本2）",
+      "jobId": "cmqfnl2a600r3wmachz0hji6l",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "testFocus": "基因检测报告识别（样本3）",
+      "jobId": "cmqfnmi4p00rdwmactbpbvpdb",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "testFocus": "标准病理学TNM分期识别",
+      "jobId": "cmqfnodg000rnwmactu44m335",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "testFocus": "无分期信息时的处理",
+      "jobId": "cmqfnptaj00rxwmacxz5n818s",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "testFocus": "仅有N分期时的识别",
+      "jobId": "cmqfnrgus00s7wmac4q2zxphb",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "testFocus": "仅有T分期时的识别",
+      "jobId": "cmqfnsozd00shwmaciqfv8n35",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "testFocus": "多部位（结肠、直肠、小肠）病理诊断识别",
+      "jobId": "cmqfnu4ts00srwmacp2jl6w2y",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "testFocus": "不同部位乳腺癌识别",
+      "jobId": "cmqfnwnas00t1wmac2ax4ytdc",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "testFocus": "不同部位神经内分泌癌识别",
+      "jobId": "cmqfnzl6b00tbwmacgv6jfbb9",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfly83800idwmactwub3chq",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 77192.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "膀胱癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqflzvo900inwmacpkby3rft",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 87176.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肛缘肠癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfm1qyh00ixwmackerg40ie",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 127194.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "横纹肌肉瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfm4h5300j7wmacy3n2tq2a",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 57169.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "非霍奇金淋巴瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfm5p9z00jhwmacsadhmjvq",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 127205.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肾癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfm8fg700jrwmacd0x182mm",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 37155.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胶质瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfm985200k1wmacc86zn3nm",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 117186.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "食管癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfmbql500kbwmacws8x52ly",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 57199.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃肠道间质瘤",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfmcyr600klwmacryk3k7sd",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 87175.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胰腺癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfmeu1j00kvwmacjw2gbn20",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 77174.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃腺癌",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfmghm500l5wmacf2pja8je",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 117188.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfmj02o00lfwmacv2x9i4y6",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 87174.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfmkvdb00lpwmacvokzyetc",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 117186.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "metastasis",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfmndt400lzwmacx1zof186",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 107182.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "metastasis",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfmpojq00m9wmacj9v1jxxu",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 57163.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfmqwoi00mnwmacyblpo648",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 117190.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfmtf5400mxwmacfixoohdv",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 97182.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfmvi5700n7wmacan2fqnz4",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 67184.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfmwy0w00nhwmac6ibpgag7",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 47162.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfmxyft00nrwmacoiktdc30",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 167231.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfn1jir00o9wmacg8amhboy",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 157208.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "余明明",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfn4wus00ojwmacav49w35h",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 47159.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "metastasis",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "priority": "P0",
+      "jobId": "cmqfn5x9w00otwmacf57crm2g",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 157200.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfn9alt00p5wmaccj3o6zr4",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 127210.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "李月娥",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfnc0ta00prwmac7n58l0fu",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 217231.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "马辉",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfngohe00q9wmacnh7dfwea",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 147241.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "浦慧敏",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 400 http://127.0.0.1:3000/files: {\"error\":\"BAD_REQUEST\",\"message\":\"Invalid file upload payload\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfnju5l00qtwmacexr7b7ud",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 57164.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfnl2a600r3wmachz0hji6l",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 67169.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfnmi4p00rdwmactbpbvpdb",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 87194.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfnodg000rnwmactu44m335",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 67165.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "staging",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfnptaj00rxwmacxz5n818s",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 77171.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfnrgus00s7wmac4q2zxphb",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 57162.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "staging",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfnsozd00shwmaciqfv8n35",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 67170.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "staging",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfnu4ts00srwmacp2jl6w2y",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 117204.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfnwnas00t1wmac2ax4ytdc",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 137190.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfnzl6b00tbwmacgv6jfbb9",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 117184.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    }
+  ],
+  "recommendations": [
+    "字段召回率低于80%，建议检查OCR质量和Schema字段定义的提取指引。",
+    "样本完全正确率低于50%，建议针对高频错误字段进行专项优化。",
+    "以下测试方向完全正确率极低（<40%），需重点关注：癌种识别, 病理报告类型, 图片类型识别, 多样本资料, 基因检测, 手术分期, 多部位识别",
+    "以下字段准确率低于60%：patientName(required), tumorType(required), hospitalName(required), patientGender(strong), pathologicalDiagnosis(strong), reportDate(strong), treatmentHistory(strong), sampleType(strong), geneMutations(optional)，建议优化提取逻辑或补充知识库。"
+  ]
+}

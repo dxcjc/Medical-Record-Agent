@@ -1,0 +1,739 @@
+{
+  "reportMeta": {
+    "generatedAt": "2026-06-15T18:48:22.982080+00:00",
+    "durationSeconds": 109.2,
+    "apiBase": "http://127.0.0.1:3000",
+    "schemaKey": "medical-record-core",
+    "filter": {
+      "category": null,
+      "priority": "P0"
+    }
+  },
+  "overall": {
+    "totalSamples": 37,
+    "completedSamples": 0,
+    "failedSamples": 37,
+    "fieldMetrics": {
+      "totalFields": 0,
+      "matchedFields": 0,
+      "missingFields": 0,
+      "spuriousFields": 0,
+      "recall": "N/A",
+      "precision": "N/A",
+      "f1": "N/A"
+    },
+    "sampleMetrics": {
+      "perfectSamples": 0,
+      "perfectRate": "N/A"
+    }
+  },
+  "byCategory": {
+    "癌种识别": {
+      "totalSamples": 10,
+      "completedSamples": 0,
+      "failedSamples": 10,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "病理报告类型": {
+      "totalSamples": 6,
+      "completedSamples": 0,
+      "failedSamples": 6,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "图片类型识别": {
+      "totalSamples": 6,
+      "completedSamples": 0,
+      "failedSamples": 6,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "药厂申请单": {
+      "totalSamples": 1,
+      "completedSamples": 0,
+      "failedSamples": 1,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "多样本资料": {
+      "totalSamples": 4,
+      "completedSamples": 0,
+      "failedSamples": 4,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "基因检测": {
+      "totalSamples": 3,
+      "completedSamples": 0,
+      "failedSamples": 3,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "手术分期": {
+      "totalSamples": 4,
+      "completedSamples": 0,
+      "failedSamples": 4,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "多部位识别": {
+      "totalSamples": 3,
+      "completedSamples": 0,
+      "failedSamples": 3,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    }
+  },
+  "byField": {},
+  "failures": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "error": "HTTP 400 http://127.0.0.1:3000/files: {\"error\":\"BAD_REQUEST\",\"message\":\"Invalid file upload payload\"}"
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "error": "任务状态: failed"
+    }
+  ],
+  "samples": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfke3qx004lwmac5cgi7fer",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3008.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfke63b004twmacpb41fzz5",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfke8fc0051wmaccnuyhzoz",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfkearb0059wmac2yk6y8jb",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfked3f005hwmachznoiiki",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfkeffi005pwmac413d9gjn",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfkehrr005xwmacgb1adkdq",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfkek420065wmack79ofvd7",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfkemg1006dwmac9htvndk4",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfkeos8006lwmacan080for",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3008.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfker4h006twmacqbiwlhat",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfketgi0071wmacjy37bklv",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfkevsf0079wmacotvn3qf7",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfkey4g007hwmacrs8et52n",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfkf0h4007pwmacbf16ewpu",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfkf2tc0081wmacnw6v0ufr",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfkf55h0089wmac68tk1wg1",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3008.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfkf7hh008hwmacuf94ismh",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfkf9tq008pwmacimlcfowu",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfkfc69008xwmacyujfz99u",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfkfej1009dwmacpb3p337a",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3008.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfkfgv0009lwmac9nhbysp6",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "priority": "P0",
+      "jobId": "cmqfkfj73009twmacalcb5ztt",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfkflj800a5wmacm5ljwjaj",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfkfnw400apwmackis6q24y",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfkfq9900b5wmacp499092e",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 400 http://127.0.0.1:3000/files: {\"error\":\"BAD_REQUEST\",\"message\":\"Invalid file upload payload\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfkfsmv00bnwmac3jlb5qz7",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfkfuyv00bvwmacdrk4tr6r",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfkfxar00c3wmacjdphm459",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfkfzmp00cbwmac5fapo6j0",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfkg1yy00cjwmac5n7pr9ib",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfkg4av00crwmacgxsvj1xw",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfkg6n000czwmacl5xkw2ne",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfkg8yx00d7wmacxqux9qr9",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfkgbav00dfwmacasz8ls1q",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfkgdmt00dnwmacz0lfhplc",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    }
+  ],
+  "recommendations": [
+    "各项指标表现良好，建议持续回归监控。"
+  ]
+}

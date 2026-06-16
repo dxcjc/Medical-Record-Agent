@@ -212,9 +212,8 @@ export function getFieldData(fields: NormalizedField[], keys: string[], fieldLab
 export const GROUP_ICON_MAP: Record<string, React.ReactNode> = {
   patientInfo: undefined,
   referralInfo: undefined,
-  clinicalDiagnosis: undefined,
   sampleInfo: undefined,
-  testItems: undefined,
+  detectionItems: undefined,
   testProduct: undefined,
   other: undefined,
 };

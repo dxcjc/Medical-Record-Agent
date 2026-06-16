@@ -23,7 +23,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "肺腺癌别名",
         content: "肺腺癌、LUAD、lung adenocarcinoma 通常归入肿瘤类型候选，优先映射到 tumorType。肺腺癌是非小细胞肺癌（NSCLC）最常见的亚型，约占肺癌的40%。",
         keywords: ["肺腺癌", "LUAD", "lung adenocarcinoma", "腺癌", "非小细胞肺癌", "NSCLC", "肿瘤类型", "tumorType"],
-        fieldKeys: ["tumorType", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType"]
       },
       {
         id: "cancer-alias-lung-squamous",
@@ -31,7 +31,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "肺鳞癌别名",
         content: "肺鳞癌、肺鳞状细胞癌、LUSC、lung squamous cell carcinoma，属于非小细胞肺癌亚型。",
         keywords: ["肺鳞癌", "鳞状细胞癌", "LUSC", "lung squamous", "鳞癌"],
-        fieldKeys: ["tumorType", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType"]
       },
       {
         id: "cancer-alias-small-cell-lung",
@@ -39,7 +39,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "小细胞肺癌别名",
         content: "小细胞肺癌、SCLC、small cell lung cancer，恶性程度高，约占肺癌15%。",
         keywords: ["小细胞肺癌", "SCLC", "small cell", "小细胞"],
-        fieldKeys: ["tumorType", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType"]
       },
       {
         id: "cancer-alias-colorectal",
@@ -47,7 +47,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "结直肠癌别名",
         content: "结直肠癌、CRC、colorectal cancer、大肠癌、直肠癌、结肠癌。常见检测基因为KRAS、NRAS、BRAF、MSI。",
         keywords: ["结直肠癌", "CRC", "colorectal", "大肠癌", "直肠癌", "结肠癌", "肠癌"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
       {
         id: "cancer-alias-gastric",
@@ -55,7 +55,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "胃癌别名",
         content: "胃癌、gastric cancer、GC。常见检测靶点包括HER2、PD-L1、MSI。",
         keywords: ["胃癌", "gastric cancer", "GC", "胃腺癌"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
       {
         id: "cancer-alias-breast",
@@ -63,7 +63,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "乳腺癌别名",
         content: "乳腺癌、breast cancer、BRCA。常见检测基因为BRCA1/2、HER2、ER/PR。",
         keywords: ["乳腺癌", "breast cancer", "BRCA", "乳癌"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
       {
         id: "cancer-alias-thyroid",
@@ -71,15 +71,71 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "甲状腺癌别名",
         content: "甲状腺癌、thyroid cancer。常见类型包括甲状腺乳头状癌、甲状腺滤泡癌。",
         keywords: ["甲状腺癌", "thyroid cancer", "甲状腺乳头状癌", "甲状腺"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
       {
         id: "cancer-alias-gist",
         kind: "cancer-alias",
-        title: "胃肠间质瘤别名",
-        content: "胃肠间质瘤、GIST、gastrointestinal stromal tumor。主要检测基因为C-KIT（CD117）和PDGFRA。",
-        keywords: ["胃肠间质瘤", "GIST", "gastrointestinal stromal", "间质瘤"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        title: "胃肠道间质瘤别名",
+        content: "胃肠间质瘤、胃肠道间质瘤、GIST、gastrointestinal stromal tumor。标准名称为'胃肠道间质瘤'（4字'胃肠道'），不要简写为'胃肠间质瘤'。主要检测基因为C-KIT（CD117）和PDGFRA。",
+        keywords: ["胃肠间质瘤", "胃肠道间质瘤", "GIST", "gastrointestinal stromal", "间质瘤"],
+        fieldKeys: ["tumorType", "tumorCategory"]
+      },
+      {
+        id: "cancer-alias-bladder",
+        kind: "cancer-alias",
+        title: "膀胱癌别名",
+        content: "膀胱癌、bladder cancer。尿路上皮癌（旧称移行细胞癌/TCC）是最常见的膀胱癌类型（~90%）。高级别尿路上皮癌、低级别尿路上皮癌都应映射为膀胱癌。注意：肾盂/输尿管尿路上皮癌不属于膀胱癌。",
+        keywords: ["膀胱癌", "尿路上皮癌", "移行细胞癌", "TCC", "bladder cancer", "高级别尿路上皮癌", "低级别尿路上皮癌"],
+        fieldKeys: ["tumorType"]
+      },
+      {
+        id: "cancer-alias-rhabdomyosarcoma",
+        kind: "cancer-alias",
+        title: "横纹肌肉瘤别名",
+        content: "横纹肌肉瘤、rhabdomyosarcoma、RMS。是非上皮来源恶性肿瘤（肉瘤），不要归入'癌'。亚型包括胚胎性、腺泡状、多形性、梭形细胞/硬化型。",
+        keywords: ["横纹肌肉瘤", "rhabdomyosarcoma", "RMS", "胚胎性", "腺泡状", "肉瘤"],
+        fieldKeys: ["tumorType"]
+      },
+      {
+        id: "cancer-alias-nhl",
+        kind: "cancer-alias",
+        title: "非霍奇金淋巴瘤别名",
+        content: "非霍奇金淋巴瘤、NHL、non-Hodgkin lymphoma。最常见亚型为弥漫性大B细胞淋巴瘤（DLBCL）。不是'癌'——是淋巴造血系统恶性肿瘤。",
+        keywords: ["非霍奇金淋巴瘤", "NHL", "弥漫性大B细胞淋巴瘤", "DLBCL", "淋巴瘤"],
+        fieldKeys: ["tumorType"]
+      },
+      {
+        id: "cancer-alias-renal",
+        kind: "cancer-alias",
+        title: "肾癌别名",
+        content: "肾癌、肾细胞癌、renal cell carcinoma、RCC。标准名称为'肾癌'。亚型包括透明细胞型（最常见70-80%）、乳头状型、嫌色细胞型、FH缺陷型。注意：肾盂尿路上皮癌不属于肾细胞癌。",
+        keywords: ["肾癌", "肾细胞癌", "RCC", "renal cell carcinoma", "透明细胞", "FH缺陷型"],
+        fieldKeys: ["tumorType"]
+      },
+      {
+        id: "cancer-alias-glioma",
+        kind: "cancer-alias",
+        title: "胶质瘤别名",
+        content: "胶质瘤、脑胶质瘤、glioma、GBM（胶质母细胞瘤）。标准名称为'胶质瘤'。弥漫性胶质瘤也应映射为胶质瘤。不是'癌'——是神经上皮来源肿瘤。",
+        keywords: ["胶质瘤", "弥漫性胶质瘤", "glioma", "GBM", "胶质母细胞瘤", "脑胶质瘤"],
+        fieldKeys: ["tumorType"]
+      },
+      {
+        id: "cancer-alias-esophageal",
+        kind: "cancer-alias",
+        title: "食管癌别名",
+        content: "食管癌、esophageal cancer。中国以鳞状细胞癌为主（~90%）。食管鳞状细胞癌应映射为'食管癌'，不要细化输出亚型。",
+        keywords: ["食管癌", "食管鳞状细胞癌", "esophageal cancer", "食管鳞癌", "食道癌"],
+        fieldKeys: ["tumorType"]
+      },
+      {
+        id: "cancer-alias-anal-colorectal",
+        kind: "cancer-alias",
+        title: "肛缘肠癌映射",
+        content: "肛缘肠癌、肛缘癌、肛管癌属于结直肠肛门区域。'距肛缘15cm处'的腺癌是直肠癌/肠癌，不是肛缘癌（肛缘癌以鳞癌为主）。肛缘部位的肿瘤标准映射为结直肠癌。",
+        keywords: ["肛缘肠癌", "肛缘癌", "肛管癌", "距肛缘", "肛缘"],
+        fieldKeys: ["tumorType"]
       },
       {
         id: "cancer-alias-melanoma",
@@ -87,7 +143,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "黑色素瘤别名",
         content: "黑色素瘤、melanoma、黑色素癌。常见检测基因为BRAF、C-KIT、NRAS。",
         keywords: ["黑色素瘤", "melanoma", "黑色素癌", "恶黑"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
       {
         id: "cancer-alias-liver",
@@ -95,7 +151,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "肝癌别名",
         content: "肝癌、肝细胞癌、HCC、hepatocellular carcinoma。常见检测靶点包括AFP、VEGF。",
         keywords: ["肝癌", "肝细胞癌", "HCC", "hepatocellular", "肝"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
       {
         id: "cancer-alias-pancreatic",
@@ -103,7 +159,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "胰腺癌别名",
         content: "胰腺癌、pancreatic cancer。常见检测基因为KRAS、BRCA1/2。",
         keywords: ["胰腺癌", "pancreatic cancer", "胰腺"],
-        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+        fieldKeys: ["tumorType", "tumorCategory"]
       },
 
       // ========== 样本类型 ==========
@@ -129,9 +185,9 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         id: "test-items-lung-panel",
         kind: "lims-dictionary",
         title: "肺癌检测项目面板",
-        content: "肺癌检测区域的勾选项包括：肿瘤9基因（EGFR/ALK/ROS1/BRAF/KRAS/MET/HER2/RET/NTRK）、肿瘤13基因、肺癌11基因、EGFR单基因、肿瘤40基因、188基因、1021基因（大panel）、肿瘤mrd（血液MRD监测）、实体瘤40基因。被勾选的项目加入 testItemsLung 数组。",
+        content: "肺癌检测区域的勾选项包括：肿瘤9基因（EGFR/ALK/ROS1/BRAF/KRAS/MET/HER2/RET/NTRK）、肿瘤13基因、肺癌11基因、EGFR单基因、肿瘤40基因、188基因、1021基因（大panel）、肿瘤mrd（血液MRD监测）、实体瘤40基因。被勾选的项目加入 detectionItemsLung 数组。",
         keywords: ["肿瘤9基因", "肿瘤13基因", "肺癌11基因", "EGFR", "肿瘤40基因", "188基因", "1021基因", "MRD", "实体瘤40基因", "肺癌检测"],
-        fieldKeys: ["testItemsLung"]
+        fieldKeys: ["detectionItemsLung"]
       },
       {
         id: "test-lung-gene-panels",
@@ -139,7 +195,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "肺癌基因Panel说明",
         content: "肿瘤9基因覆盖：EGFR、ALK、ROS1、BRAF、KRAS、MET、HER2、RET、NTRK。肿瘤13基因在9基因基础上增加PIK3CA、DDR2、FGFR1、PTEN。1021基因是全面基因组分析（CGP），覆盖所有已知驱动基因。",
         keywords: ["9基因", "13基因", "1021基因", "CGP", "全面基因组", "驱动基因", "EGFR", "ALK", "ROS1", "BRAF", "KRAS", "MET", "HER2", "RET", "NTRK"],
-        fieldKeys: ["testItemsLung"]
+        fieldKeys: ["detectionItemsLung"]
       },
 
       // ========== 检测项目 - 消化道 ==========
@@ -147,9 +203,9 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         id: "test-items-gi-panel",
         kind: "lims-dictionary",
         title: "消化道肿瘤检测项目面板",
-        content: "消化道肿瘤检测区域的勾选项包括：肠癌3基因（+MSI）、MSI单检、UGT1A1、C-Kit、PDGFRA、肠癌4基因（+MSI）、胃癌18基因、肿瘤18基因、肿瘤40基因、林奇综合征。被勾选的项目加入 testItemsGI 数组。",
+        content: "消化道肿瘤检测区域的勾选项包括：肠癌3基因（+MSI）、MSI单检、UGT1A1、C-Kit、PDGFRA、肠癌4基因（+MSI）、胃癌18基因、肿瘤18基因、肿瘤40基因、林奇综合征。被勾选的项目加入 detectionItemsGI 数组。",
         keywords: ["肠癌3基因", "MSI", "UGT1A1", "C-Kit", "PDGFRA", "肠癌4基因", "胃癌18基因", "肿瘤18基因", "林奇综合征", "消化道检测"],
-        fieldKeys: ["testItemsGI"]
+        fieldKeys: ["detectionItemsGI"]
       },
       {
         id: "test-gi-msi",
@@ -157,7 +213,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "MSI检测说明",
         content: "MSI（微卫星不稳定性）是结直肠癌免疫治疗的重要生物标志物。MSI-H（高度微卫星不稳定性）患者对PD-1抑制剂响应率高。肠癌3基因+MSI和肠癌4基因+MSI都包含MSI检测。",
         keywords: ["MSI", "微卫星不稳定性", "MSI-H", "免疫治疗", "PD-1", "dMMR"],
-        fieldKeys: ["testItemsGI"]
+        fieldKeys: ["detectionItemsGI"]
       },
       {
         id: "test-gi-lynch",
@@ -165,7 +221,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "林奇综合征说明",
         content: "林奇综合征（Lynch syndrome）是遗传性非息肉性结直肠癌（HNPCC），由MMR基因（MLH1/MSH2/MSH6/PMS2）胚系突变引起。检测林奇综合征有助于评估家族遗传风险。",
         keywords: ["林奇综合征", "Lynch", "HNPCC", "遗传性", "MMR", "MLH1", "MSH2"],
-        fieldKeys: ["testItemsGI"]
+        fieldKeys: ["detectionItemsGI"]
       },
 
       // ========== 检测项目 - 其他 ==========
@@ -173,9 +229,9 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         id: "test-items-other-panel",
         kind: "lims-dictionary",
         title: "其他检测项目面板",
-        content: "其他检测项目区域的勾选项包括：Onco1021-MRD（MRD监测）、OncoD肿瘤用药基因检测、同源重组修复缺陷基因检测（HRD）、OncoMD肿瘤疗效基因监测、脑胶质瘤基因检测、肿瘤临床超级外显子组基因检测、肿瘤融合基因检测、PD-L1 IHC检测、淋巴瘤基因检测。被勾选的项目加入 testItemsOther 数组。",
+        content: "其他检测项目区域的勾选项包括：Onco1021-MRD（MRD监测）、OncoD肿瘤用药基因检测、同源重组修复缺陷基因检测（HRD）、OncoMD肿瘤疗效基因监测、脑胶质瘤基因检测、肿瘤临床超级外显子组基因检测、肿瘤融合基因检测、PD-L1 IHC检测、淋巴瘤基因检测。被勾选的项目加入 detectionItemsOther 数组。",
         keywords: ["Onco1021", "MRD", "OncoD", "HRD", "同源重组", "OncoMD", "脑胶质瘤", "超级外显子", "融合基因", "PD-L1", "IHC", "淋巴瘤"],
-        fieldKeys: ["testItemsOther"]
+        fieldKeys: ["detectionItemsOther"]
       },
       {
         id: "test-hrd",
@@ -183,7 +239,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "HRD检测说明",
         content: "HRD（同源重组修复缺陷）是PARP抑制剂疗效的预测标志物。HRD阳性患者对PARP抑制剂（如奥拉帕利）响应率高，常见于卵巢癌、乳腺癌、前列腺癌、胰腺癌。",
         keywords: ["HRD", "同源重组", "PARP", "奥拉帕利", "BRCA", "修复缺陷"],
-        fieldKeys: ["testItemsOther"]
+        fieldKeys: ["detectionItemsOther"]
       },
       {
         id: "test-pd-l1",
@@ -191,7 +247,7 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         title: "PD-L1检测说明",
         content: "PD-L1 IHC检测用于评估免疫治疗适应症。PD-L1表达水平（TPS/CPS）是PD-1/PD-L1抑制剂用药的重要参考。常用抗体包括22C3、28-3、SP142、SP263。",
         keywords: ["PD-L1", "IHC", "免疫治疗", "TPS", "CPS", "PD-1", "22C3", "28-3"],
-        fieldKeys: ["testItemsOther"]
+        fieldKeys: ["detectionItemsOther"]
       },
 
       // ========== 检测公司 ==========
@@ -252,24 +308,14 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         fieldKeys: ["bloodSample"]
       },
 
-      // ========== 临床诊断 ==========
-      {
-        id: "field-description-clinical-diagnosis",
-        kind: "field-description",
-        title: "临床诊断字段说明",
-        content: "clinicalDiagnosis 应优先保留病历中诊断段落的原文，不应用归一化值覆盖原始诊断。临床诊断通常包含肿瘤类型、分期、既往治疗等信息。",
-        keywords: ["诊断", "临床诊断", "clinicalDiagnosis", "病理诊断", "诊断名称"],
-        fieldKeys: ["clinicalDiagnosis"]
-      },
-
       // ========== 送检信息 ==========
       {
         id: "field-description-referral",
         kind: "field-description",
         title: "送检信息字段说明",
-        content: "送检信息包括：送检医生（referringDoctor，通常为手写签名）、送检日期（referralDate，格式不规范需推断）、病理号（pathologyNo，如2022-21264）、样本编号（sampleNo，如FZ2665269）、诊室（clinicRoom）。",
-        keywords: ["送检医生", "送检日期", "病理号", "样本编号", "诊室", "referringDoctor", "referralDate", "pathologyNo", "sampleNo"],
-        fieldKeys: ["referringDoctor", "referralDate", "pathologyNo", "sampleNo", "clinicRoom"]
+        content: "送检信息包括：送检日期（referralDate，格式不规范需推断）、样本编号（sampleNo，如FZ2665269）、诊室（clinicRoom）。",
+        keywords: ["送检日期", "样本编号", "诊室", "referralDate", "sampleNo", "clinicRoom"],
+        fieldKeys: ["referralDate", "sampleNo", "clinicRoom"]
       },
 
       // ========== 身份证号 ==========
@@ -302,14 +348,24 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         fieldKeys: ["outpatientNo"]
       },
 
-      // ========== 年龄 ==========
+      // ========== 临床分期 ==========
       {
-        id: "field-description-age",
+        id: "field-description-clinical-stage",
         kind: "field-description",
-        title: "年龄字段识别说明",
-        content: "年龄字段通常显示为'年龄：XX岁'，为手写数字。OCR可能将数字识别错误（如5识别为S）。归一化为数字或带'岁'的字符串。",
-        keywords: ["年龄", "patientAge", "岁", "年龄："],
-        fieldKeys: ["patientAge"]
+        title: "临床分期字段说明",
+        content: "临床分期（clinicalStage）通常采用 TNM 分期系统，格式如 IIA、IIIB、IV 等。也可能显示为 I 期、II 期、III 期、IV 期。病理报告中可能出现在诊断描述中，如'右肺上叶腺癌 pT2aN1M0 IIA期'。归一化时保留原始分期描述。",
+        keywords: ["临床分期", "clinicalStage", "TNM", "分期", "IA", "IB", "IIA", "IIB", "IIIA", "IIIB", "IV"],
+        fieldKeys: ["clinicalStage"]
+      },
+
+      // ========== 检测项目 ==========
+      {
+        id: "field-description-detection-items",
+        kind: "field-description",
+        title: "检测项目字段说明",
+        content: "检测项目（detectionItems）分为三个区域：肺癌检测（detectionItemsLung）、消化道检测（detectionItemsGI）、其他检测（detectionItemsOther）。每个区域有独立的勾选项，需从 OCR 文本中判断哪些项目被勾选。结果以数组形式返回。",
+        keywords: ["检测项目", "detectionItems", "基因检测", "勾选", "肺癌检测", "消化道检测"],
+        fieldKeys: ["detectionItemsLung", "detectionItemsGI", "detectionItemsOther"]
       },
 
       // ========== 民族 ==========

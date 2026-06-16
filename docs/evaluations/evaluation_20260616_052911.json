@@ -1,0 +1,4007 @@
+{
+  "reportMeta": {
+    "generatedAt": "2026-06-15T21:29:11.287419+00:00",
+    "durationSeconds": 3550.1,
+    "apiBase": "http://127.0.0.1:3000",
+    "schemaKey": "medical-record-core",
+    "filter": {
+      "category": null,
+      "priority": "P0"
+    }
+  },
+  "overall": {
+    "totalSamples": 37,
+    "completedSamples": 35,
+    "failedSamples": 2,
+    "fieldMetrics": {
+      "totalFields": 180,
+      "matchedFields": 25,
+      "missingFields": 35,
+      "spuriousFields": 16,
+      "recall": "15.2%",
+      "precision": "61.0%",
+      "f1": "24.4%"
+    },
+    "sampleMetrics": {
+      "perfectSamples": 0,
+      "perfectRate": "0.0%"
+    }
+  },
+  "byCategory": {
+    "癌种识别": {
+      "totalSamples": 10,
+      "completedSamples": 10,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 50,
+        "matchedFields": 9,
+        "missingFields": 10,
+        "spuriousFields": 16,
+        "recall": "26.5%",
+        "precision": "36.0%",
+        "f1": "30.5%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "病理报告类型": {
+      "totalSamples": 6,
+      "completedSamples": 6,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 37,
+        "matchedFields": 4,
+        "missingFields": 3,
+        "spuriousFields": 0,
+        "recall": "10.8%",
+        "precision": "100.0%",
+        "f1": "19.5%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "图片类型识别": {
+      "totalSamples": 6,
+      "completedSamples": 6,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 31,
+        "matchedFields": 3,
+        "missingFields": 7,
+        "spuriousFields": 0,
+        "recall": "9.7%",
+        "precision": "100.0%",
+        "f1": "17.6%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "药厂申请单": {
+      "totalSamples": 1,
+      "completedSamples": 0,
+      "failedSamples": 1,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    },
+    "多样本资料": {
+      "totalSamples": 4,
+      "completedSamples": 3,
+      "failedSamples": 1,
+      "fieldMetrics": {
+        "totalFields": 17,
+        "matchedFields": 3,
+        "missingFields": 2,
+        "spuriousFields": 0,
+        "recall": "17.6%",
+        "precision": "100.0%",
+        "f1": "30.0%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "基因检测": {
+      "totalSamples": 3,
+      "completedSamples": 3,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 15,
+        "matchedFields": 3,
+        "missingFields": 4,
+        "spuriousFields": 0,
+        "recall": "20.0%",
+        "precision": "100.0%",
+        "f1": "33.3%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "手术分期": {
+      "totalSamples": 4,
+      "completedSamples": 4,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 15,
+        "matchedFields": 3,
+        "missingFields": 5,
+        "spuriousFields": 0,
+        "recall": "20.0%",
+        "precision": "100.0%",
+        "f1": "33.3%"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    },
+    "多部位识别": {
+      "totalSamples": 3,
+      "completedSamples": 3,
+      "failedSamples": 0,
+      "fieldMetrics": {
+        "totalFields": 15,
+        "matchedFields": 0,
+        "missingFields": 4,
+        "spuriousFields": 0,
+        "recall": "0.0%",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
+      }
+    }
+  },
+  "byField": {
+    "patientName": {
+      "fieldKey": "patientName",
+      "priority": "required",
+      "total": 35,
+      "matched": 4,
+      "missing": 8,
+      "spurious": 0,
+      "accuracy": "11.4%"
+    },
+    "tumorType": {
+      "fieldKey": "tumorType",
+      "priority": "required",
+      "total": 35,
+      "matched": 5,
+      "missing": 2,
+      "spurious": 0,
+      "accuracy": "14.3%"
+    },
+    "hospitalName": {
+      "fieldKey": "hospitalName",
+      "priority": "required",
+      "total": 35,
+      "matched": 0,
+      "missing": 17,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "patientGender": {
+      "fieldKey": "patientGender",
+      "priority": "strong",
+      "total": 18,
+      "matched": 4,
+      "missing": 1,
+      "spurious": 6,
+      "accuracy": "22.2%"
+    },
+    "pathologicalDiagnosis": {
+      "fieldKey": "pathologicalDiagnosis",
+      "priority": "strong",
+      "total": 24,
+      "matched": 0,
+      "missing": 2,
+      "spurious": 10,
+      "accuracy": "0.0%"
+    },
+    "reportDate": {
+      "fieldKey": "reportDate",
+      "priority": "strong",
+      "total": 4,
+      "matched": 0,
+      "missing": 1,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "metastasis": {
+      "fieldKey": "metastasis",
+      "priority": "optional",
+      "total": 3,
+      "matched": 3,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "100.0%"
+    },
+    "treatmentHistory": {
+      "fieldKey": "treatmentHistory",
+      "priority": "strong",
+      "total": 10,
+      "matched": 2,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "20.0%"
+    },
+    "sampleType": {
+      "fieldKey": "sampleType",
+      "priority": "strong",
+      "total": 5,
+      "matched": 0,
+      "missing": 2,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "testItems": {
+      "fieldKey": "testItems",
+      "priority": "optional",
+      "total": 4,
+      "matched": 4,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "100.0%"
+    },
+    "geneMutations": {
+      "fieldKey": "geneMutations",
+      "priority": "optional",
+      "total": 4,
+      "matched": 0,
+      "missing": 2,
+      "spurious": 0,
+      "accuracy": "0.0%"
+    },
+    "staging": {
+      "fieldKey": "staging",
+      "priority": "optional",
+      "total": 3,
+      "matched": 3,
+      "missing": 0,
+      "spurious": 0,
+      "accuracy": "100.0%"
+    }
+  },
+  "failures": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "testFocus": "膀胱癌识别",
+      "jobId": "cmqfo35e100tnwmacvhzz53fn",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；精囊腺、双侧输精管及输尿管未见肿瘤细胞。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "testFocus": "肛缘肠癌识别",
+      "jobId": "cmqfo45sq00txwmacqojc85z6",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "马爱香",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肛缘肠癌",
+          "actual": "中分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "南京市江宁医院（南京医科大学附属江宁医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（距肛缘15cm处）中分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "testFocus": "横纹肌肉瘤识别",
+      "jobId": "cmqfo68sq00u7wmaczfoeydwo",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "郴州市第一人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左侧上颌骨肿物）梭形细胞肿瘤，符合横纹肌肉瘤（考虑梭形细胞/硬化型亚型）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "testFocus": "非霍奇金淋巴瘤识别",
+      "jobId": "cmqfo7gx800uhwmacbcw8aexe",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "杨春梅",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "非霍奇金淋巴瘤",
+          "actual": "弥漫性大B细胞淋巴瘤",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "吉林省肿瘤医院（高新院区）（吉林省第二人民医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左颈部肿物穿刺）：非霍奇金淋巴瘤，侵袭性B细胞淋巴瘤，符合弥漫性大B细胞淋巴瘤（非特指型），非生发中心B细胞起源（Hans模型），肿瘤细胞高表达Bcl-2、C-myc，建议进一步行FISH-MYC、BCL2检测除外高级别B细胞淋巴瘤等。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "testFocus": "肾癌识别",
+      "jobId": "cmqfo8wrn00urwmacppvke22x",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "黄阳洋",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肾癌",
+          "actual": "肾细胞癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "绵阳四〇四医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（右肾）恶性肿瘤，肿瘤细胞以实性巢团状生长方式为主，胞浆丰富，嗜酸性，可见包涵体样嗜酸性核仁及核周空晕，结合免疫组化染色结果，病理诊断符合FH缺陷型肾细胞癌，肿瘤体积7.5cm×7.5cm×6.5cm，肿瘤灶性侵犯肾被膜，镜下未见侵肾周脂肪组织，输尿管断端镜下未见肿瘤累及。余肾实质萎缩。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "testFocus": "胶质瘤识别",
+      "jobId": "cmqfob7ip00v1wmacrixbrfnu",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "李路平",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "江苏省人民医院（南京医科大学第一附属医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左侧丘脑占位）弥漫性胶质瘤，组织学至少WHO 3级，需免疫组化及分子检测进一步整合分型分级。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "testFocus": "食管癌识别",
+      "jobId": "cmqfocndc00vbwmacom3b05n8",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "钟新初",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "1.（食管26-28cm）鳞状细胞癌，分化较差；2.（食管35cm6点位）表浅乳头状增生鳞状上皮，多灶鳞状上皮基底细胞增生，小灶低级别上皮内瘤变（轻度异型增生）；3.（食管30cm5点位）少许表浅乳头状增生鳞状上皮，多灶鳞状上皮基底细胞增生；4.（胃窦、胃角）胃黏膜急慢性炎，胃角黏膜固有层小灶淋巴细胞浸润伴挤压",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "testFocus": "胃肠道间质瘤（GIST）识别",
+      "jobId": "cmqfoe37z00vlwmac5mf9s531",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃肠道间质瘤",
+          "actual": "胃肠间质瘤",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（1.荷瘤空肠+侵犯结肠）胃肠道间质瘤伴局灶坏死、囊性变，肿瘤大小16cm×11cm×4.0cm",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "testFocus": "胰腺癌识别",
+      "jobId": "cmqfof3mh00vvwmacsk4vomv6",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "(胰体尾)中分化导管腺癌, 肿瘤最大径1.8cm,符合新辅助化疗后肿瘤少部分退缩,肿瘤退缩率约20%(TRG: CAP 3级,MDA 2级); 慢性胰腺炎伴假性囊肿形成",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "testFocus": "胃腺癌识别",
+      "jobId": "cmqfoh6n900w5wmac4l76st7h",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃腺癌",
+          "actual": "胃癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "【胃+上切缘+第8组淋巴结切除术标本】肿瘤组织学亚型：（胃小弯）中-低分化腺癌。镜下肿瘤浸润深度：浆膜下层。切缘情况：食管切缘、胃切缘及另送（上切缘）未见癌组织。脉管侵犯情况：查见脉管侵犯。神经侵犯情况：查见神经侵犯。淋巴结转移情况：小弯侧淋巴结（5/21）查见转移癌；（第8组）淋巴结（0/4）未见癌组织。其他病理学改变：大网膜未见癌组织。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "testFocus": "简单病理报告识别",
+      "jobId": "cmqfoiu7s00wfwmach5d1yxs0",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "褚会荣",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "北京中医药大学东直门医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（直肠息肉）增生性息肉；1#（直肠肿物）结合免疫组化结果符合中-低分化腺癌，可见多灶脉管内癌栓，切缘未见癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2026-01-27,2026-02-05",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "testFocus": "初始未确诊后确诊的病理报告",
+      "jobId": "cmqfokpis00wpwmac2nskswdx",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "彭文灿",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "非小细胞肺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "四川大学华西医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "低分化非小细胞肺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2026-03-25",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "testFocus": "肠癌肝转移识别",
+      "jobId": "cmqfomsiq00wzwmacuukb6yji",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "杨久峰",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "(肝脏肿物(右前叶))肝脏穿刺组织内见浸润性癌,结合临床病史,影像学、免疫组化结果符合转移性肠癌,低分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "testFocus": "乳腺癌肝转移识别",
+      "jobId": "cmqfoovjb00x9wmacrotlkg1c",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "崔淑典",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "西安交通大学第二附属医院（西北医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "1.初次诊断：“肝脏”穿刺组织，提示上皮源性恶性肿瘤，内见脉管癌栓，请等免疫组化进一步检查；2.补充诊断：“肝脏”穿刺组织，示转移性腺癌，内见个别脉管癌栓，结合病史及免疫组化，支持乳腺来源",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "testFocus": "原发灶未明的识别",
+      "jobId": "cmqfoqyjh00xjwmac03jakiy7",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "赖素娟",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "卵巢癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "1.（腹水）查见恶性肿瘤细胞，待细胞块协诊。2.补充细胞块免疫组化报告2025年10月29日：（腹水）查见恶性肿瘤细胞（腺癌），结合细胞块免疫组化结果，考虑女性生殖系统来源。免疫组化：瘤细胞CK7（+）、CA125（+）、Pax-8（+）、WT-1（+）、P16（+）、ER85%（+）、CR（-）、CK20（-）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "腹水",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "testFocus": "跨页病理报告识别",
+      "jobId": "cmqfos6pd00xxwmaci89znry7",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "孙建清",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "南京医科大学第一附属医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "左乳浸润性导管癌（非特殊类型，II级），新辅助化疗后，肿瘤大小2.5*2*1.5cm，累及真皮组织，基底切缘阴性，淋巴结未见癌转移（0/20），无明确脉管、神经侵犯，Miller-Payne分级3级",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2025-09-09",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "testFocus": "勾选治疗史的识别",
+      "jobId": "cmqfov4lo00y7wmac31o3c255",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "林晓宜",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "手术：有，放疗：有，化疗：有，用药：有",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "testFocus": "文字中手术史的识别",
+      "jobId": "cmqfowzvo00yhwmac58jx22pz",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "莫春连",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "子宫内膜癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "有手术史(2026.3.9)；有输血史(2026.3.9)",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "testFocus": "基因检测报告上的诊断信息识别",
+      "jobId": "cmqfoyfr800yrwmaczbfzfw5x",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "刘根栓",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "昌吉回族自治州人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "testFocus": "含用药信息的乳腺癌申请单",
+      "jobId": "cmqfp0qhi00z1wmac2kychjwe",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "崔淑冉",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "深圳韦格纳医学检验",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "化疗：无；用药：有，用药方案：阿贝西利、阿那曲唑",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "testFocus": "同时上传3张资料的合并识别",
+      "jobId": "cmqfp2lto00zjwmacwnnlwncm",
+      "wrongFields": [
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺鳞癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（C4椎体右旁病灶组织条块蜡）纤维、肌间见异型上皮条索样排列，首先考虑转移性上皮性肿瘤，结合免疫组化结果，倾向低分化鳞癌，请查原发灶。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "手术：无；放疗：无；化疗：无；用药：无",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "testFocus": "一段文字中包含转移、用药和放疗信息",
+      "jobId": "cmqfp4oud00ztwmacyxjrphe2",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "李小红",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "服用阿美替尼8个月；右腿骼骨放疗十次",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "白片",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "testFocus": "多张用药记录合并识别",
+      "jobId": "cmqfpb01p010fwmacrttxz3pm",
+      "wrongFields": [
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "十二指肠中分化腺癌，伴肝、肺、多发淋巴结转移",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "1. 2021年5月12日行经机器人辅助肝部分切除+胆管空肠吻合+胃空肠吻合+肠肠吻合术；2. 2021年10月至2026年3月行多次系统治疗，方案包括贝伐珠单抗+XELOX、mFOLFOX（贝伐珠单抗+奥沙利铂+亚叶酸钙+5-FU）、贝伐珠单抗+卡培他滨、安罗替尼、瑞戈非尼+TAS-102、单药伊立替康等；3. 2026年1月5日至2月11日行放疗25次，处方剂量PGTV/GTVnd5000cGy/25fx/200cGy，放疗予甘氨双唑钠增敏治疗",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "testFocus": "4张资料合并识别",
+      "jobId": "cmqfpesv00111wmacuhmqlko5",
+      "wrongFields": [
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "胃癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "首都医科大学附属北京天坛医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（远端胃）胃窦-十二指肠腺癌（中-低分化），侵透固有肌层达周围脂肪组织，可见脉管内瘤栓及神经侵犯，淋巴结转移癌，伴肝转移",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "手术史：2023-12-15，行腹腔镜根治性远端胃大部切除术（D2，毕II胃肠吻合+Braun肠肠吻合）+腹腔镜胆囊切除术，pT3N2M0；用药史：2024-01至2024-06，XELOX方案；2024-11至2024-12，卡瑞利珠单抗+白蛋白紫杉醇+替吉奥；2025-01至2025-02，信迪利单抗+白蛋白紫杉醇+替吉奥；2025-03至2025-05，信迪利单抗+替吉奥；2025-07，YL217；2025-08至2025-12，卡度尼利单抗+阿帕替尼；放疗史：2025-04，行胰腺旁淋巴结外部束放射治疗，50Gy，10次；2025-12至2026-01，肝转移灶放疗，6000cGy，10次",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "testFocus": "同一样本不同页的合并识别",
+      "jobId": "cmqfpkqw6011jwmac905m61r5",
+      "wrongFields": [
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "苏州大学附属第四医院（苏州市独墅湖医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（右上肺）原位腺癌伴微浸润，考虑肺腺癌来源可能性大",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2019-12-14起口服埃克替尼；2022-11-16行右上肺楔形切除术；2023-02停服埃克替尼；2023-09-05行右下肺消融手术，期间间断中药调理；2025年12月起予补充人血白蛋白、抗感染、补钠、脱水营养支持、止痛等处理；2026-01-07起予培美曲塞0.35g d1、8联合顺铂40mg d2、9静脉化疗1次",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "error": "HTTP 400 http://127.0.0.1:3000/files: {\"error\":\"BAD_REQUEST\",\"message\":\"Invalid file upload payload\"}"
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "testFocus": "基因检测报告识别（样本1）",
+      "jobId": "cmqfporew0123wmacw8ys56h5",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "韩萍",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "重庆医科大学附属第二医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": "EGFR基因L858R突变",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "testFocus": "基因检测报告识别（样本2）",
+      "jobId": "cmqfppzji012dwmacx9sqax8b",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "testFocus": "基因检测报告识别（样本3）",
+      "jobId": "cmqfpr7p1012nwmacstu37jci",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "文庆波",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "北京大学人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": "仅检出NTRK3基因融合，其余检测基因（ALK融合基因、ROS1融合基因、EGFR基因、KRAS基因、BRAF基因、MET基因、HER2基因、RET基因、NTRK1/2基因）未检出突变或融合",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "testFocus": "标准病理学TNM分期识别",
+      "jobId": "cmqfpu5kl012xwmac8lfzkd2s",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺鳞癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "testFocus": "无分期信息时的处理",
+      "jobId": "cmqfpw8kr0137wmac6g50fs20",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "testFocus": "仅有N分期时的识别",
+      "jobId": "cmqfpxogm013hwmacatcyfd45",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "刘婷婷",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "省人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "testFocus": "仅有T分期时的识别",
+      "jobId": "cmqfpyovg013rwmacjdgb3wl4",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "刘孝瑜",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "南京医科大学第一附属医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "testFocus": "多部位（结肠、直肠、小肠）病理诊断识别",
+      "jobId": "cmqfq04ps0141wmac9t9aj1ct",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "陈龙华",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "切缘毗邻：直肠上切缘（-）直肠下切缘（-）直肠环周切缘（-）横结肠、小肠两端及基底切缘（-）送检：淋巴结转移：直肠周淋巴结(0/5)、横结肠、小肠系膜淋巴结(0/18)；送检(腹壁结节)示腺癌结节；(左侧盆底结节及部分精囊腺）、(右侧精囊腺结节)镜下见腺癌累及精囊腺组织伴周围腺癌组织沉积、癌结节形成；病理分级：中~低分化；病理分期：ypT4aN0M1；(横结肠、小肠）中~低分化腺癌，肿瘤两灶，最大径分别约为1.5cm和2.3cm；另浆膜面见长径2.2cm腺癌结节。结合化疗病史，符合NCCN TRG：3级（无明显退缩)；（直肠）外膜面肿物示腺癌结节，长径约3.1cm；免疫组化结果：10(号片）：SATB2(弱+)，CDX-2(+)；21(号片)：Ki67(+，约75%)，CK20(+)，P53(+)，MLH1(+)，PMS2(弱+)，MSH6(+)，MSH2(+)，CDX-2(+)，SATB2(部分弱+)。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "testFocus": "不同部位乳腺癌识别",
+      "jobId": "cmqfq32ly014bwmacucbc7rqg",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "康月妍",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（右乳肿物穿刺1）乳腺高级别导管原位癌，伴浸润；（右乳肿物穿刺2）乳腺浸润性癌，非特殊类型，Ⅲ级，肿瘤浸润淋巴细胞（TILs）约5%",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "病理玻片",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "testFocus": "不同部位神经内分泌癌识别",
+      "jobId": "cmqfq4xxc014lwmacq0oqc70m",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "朱丽华",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "小细胞肺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "浙江大学医学院附属第二医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（左上叶开口）小细胞神经内分泌癌。（左下叶开口）小细胞神经内分泌癌。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfo35e100tnwmacvhzz53fn",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 47159.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "膀胱癌",
+          "actual": "膀胱癌,前列腺癌",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；精囊腺、双侧输精管及输尿管未见肿瘤细胞。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfo45sq00txwmacqojc85z6",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 97178.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "马爱香",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肛缘肠癌",
+          "actual": "中分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "南京市江宁医院（南京医科大学附属江宁医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（距肛缘15cm处）中分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfo68sq00u7wmaczfoeydwo",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 57165.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "横纹肌肉瘤",
+          "actual": "横纹肌肉瘤",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "郴州市第一人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左侧上颌骨肿物）梭形细胞肿瘤，符合横纹肌肉瘤（考虑梭形细胞/硬化型亚型）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfo7gx800uhwmacbcw8aexe",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 67166.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "杨春梅",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "非霍奇金淋巴瘤",
+          "actual": "弥漫性大B细胞淋巴瘤",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "吉林省肿瘤医院（高新院区）（吉林省第二人民医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左颈部肿物穿刺）：非霍奇金淋巴瘤，侵袭性B细胞淋巴瘤，符合弥漫性大B细胞淋巴瘤（非特指型），非生发中心B细胞起源（Hans模型），肿瘤细胞高表达Bcl-2、C-myc，建议进一步行FISH-MYC、BCL2检测除外高级别B细胞淋巴瘤等。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfo8wrn00urwmacppvke22x",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 107200.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "黄阳洋",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "肾癌",
+          "actual": "肾细胞癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "绵阳四〇四医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（右肾）恶性肿瘤，肿瘤细胞以实性巢团状生长方式为主，胞浆丰富，嗜酸性，可见包涵体样嗜酸性核仁及核周空晕，结合免疫组化染色结果，病理诊断符合FH缺陷型肾细胞癌，肿瘤体积7.5cm×7.5cm×6.5cm，肿瘤灶性侵犯肾被膜，镜下未见侵肾周脂肪组织，输尿管断端镜下未见肿瘤累及。余肾实质萎缩。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfob7ip00v1wmacrixbrfnu",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 67165.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "李路平",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胶质瘤",
+          "actual": "胶质瘤",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "江苏省人民医院（南京医科大学第一附属医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左侧丘脑占位）弥漫性胶质瘤，组织学至少WHO 3级，需免疫组化及分子检测进一步整合分型分级。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfocndc00vbwmacom3b05n8",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 67167.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "钟新初",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "食管癌",
+          "actual": "食管癌",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "1.（食管26-28cm）鳞状细胞癌，分化较差；2.（食管35cm6点位）表浅乳头状增生鳞状上皮，多灶鳞状上皮基底细胞增生，小灶低级别上皮内瘤变（轻度异型增生）；3.（食管30cm5点位）少许表浅乳头状增生鳞状上皮，多灶鳞状上皮基底细胞增生；4.（胃窦、胃角）胃黏膜急慢性炎，胃角黏膜固有层小灶淋巴细胞浸润伴挤压",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfoe37z00vlwmac5mf9s531",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 47158.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃肠道间质瘤",
+          "actual": "胃肠间质瘤",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（1.荷瘤空肠+侵犯结肠）胃肠道间质瘤伴局灶坏死、囊性变，肿瘤大小16cm×11cm×4.0cm",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfof3mh00vvwmacsk4vomv6",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 97178.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胰腺癌",
+          "actual": "胰腺癌",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "(胰体尾)中分化导管腺癌, 肿瘤最大径1.8cm,符合新辅助化疗后肿瘤少部分退缩,肿瘤退缩率约20%(TRG: CAP 3级,MDA 2级); 慢性胰腺炎伴假性囊肿形成",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqfoh6n900w5wmac4l76st7h",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 77171.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胃腺癌",
+          "actual": "胃癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "【胃+上切缘+第8组淋巴结切除术标本】肿瘤组织学亚型：（胃小弯）中-低分化腺癌。镜下肿瘤浸润深度：浆膜下层。切缘情况：食管切缘、胃切缘及另送（上切缘）未见癌组织。脉管侵犯情况：查见脉管侵犯。神经侵犯情况：查见神经侵犯。淋巴结转移情况：小弯侧淋巴结（5/21）查见转移癌；（第8组）淋巴结（0/4）未见癌组织。其他病理学改变：大网膜未见癌组织。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC011",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfoiu7s00wfwmach5d1yxs0",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 87207.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "褚会荣",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "北京中医药大学东直门医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（直肠息肉）增生性息肉；1#（直肠肿物）结合免疫组化结果符合中-低分化腺癌，可见多灶脉管内癌栓，切缘未见癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2026-01-27,2026-02-05",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC012",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfokpis00wpwmac2nskswdx",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 97178.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "彭文灿",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "非小细胞肺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "四川大学华西医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "低分化非小细胞肺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2026-03-25",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC017",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfomsiq00wzwmacuukb6yji",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 97195.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "杨久峰",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "(肝脏肿物(右前叶))肝脏穿刺组织内见浸润性癌,结合临床病史,影像学、免疫组化结果符合转移性肠癌,低分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "metastasis",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC018",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfoovjb00x9wmacrotlkg1c",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 97179.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "崔淑典",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "西安交通大学第二附属医院（西北医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "1.初次诊断：“肝脏”穿刺组织，提示上皮源性恶性肿瘤，内见脉管癌栓，请等免疫组化进一步检查；2.补充诊断：“肝脏”穿刺组织，示转移性腺癌，内见个别脉管癌栓，结合病史及免疫组化，支持乳腺来源",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "metastasis",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC019",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfoqyjh00xjwmac03jakiy7",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 57202.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "赖素娟",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "卵巢癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "1.（腹水）查见恶性肿瘤细胞，待细胞块协诊。2.补充细胞块免疫组化报告2025年10月29日：（腹水）查见恶性肿瘤细胞（腺癌），结合细胞块免疫组化结果，考虑女性生殖系统来源。免疫组化：瘤细胞CK7（+）、CA125（+）、Pax-8（+）、WT-1（+）、P16（+）、ER85%（+）、CR（-）、CK20（-）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "腹水",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC020",
+      "category": "病理报告类型",
+      "priority": "P0",
+      "jobId": "cmqfos6pd00xxwmaci89znry7",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 137217.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "孙建清",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "南京医科大学第一附属医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "左乳浸润性导管癌（非特殊类型，II级），新辅助化疗后，肿瘤大小2.5*2*1.5cm，累及真皮组织，基底切缘阴性，淋巴结未见癌转移（0/20），无明确脉管、神经侵犯，Miller-Payne分级3级",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2025-09-09",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC021",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfov4lo00y7wmac31o3c255",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 87174.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "林晓宜",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "手术：有，放疗：有，化疗：有，用药：有",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC022",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfowzvo00yhwmac58jx22pz",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 67182.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "莫春连",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "子宫内膜癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "有手术史(2026.3.9)；有输血史(2026.3.9)",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC024",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfoyfr800yrwmaczbfzfw5x",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 107191.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "刘根栓",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "昌吉回族自治州人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC025",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfp0qhi00z1wmac2kychjwe",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 87216.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "崔淑冉",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "深圳韦格纳医学检验",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "化疗：无；用药：有，用药方案：阿贝西利、阿那曲唑",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC026",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfp2lto00zjwmacwnnlwncm",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 97183.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "余明明",
+          "actual": "余明明",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺鳞癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（C4椎体右旁病灶组织条块蜡）纤维、肌间见异型上皮条索样排列，首先考虑转移性上皮性肿瘤，结合免疫组化结果，倾向低分化鳞癌，请查原发灶。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "手术：无；放疗：无；化疗：无；用药：无",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC027",
+      "category": "图片类型识别",
+      "priority": "P0",
+      "jobId": "cmqfp4oud00ztwmacyxjrphe2",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 127187.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "李小红",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "服用阿美替尼8个月；右腿骼骨放疗十次",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "metastasis",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "白片",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC029",
+      "category": "药厂申请单",
+      "priority": "P0",
+      "jobId": "cmqfp7f0i0103wmac18ey2zm4",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 167203.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC031",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfpb01p010fwmacrttxz3pm",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 177225.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "李月娥",
+          "actual": "李月娥",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "十二指肠中分化腺癌，伴肝、肺、多发淋巴结转移",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "1. 2021年5月12日行经机器人辅助肝部分切除+胆管空肠吻合+胃空肠吻合+肠肠吻合术；2. 2021年10月至2026年3月行多次系统治疗，方案包括贝伐珠单抗+XELOX、mFOLFOX（贝伐珠单抗+奥沙利铂+亚叶酸钙+5-FU）、贝伐珠单抗+卡培他滨、安罗替尼、瑞戈非尼+TAS-102、单药伊立替康等；3. 2026年1月5日至2月11日行放疗25次，处方剂量PGTV/GTVnd5000cGy/25fx/200cGy，放疗予甘氨双唑钠增敏治疗",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC032",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfpesv00111wmacuhmqlko5",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 277290.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "马辉",
+          "actual": "马辉",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "胃癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "首都医科大学附属北京天坛医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "男",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（远端胃）胃窦-十二指肠腺癌（中-低分化），侵透固有肌层达周围脂肪组织，可见脉管内瘤栓及神经侵犯，淋巴结转移癌，伴肝转移",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "手术史：2023-12-15，行腹腔镜根治性远端胃大部切除术（D2，毕II胃肠吻合+Braun肠肠吻合）+腹腔镜胆囊切除术，pT3N2M0；用药史：2024-01至2024-06，XELOX方案；2024-11至2024-12，卡瑞利珠单抗+白蛋白紫杉醇+替吉奥；2025-01至2025-02，信迪利单抗+白蛋白紫杉醇+替吉奥；2025-03至2025-05，信迪利单抗+替吉奥；2025-07，YL217；2025-08至2025-12，卡度尼利单抗+阿帕替尼；放疗史：2025-04，行胰腺旁淋巴结外部束放射治疗，50Gy，10次；2025-12至2026-01，肝转移灶放疗，6000cGy，10次",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "reportDate",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC033",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": "cmqfpkqw6011jwmac905m61r5",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 187213.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "浦慧敏",
+          "actual": "浦慧敏",
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "苏州大学附属第四医院（苏州市独墅湖医院）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "女",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（右上肺）原位腺癌伴微浸润，考虑肺腺癌来源可能性大",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "treatmentHistory",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "2019-12-14起口服埃克替尼；2022-11-16行右上肺楔形切除术；2023-02停服埃克替尼；2023-09-05行右下肺消融手术，期间间断中药调理；2025年12月起予补充人血白蛋白、抗感染、补钠、脱水营养支持、止痛等处理；2026-01-07起予培美曲塞0.35g d1、8联合顺铂40mg d2、9静脉化疗1次",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC035",
+      "category": "多样本资料",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 400 http://127.0.0.1:3000/files: {\"error\":\"BAD_REQUEST\",\"message\":\"Invalid file upload payload\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC036",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfporew0123wmacw8ys56h5",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 57161.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "韩萍",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "重庆医科大学附属第二医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": "EGFR基因L858R突变",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC037",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfppzji012dwmacx9sqax8b",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 57177.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC038",
+      "category": "基因检测",
+      "priority": "P0",
+      "jobId": "cmqfpr7p1012nwmacstu37jci",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 137193.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "文庆波",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "北京大学人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "testItems",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "geneMutations",
+          "priority": "optional",
+          "expected": "__ANY__",
+          "actual": "仅检出NTRK3基因融合，其余检测基因（ALK融合基因、ROS1融合基因、EGFR基因、KRAS基因、BRAF基因、MET基因、HER2基因、RET基因、NTRK1/2基因）未检出突变或融合",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC039",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfpu5kl012xwmac8lfzkd2s",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 97175.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺鳞癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "staging",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC040",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfpw8kr0137wmac6g50fs20",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 67198.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC041",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfpxogm013hwmacatcyfd45",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 47162.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "刘婷婷",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "省人民医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "staging",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC042",
+      "category": "手术分期",
+      "priority": "P0",
+      "jobId": "cmqfpyovg013rwmacjdgb3wl4",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 67166.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "刘孝瑜",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "肺腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "南京医科大学第一附属医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "staging",
+          "priority": "optional",
+          "expected": null,
+          "actual": null,
+          "matched": true,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC043",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfq04ps0141wmac9t9aj1ct",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 137197.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "陈龙华",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "结直肠癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "切缘毗邻：直肠上切缘（-）直肠下切缘（-）直肠环周切缘（-）横结肠、小肠两端及基底切缘（-）送检：淋巴结转移：直肠周淋巴结(0/5)、横结肠、小肠系膜淋巴结(0/18)；送检(腹壁结节)示腺癌结节；(左侧盆底结节及部分精囊腺）、(右侧精囊腺结节)镜下见腺癌累及精囊腺组织伴周围腺癌组织沉积、癌结节形成；病理分级：中~低分化；病理分期：ypT4aN0M1；(横结肠、小肠）中~低分化腺癌，肿瘤两灶，最大径分别约为1.5cm和2.3cm；另浆膜面见长径2.2cm腺癌结节。结合化疗病史，符合NCCN TRG：3级（无明显退缩)；（直肠）外膜面肿物示腺癌结节，长径约3.1cm；免疫组化结果：10(号片）：SATB2(弱+)，CDX-2(+)；21(号片)：Ki67(+，约75%)，CK20(+)，P53(+)，MLH1(+)，PMS2(弱+)，MSH6(+)，MSH2(+)，CDX-2(+)，SATB2(部分弱+)。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC044",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfq32ly014bwmacucbc7rqg",
+      "status": "needs_review",
+      "error": null,
+      "latencyMs": 87180.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "康月妍",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "乳腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（右乳肿物穿刺1）乳腺高级别导管原位癌，伴浸润；（右乳肿物穿刺2）乳腺浸润性癌，非特殊类型，Ⅲ级，肿瘤浸润淋巴细胞（TILs）约5%",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "病理玻片",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        }
+      ]
+    },
+    {
+      "tcId": "TC045",
+      "category": "多部位识别",
+      "priority": "P0",
+      "jobId": "cmqfq4xxc014lwmacq0oqc70m",
+      "status": "partial_completed",
+      "error": null,
+      "latencyMs": 107180.0,
+      "fields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "朱丽华",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "小细胞肺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": "浙江大学医学院附属第二医院",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": "（左上叶开口）小细胞神经内分泌癌。（左下叶开口）小细胞神经内分泌癌。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "sampleType",
+          "priority": "strong",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        }
+      ]
+    }
+  ],
+  "recommendations": [
+    "字段召回率低于80%，建议检查OCR质量和Schema字段定义的提取指引。",
+    "字段精确率低于80%，存在较多误识别，建议增强Schema中的反例指导。",
+    "样本完全正确率低于50%，建议针对高频错误字段进行专项优化。",
+    "以下测试方向完全正确率极低（<40%），需重点关注：癌种识别, 病理报告类型, 图片类型识别, 多样本资料, 基因检测, 手术分期, 多部位识别",
+    "以下字段准确率低于60%：patientName(required), tumorType(required), hospitalName(required), patientGender(strong), pathologicalDiagnosis(strong), reportDate(strong), treatmentHistory(strong), sampleType(strong), geneMutations(optional)，建议优化提取逻辑或补充知识库。"
+  ]
+}
