@@ -56,7 +56,7 @@ export function createRuleCandidateService(deps: RuleCandidateServiceDependencie
         throw Object.assign(new Error("EVALUATION_RUN_NOT_FOUND"), { code: "EVALUATION_RUN_NOT_FOUND", statusCode: 404 });
       }
       const sampleResults: EvaluationSampleResult[] = run.result?.sampleResults ?? [];
-      const schemaKey: string = run.dataset?.schemaKey ?? "";
+      const schemaKey: string = run.schemaVersion?.schemaKey ?? "";
       if (!schemaKey) {
         throw Object.assign(new Error("SCHEMA_KEY_MISSING"), { code: "SCHEMA_KEY_MISSING", statusCode: 400 });
       }

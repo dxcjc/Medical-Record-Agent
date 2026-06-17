@@ -72,7 +72,9 @@ import { createOpenAiResponsesClient } from "../infrastructure/openAiResponsesCl
 import { createSchemaService } from "../services/schema.service";
 import { createStatsService } from "../services/stats.service";
 import { createKnowledgeRepository } from "../repositories/knowledge.repository";
+import { createRuleCandidateRepository } from "../repositories/rule-candidate.repository";
 import { createDatabaseKnowledgeRetriever } from "../services/database-knowledge-retriever";
+import { createRuleCandidateService } from "../services/rule-candidate.service";
 import type { ApiServerServices } from "../server";
 import { assertRouteResponseObject } from "../routes/route-dtos";
 import {
@@ -2533,6 +2535,8 @@ export function createProductionApiServices(options: CreateProductionApiServices
   const resultsRepository = createResultsRepository(prisma);
   const writebackRepository = createWritebackRepository(prisma);
   const knowledgeRepository = createKnowledgeRepository(prisma);
+  const ruleCandidateRepository = createRuleCandidateRepository(prisma);
+  const evaluationRepository = createEvaluationRepository(prisma);
   const storageProvider = options.storageProvider ?? buildStorageProvider(options.env);
   const limsWritebackAdapter = options.limsWritebackAdapter ?? createConfiguredLimsWritebackAdapter(options.env);
   const sessionInvalidationStoreOptions: CreateProductionSessionInvalidationStoreOptions = {
@@ -2672,7 +2676,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
       resultsRepository,
       feedbackRepository: createFeedbackRepository(prisma),
       writebackRepository,
-      evaluationRepository: createEvaluationRepository(prisma)
+      evaluationRepository
     },
     recognitionOrchestrator,
     providerRegistry: createProviderRegistry(
@@ -2697,14 +2701,42 @@ export function createProductionApiServices(options: CreateProductionApiServices
 
   const statsService = createStatsService(prisma);
 
+  const ruleCandidateService = createRuleCandidateService({
+    ruleCandidateRepository,
+    knowledgeRepository,
+    evaluationRepository: {
+      findRunById: (runId: string) => evaluationRepository.findRunById({ id: runId }),
+      findLatestCompletedRunBySchema: (schemaKey: string) => evaluationRepository.findLatestCompletedRunBySchema(schemaKey)
+    }
+  });
+
   // feedbackService 增强：支持 updateStatus（审核反馈 + 写入知识库）
   const originalFeedbackService = services.feedbackService;
 
+  // 评测运行完成后自动提炼知识候选
+  const originalEvaluationCreateRun = services.evaluationService.createRun.bind(services.evaluationService);
+  const evaluationServiceWithExtraction = {
+    ...services.evaluationService,
+    async createRun(input: Parameters<typeof originalEvaluationCreateRun>[0]) {
+      const run = await originalEvaluationCreateRun(input);
+      if (run && (run as { status?: string }).status === "completed") {
+        try {
+          await ruleCandidateService.extractFromRun((run as { id: string }).id);
+        } catch {
+          // 提炼失败不影响评测运行结果
+        }
+      }
+      return run;
+    }
+  };
+
   return {
     ...services,
+    evaluationService: evaluationServiceWithExtraction,
     knowledgeService: {
       knowledgeRepository
     },
+    ruleCandidateService,
     statsService,
     feedbackService: {
       ...originalFeedbackService,

@@ -21,6 +21,8 @@ import { registerResultRoutes, type ResultRouteService } from "./routes/results.
 import { registerSchemaRoutes, type SchemaRouteService } from "./routes/schemas.routes";
 import { registerWritebackRoutes, type WritebackRouteService } from "./routes/writeback.routes";
 import { registerKnowledgeRoutes, type KnowledgeRouteService } from "./routes/knowledge.routes";
+import { registerRuleCandidateRoutes } from "./routes/rule-candidate.routes";
+import type { RuleCandidateService } from "./services/rule-candidate.service";
 import { registerV1Routes, type V1RouteService } from "./routes/v1.routes";
 import { registerStatsRoutes, type StatsRouteService } from "./routes/stats.routes";
 import { openApiDocument } from "./openapi";
@@ -39,6 +41,7 @@ export interface ApiServerServices {
   providerService: ProviderRouteService;
   evaluationService: EvaluationRouteService;
   knowledgeService?: KnowledgeRouteService;
+  ruleCandidateService?: RuleCandidateService;
   statsService?: StatsRouteService;
   v1Service?: V1RouteService;
   jobQueue?: {
@@ -357,6 +360,13 @@ export async function createApiServer(options: CreateApiServerOptions) {
 
   if (options.services.knowledgeService) {
     await registerKnowledgeRoutes(server, options.services.knowledgeService, authHooks);
+  }
+
+  if (options.services.ruleCandidateService) {
+    await registerRuleCandidateRoutes(server, {
+      service: options.services.ruleCandidateService,
+      authHooks
+    });
   }
 
   if (options.services.statsService) {

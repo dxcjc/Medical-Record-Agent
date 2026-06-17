@@ -152,6 +152,7 @@ export function createEvaluationRepository(dependencies: EvaluationRepositoryDep
         where: { id: input.id },
         include: {
           dataset: true,
+          schemaVersion: true,
           metrics: {
             orderBy: {
               name: "asc"
@@ -165,7 +166,14 @@ export function createEvaluationRepository(dependencies: EvaluationRepositoryDep
         return null;
       }
 
-      return run;
+      if (!run) return null;
+
+      // 将 summary 映射为 result 属性以保持消费者接口兼容
+      // （与 findLatestCompletedRunBySchema 的映射保持一致）
+      return {
+        ...run,
+        result: run.summary
+      };
     },
 
     async markRunStarted(id: string, startedAt: Date) {

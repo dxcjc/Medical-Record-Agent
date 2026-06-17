@@ -51,7 +51,7 @@ function makeEvaluationRepoMock() {
         return {
           id: "run-1",
           status: "completed",
-          dataset: { schemaKey: "test-schema" },
+          schemaVersion: { schemaKey: "test-schema" },
           result: {
             sampleResults: [
               {
@@ -71,7 +71,7 @@ function makeEvaluationRepoMock() {
     }),
     findLatestCompletedRunBySchema: vi.fn(async (schemaKey: string) => ({
       id: "run-1",
-      dataset: { schemaKey },
+      schemaVersion: { schemaKey },
       result: {
         sampleResults: [
           {
@@ -120,7 +120,7 @@ describe("rule-candidate.service", () => {
     evaluationRepo.findRunById.mockResolvedValueOnce({
       id: "run-2",
       status: "completed",
-      dataset: { schemaKey: "test-schema" },
+      schemaVersion: { schemaKey: "test-schema" },
       result: {
         sampleResults: [
           {

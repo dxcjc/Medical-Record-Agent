@@ -370,6 +370,7 @@ describe("domain repositories", () => {
       where: { id: "run-001" },
       include: {
         dataset: true,
+        schemaVersion: true,
         metrics: {
           orderBy: {
             name: "asc"
