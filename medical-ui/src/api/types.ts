@@ -462,3 +462,46 @@ export interface TrendDataPoint {
   extracted: number;
   failed: number;
 }
+
+export type RuleCandidateStatus = "proposed" | "accepted" | "rejected" | "skipped";
+
+export interface CorrectionProposal {
+  type: "correction";
+  fieldKey: string;
+  originalValue: string;
+  correctedValue: string;
+}
+
+export interface RuleProposal {
+  type: "rule";
+  fieldKey: string;
+  condition: string;
+  expectedValue: string;
+  evidenceCount: number;
+}
+
+export type RuleCandidateProposal = CorrectionProposal | RuleProposal;
+
+export interface RuleCandidateEvidence {
+  runId: string;
+  sampleId: string;
+  fieldKey: string;
+}
+
+export interface RuleCandidate {
+  id: string;
+  schemaKey: string;
+  fieldKey: string;
+  ruleType: "correction" | "rule";
+  proposal: RuleCandidateProposal;
+  evidence: RuleCandidateEvidence[];
+  status: RuleCandidateStatus;
+  proposalHash: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface ExtractResult {
+  created: number;
+  skipped: number;
+}

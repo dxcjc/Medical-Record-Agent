@@ -1,5 +1,6 @@
 import { toast } from '../components/GlobalToast';
 import { getChineseErrorMessage } from './errorMessages';
+import type { RuleCandidate, RuleCandidateProposal, ExtractResult } from './types';
 
 const API_BASE = '/api';
 
@@ -547,4 +548,30 @@ export const writebackApi = {
       `/writeback/history${qs ? `?${qs}` : ''}`
     );
   },
+};
+
+// Rule Candidates
+export const ruleCandidateApi = {
+  listByField: (schemaKey: string, fieldKey: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    const query = params.toString();
+    return request<{ items: RuleCandidate[] }>(
+      `/schemas/${schemaKey}/fields/${fieldKey}/rule-candidates${query ? "?" + query : ""}`
+    );
+  },
+
+  review: (id: string, body: {
+    status: "accepted" | "rejected" | "skipped";
+    proposal?: RuleCandidateProposal;
+    proposalHash?: string;
+  }) => request<RuleCandidate>(`/rule-candidates/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  }),
+
+  extract: (schemaKey: string) => request<ExtractResult>(
+    `/schemas/${schemaKey}/extract-candidates`,
+    { method: "POST" }
+  )
 };
