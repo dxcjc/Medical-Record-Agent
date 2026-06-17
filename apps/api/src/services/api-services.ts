@@ -1051,6 +1051,16 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       return [];
     },
     async createRun(input: CreateEvaluationRunInput) {
+      // 后端防护：数据集无样本时拒绝创建评测运行
+      const datasetRecord = await repositories.evaluationRepository.findDatasetById(input.datasetId);
+      if (!datasetRecord) {
+        throw createApiServiceError("EVALUATION_DATASET_NOT_FOUND", 404);
+      }
+      const samples = await repositories.evaluationRepository.listSamples(input.datasetId, input.sampleLimit);
+      if (samples.length === 0) {
+        throw createApiServiceError("EVALUATION_DATASET_HAS_NO_SAMPLES", 409);
+      }
+
       // 评测 runner 需要知道本次使用的 schema 选择；schemaVersionId 会同步落到 EvaluationRun，
       // schemaKey 保留在 JSON 配置里供旧客户端和 metrics summary 展示。
       const schemaConfig = {
@@ -1075,8 +1085,6 @@ export function createApiServices(options: CreateApiServicesOptions): ApiServerS
       await repositories.evaluationRepository.markRunStarted(run.id, now());
 
       try {
-        const datasetRecord = await repositories.evaluationRepository.findDatasetById(input.datasetId);
-        const samples = await repositories.evaluationRepository.listSamples(input.datasetId, input.sampleLimit);
         const result = await options.evaluationRunner.run({
           runId: run.id,
           dataset: toEvaluationDataset(input.datasetId, datasetRecord, samples),

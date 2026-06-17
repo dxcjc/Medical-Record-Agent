@@ -1086,7 +1086,11 @@ function CreateRunModal({
         <FormItem label="数据集" field="datasetId" required rules={[{ required: true, message: '请选择数据集' }]}>
           <Select placeholder="选择评测数据集">
             {datasets.map(d => (
-              <Option key={d.id} value={d.id}>
+              <Option
+                key={d.id}
+                value={d.id}
+                disabled={!d._count?.samples}
+              >
                 {d.displayName || d.key}
                 {d._count?.samples !== undefined && (
                   <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
@@ -1419,6 +1423,7 @@ export default function EvaluationPage() {
           <Button
             type="text"
             size="small"
+            disabled={!record._count?.samples}
             onClick={() => {
               setPreselectedDatasetId(record.id);
               setShowCreateRun(true);
