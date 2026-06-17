@@ -719,6 +719,7 @@ export default function SchemaPage() {
                         <FieldCard
                           field={field}
                           stats={statsMap.get(field.key)}
+                          schemaKey={selected.schemaKey}
                           onUpdate={handleFieldUpdate}
                         />
                       </Col>

@@ -25,6 +25,7 @@ import {
   useUpdateKnowledge,
   useDeleteKnowledge,
 } from '../hooks/useKnowledge';
+import RuleCandidateList from './RuleCandidateList';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -33,10 +34,11 @@ const { TextArea } = Input;
 interface FieldCardProps {
   field: SchemaField;
   stats?: FieldStatItem;
+  schemaKey: string;
   onUpdate: (key: string, updates: Partial<SchemaField>) => void;
 }
 
-export default function FieldCard({ field, stats, onUpdate }: FieldCardProps) {
+export default function FieldCard({ field, stats, schemaKey, onUpdate }: FieldCardProps) {
   const [editing, setEditing] = useState(false);
   const [editLabel, setEditLabel] = useState(field.label || '');
   const [editType, setEditType] = useState(field.type || 'string');
@@ -416,6 +418,13 @@ export default function FieldCard({ field, stats, onUpdate }: FieldCardProps) {
               </Text>
             </div>
           )}
+        </div>
+
+        <Divider />
+
+        {/* 知识候选区域 */}
+        <div>
+          <RuleCandidateList schemaKey={schemaKey} fieldKey={field.key} />
         </div>
       </Space>
     </Card>

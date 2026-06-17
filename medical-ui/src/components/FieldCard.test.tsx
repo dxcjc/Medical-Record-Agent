@@ -12,6 +12,13 @@ vi.mock('../hooks/useKnowledge', () => ({
   useDeleteKnowledge: vi.fn().mockReturnValue({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
+// Mock rule candidate hooks
+vi.mock('../hooks/useRuleCandidates', () => ({
+  useRuleCandidates: vi.fn().mockReturnValue({ data: null, isLoading: false }),
+  useReviewCandidate: vi.fn().mockReturnValue({ mutateAsync: vi.fn(), isPending: false }),
+  useExtractCandidates: vi.fn().mockReturnValue({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 const mockField: SchemaField = {
   key: 'patientName',
   label: '患者姓名',
@@ -36,7 +43,7 @@ const mockStats = {
 describe('FieldCard', () => {
   it('should render field key and label', () => {
     renderWithProviders(
-      <FieldCard field={mockField} onUpdate={vi.fn()} />
+      <FieldCard field={mockField} schemaKey="test_schema" onUpdate={vi.fn()} />
     );
     expect(screen.getByText('patientName')).toBeInTheDocument();
     expect(screen.getByText('患者姓名')).toBeInTheDocument();
@@ -44,28 +51,28 @@ describe('FieldCard', () => {
 
   it('should render field type', () => {
     renderWithProviders(
-      <FieldCard field={mockField} onUpdate={vi.fn()} />
+      <FieldCard field={mockField} schemaKey="test_schema" onUpdate={vi.fn()} />
     );
     expect(screen.getByText('string')).toBeInTheDocument();
   });
 
   it('should render LIMS target path', () => {
     renderWithProviders(
-      <FieldCard field={mockField} onUpdate={vi.fn()} />
+      <FieldCard field={mockField} schemaKey="test_schema" onUpdate={vi.fn()} />
     );
     expect(screen.getByText('patient.name')).toBeInTheDocument();
   });
 
   it('should render stats when provided', () => {
     renderWithProviders(
-      <FieldCard field={mockField} stats={mockStats} onUpdate={vi.fn()} />
+      <FieldCard field={mockField} stats={mockStats} schemaKey="test_schema" onUpdate={vi.fn()} />
     );
     expect(screen.getByText('120')).toBeInTheDocument();
   });
 
   it('should render without stats', () => {
     const { container } = renderWithProviders(
-      <FieldCard field={mockField} onUpdate={vi.fn()} />
+      <FieldCard field={mockField} schemaKey="test_schema" onUpdate={vi.fn()} />
     );
     expect(container).toBeTruthy();
   });
