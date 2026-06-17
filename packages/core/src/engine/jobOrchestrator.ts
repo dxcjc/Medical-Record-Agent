@@ -10,6 +10,8 @@ import type {
 import type { KnowledgeRetriever } from "../rag/inMemoryKnowledgeRetriever";
 import type { CoreSchemaDraft } from "../schemas/schemaValidator";
 import type { AutoDecisionPolicyResult } from "./autoDecisionPolicy";
+import type { MultiRoundExtractionConfig } from "./extractionCore";
+import type { VisualReviewConfig } from "../agents/visualReviewAgent";
 import { createLangGraphRecognitionWorkflow } from "./langgraphRecognitionWorkflow";
 import type { ValidationEngineResult } from "./validationEngine";
 
@@ -59,6 +61,7 @@ export interface RecognitionTraceEvent {
     | "ocr"
     | "rag"
     | "extraction"
+    | "visualReview"
     | "validation"
     | "autoDecision"
     | "writeback"
@@ -112,6 +115,8 @@ export interface JobOrchestratorConfig {
   autoWritebackEnabled: boolean;
   schemaActive?: boolean;
   writebackExecutor?: WritebackExecutor;
+  multiRound?: MultiRoundExtractionConfig;
+  visualReview?: VisualReviewConfig;
 }
 
 export interface JobOrchestrator {

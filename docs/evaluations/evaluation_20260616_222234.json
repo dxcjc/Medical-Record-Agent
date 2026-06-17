@@ -1,0 +1,208 @@
+{
+  "reportMeta": {
+    "generatedAt": "2026-06-16T14:22:34.143930+00:00",
+    "durationSeconds": 0.1,
+    "apiBase": "http://127.0.0.1:3000",
+    "schemaKey": "medical-record-core",
+    "filter": {
+      "category": "癌种识别",
+      "priority": null
+    }
+  },
+  "overall": {
+    "totalSamples": 10,
+    "completedSamples": 0,
+    "failedSamples": 10,
+    "fieldMetrics": {
+      "totalFields": 0,
+      "matchedFields": 0,
+      "missingFields": 0,
+      "spuriousFields": 0,
+      "recall": "N/A",
+      "precision": "N/A",
+      "f1": "N/A"
+    },
+    "sampleMetrics": {
+      "perfectSamples": 0,
+      "perfectRate": "N/A"
+    }
+  },
+  "byCategory": {
+    "癌种识别": {
+      "totalSamples": 10,
+      "completedSamples": 0,
+      "failedSamples": 10,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    }
+  },
+  "byField": {},
+  "failures": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}"
+    }
+  ],
+  "samples": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": null,
+      "status": null,
+      "error": "HTTP 401 http://127.0.0.1:3000/files: {\"error\":\"UNAUTHORIZED\"}",
+      "latencyMs": 0.0,
+      "fields": []
+    }
+  ],
+  "recommendations": [
+    "各项指标表现良好，建议持续回归监控。"
+  ]
+}

@@ -237,3 +237,20 @@ export type ModelProviderFactoryConfig =
       kind: "openai-responses";
       openAiResponses: OpenAiResponsesProviderConfig;
     };
+
+// ── Visual Review Types ──
+
+export interface VisualFieldAssessment {
+  fieldKey: string;
+  existsInImage: boolean;
+  visualValue: string | null;
+  confidence: number;
+  location: string;
+}
+
+export interface VisualReviewResult {
+  providerName: string;
+  fieldAssessments: VisualFieldAssessment[];
+  overallQuality: "high" | "medium" | "low";
+  imageDescription: string;
+}

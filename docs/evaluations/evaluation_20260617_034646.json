@@ -1,9 +1,9 @@
 {
   "reportMeta": {
-    "generatedAt": "2026-06-17T02:16:43.127125+00:00",
-    "durationSeconds": 1682.6,
+    "generatedAt": "2026-06-16T19:46:46.710679+00:00",
+    "durationSeconds": 1682.7,
     "apiBase": "http://127.0.0.1:3000",
-    "schemaKey": "medical-record-core",
+    "schemaKey": "general-medical-record",
     "filter": {
       "category": "癌种识别",
       "priority": null
@@ -15,16 +15,16 @@
     "failedSamples": 0,
     "fieldMetrics": {
       "totalFields": 50,
-      "matchedFields": 32,
-      "missingFields": 14,
-      "spuriousFields": 0,
-      "recall": "64.0%",
-      "precision": "100.0%",
-      "f1": "78.0%"
+      "matchedFields": 18,
+      "missingFields": 10,
+      "spuriousFields": 16,
+      "recall": "52.9%",
+      "precision": "52.9%",
+      "f1": "52.9%"
     },
     "sampleMetrics": {
-      "perfectSamples": 2,
-      "perfectRate": "20.0%"
+      "perfectSamples": 0,
+      "perfectRate": "0.0%"
     }
   },
   "byCategory": {
@@ -34,16 +34,16 @@
       "failedSamples": 0,
       "fieldMetrics": {
         "totalFields": 50,
-        "matchedFields": 32,
-        "missingFields": 14,
-        "spuriousFields": 0,
-        "recall": "64.0%",
-        "precision": "100.0%",
-        "f1": "78.0%"
+        "matchedFields": 18,
+        "missingFields": 10,
+        "spuriousFields": 16,
+        "recall": "52.9%",
+        "precision": "52.9%",
+        "f1": "52.9%"
       },
       "sampleMetrics": {
-        "perfectSamples": 2,
-        "perfectRate": "20.0%"
+        "perfectSamples": 0,
+        "perfectRate": "0.0%"
       }
     }
   },
@@ -61,10 +61,10 @@
       "fieldKey": "tumorType",
       "priority": "required",
       "total": 10,
-      "matched": 6,
+      "matched": 4,
       "missing": 0,
       "spurious": 0,
-      "accuracy": "60.0%"
+      "accuracy": "40.0%"
     },
     "hospitalName": {
       "fieldKey": "hospitalName",
@@ -79,19 +79,19 @@
       "fieldKey": "patientGender",
       "priority": "strong",
       "total": 10,
-      "matched": 6,
-      "missing": 4,
-      "spurious": 0,
-      "accuracy": "60.0%"
+      "matched": 4,
+      "missing": 0,
+      "spurious": 6,
+      "accuracy": "40.0%"
     },
     "pathologicalDiagnosis": {
       "fieldKey": "pathologicalDiagnosis",
       "priority": "strong",
       "total": 10,
-      "matched": 10,
+      "matched": 0,
       "missing": 0,
-      "spurious": 0,
-      "accuracy": "100.0%"
+      "spurious": 10,
+      "accuracy": "0.0%"
     }
   },
   "failures": [
@@ -99,7 +99,7 @@
       "tcId": "TC001",
       "category": "癌种识别",
       "testFocus": "膀胱癌识别",
-      "jobId": "cmqhewslq013bwmcsegsux644",
+      "jobId": "cmqh0zbsk0005wmrx53c410ro",
       "wrongFields": [
         {
           "field_key": "patientName",
@@ -108,6 +108,15 @@
           "actual": null,
           "matched": false,
           "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "膀胱癌",
+          "actual": "膀胱高级别尿路上皮癌伴局部鳞状分化、前列腺腺癌",
+          "matched": false,
+          "is_missing": false,
           "is_spurious": false
         },
         {
@@ -120,13 +129,13 @@
           "is_spurious": false
         },
         {
-          "field_key": "patientGender",
+          "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": null,
+          "expected": null,
+          "actual": "1.（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；2.前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；3.精囊腺、双侧输精管及输尿管未见肿瘤细胞。",
           "matched": false,
-          "is_missing": true,
-          "is_spurious": false
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     },
@@ -134,16 +143,34 @@
       "tcId": "TC002",
       "category": "癌种识别",
       "testFocus": "肛缘肠癌识别",
-      "jobId": "cmqhf0do2013lwmcs6d7rranq",
+      "jobId": "cmqh12wwj000fwmrxx9bq6tac",
       "wrongFields": [
         {
           "field_key": "tumorType",
           "priority": "required",
           "expected": "肛缘肠癌",
-          "actual": "直肠癌",
+          "actual": "中分化腺癌",
           "matched": false,
           "is_missing": false,
           "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "female",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "(距肛缘15cm处)中分化腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     },
@@ -151,7 +178,7 @@
       "tcId": "TC003",
       "category": "癌种识别",
       "testFocus": "横纹肌肉瘤识别",
-      "jobId": "cmqhf46gc013vwmcs165rpdju",
+      "jobId": "cmqh15fd1000pwmrxn4p2ices",
       "wrongFields": [
         {
           "field_key": "patientName",
@@ -161,6 +188,24 @@
           "matched": false,
           "is_missing": true,
           "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "male",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左侧上颌骨肿物切检）梭形细胞肿瘤，符合横纹肌肉瘤（考虑梭形细胞/硬化型亚型）",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     },
@@ -168,16 +213,86 @@
       "tcId": "TC004",
       "category": "癌种识别",
       "testFocus": "非霍奇金淋巴瘤识别",
-      "jobId": "cmqhf8md60145wmcsevrxjloa",
+      "jobId": "cmqh19vaf000zwmrxavhcv56z",
+      "wrongFields": [
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "female",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左颈部肿物穿刺）：非霍奇金淋巴瘤，侵袭性B细胞淋巴瘤，符合弥漫性大B细胞淋巴瘤（非特指型），非生发中心B细胞起源（Ilans模型），肿瘤细胞高表达Bcl-2、C-myc，建议进一步行FISH-MYC、BCL2检测除外高级别B细胞淋巴瘤等。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "testFocus": "肾癌识别",
+      "jobId": "cmqh1e3hp0019wmrxuf2j17oh",
       "wrongFields": [
         {
           "field_key": "tumorType",
           "priority": "required",
-          "expected": "非霍奇金淋巴瘤",
-          "actual": "弥漫性大B细胞淋巴瘤（非特指型）",
+          "expected": "肾癌",
+          "actual": "FH缺陷型肾细胞癌",
           "matched": false,
           "is_missing": false,
           "is_spurious": false
+        },
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "female",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（右肾）恶性肿瘤，肿瘤细胞以实性巢团状生长方式为主，胞浆丰富，嗜酸性，可见包涵体样嗜酸性核仁及核周空晕，结合免疫组化染色结果，病理诊断符合FH缺陷型肾细胞癌，肿瘤体积7.5cm×7.5cm×6.5cm，肿瘤灶性侵犯肾被膜，镜下未见侵肾周脂肪组织，输尿管断端镜下未见肿瘤累及。余肾实质萎缩。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "testFocus": "胶质瘤识别",
+      "jobId": "cmqh1i3z0001jwmrx6bzwhbro",
+      "wrongFields": [
+        {
+          "field_key": "patientGender",
+          "priority": "strong",
+          "expected": null,
+          "actual": "female",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（左侧丘脑占位）弥漫性胶质瘤，组织学至少WHO 3级，需免疫组化及分子检测进一步整合分型分级",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     },
@@ -185,39 +300,13 @@
       "tcId": "TC007",
       "category": "癌种识别",
       "testFocus": "食管癌识别",
-      "jobId": "cmqhfk0pv014zwmcs0ef6brvg",
+      "jobId": "cmqh1kmg3001twmrxqz6ia7in",
       "wrongFields": [
-        {
-          "field_key": "hospitalName",
-          "priority": "required",
-          "expected": "__ANY__",
-          "actual": null,
-          "matched": false,
-          "is_missing": true,
-          "is_spurious": false
-        }
-      ]
-    },
-    {
-      "tcId": "TC008",
-      "category": "癌种识别",
-      "testFocus": "胃肠道间质瘤（GIST）识别",
-      "jobId": "cmqhfmqw30159wmcspxj4oebl",
-      "wrongFields": [
-        {
-          "field_key": "patientName",
-          "priority": "required",
-          "expected": "__ANY__",
-          "actual": null,
-          "matched": false,
-          "is_missing": true,
-          "is_spurious": false
-        },
         {
           "field_key": "tumorType",
           "priority": "required",
-          "expected": "胃肠道间质瘤",
-          "actual": "胃肠间质瘤",
+          "expected": "食管癌",
+          "actual": "食管鳞状细胞癌（分化较差）",
           "matched": false,
           "is_missing": false,
           "is_spurious": false
@@ -234,19 +323,28 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": null,
+          "expected": null,
+          "actual": "male",
           "matched": false,
-          "is_missing": true,
-          "is_spurious": false
+          "is_missing": false,
+          "is_spurious": true
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "1.（食管26-28cm）鳞状细胞癌，分化较差；2.（食管35cm6点位）表浅乳头状增生鳞状上皮，多灶基底细胞增生，小灶低级别上皮内瘤变（轻度异型增生）；3.（食管30cm5点位）少许表浅乳头状增生鳞状上皮，多灶基底细胞增生；4.（胃窦、胃角）胃黏膜急性及慢性炎，胃角黏膜固有层小灶淋巴细胞浸润伴挤压",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     },
     {
-      "tcId": "TC009",
+      "tcId": "TC008",
       "category": "癌种识别",
-      "testFocus": "胰腺癌识别",
-      "jobId": "cmqhfp9d7015jwmcst3b8d2rz",
+      "testFocus": "胃肠道间质瘤（GIST）识别",
+      "jobId": "cmqh1ns200023wmrxwo44l0aj",
       "wrongFields": [
         {
           "field_key": "patientName",
@@ -267,13 +365,57 @@
           "is_spurious": false
         },
         {
-          "field_key": "patientGender",
+          "field_key": "pathologicalDiagnosis",
           "priority": "strong",
+          "expected": null,
+          "actual": "（1.荷瘤空肠+侵犯结肠）胃肠道间质瘤伴局灶坏死、囊性变，肿瘤大小16cm×11cm×4.0cm；肿瘤侵及空肠浆膜层至固有肌层，侵及左半结肠浆膜层至固有肌层；可见局灶坏死及破裂；切缘远端、近端未见肿瘤；未见确切脉管侵犯及神经侵犯",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
+        }
+      ]
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "testFocus": "胰腺癌识别",
+      "jobId": "cmqh1r5du002dwmrxcnjr3v09",
+      "wrongFields": [
+        {
+          "field_key": "patientName",
+          "priority": "required",
           "expected": "__ANY__",
           "actual": null,
           "matched": false,
           "is_missing": true,
           "is_spurious": false
+        },
+        {
+          "field_key": "tumorType",
+          "priority": "required",
+          "expected": "胰腺癌",
+          "actual": "胰腺中分化导管腺癌",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": false
+        },
+        {
+          "field_key": "hospitalName",
+          "priority": "required",
+          "expected": "__ANY__",
+          "actual": null,
+          "matched": false,
+          "is_missing": true,
+          "is_spurious": false
+        },
+        {
+          "field_key": "pathologicalDiagnosis",
+          "priority": "strong",
+          "expected": null,
+          "actual": "（胰体尾）中分化导管腺癌，肿瘤最大径1.8cm，符合新辅助化疗后肿瘤少部分退缩，肿瘤退缩率约20%(TRG：CAP3级，MDA2级)；慢性胰腺炎伴假性囊肿形成。",
+          "matched": false,
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     },
@@ -281,7 +423,7 @@
       "tcId": "TC010",
       "category": "癌种识别",
       "testFocus": "胃腺癌识别",
-      "jobId": "cmqhft24j015twmcstjw2g9s6",
+      "jobId": "cmqh1uy6h002nwmrxmzhgpdf6",
       "wrongFields": [
         {
           "field_key": "patientName",
@@ -296,7 +438,7 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "胃腺癌",
-          "actual": "胃癌",
+          "actual": "（胃小弯）中-低分化腺癌",
           "matched": false,
           "is_missing": false,
           "is_spurious": false
@@ -311,13 +453,13 @@
           "is_spurious": false
         },
         {
-          "field_key": "patientGender",
+          "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": null,
+          "expected": null,
+          "actual": "【胃+上切缘+第8组淋巴结切除术标本】1. 肿瘤组织学亚型：（胃小弯）中-低分化腺癌；2. 镜下肿瘤浸润深度：浆膜下层；3. 切缘情况：食管切缘、胃切缘及另送（上切缘）未见癌组织；4. 脉管侵犯情况：查见脉管侵犯；5. 神经侵犯情况：查见神经侵犯；6. 淋巴结转移情况：小弯侧淋巴结（5/21）查见转移癌，（第8组）淋巴结（0/4）未见癌组织；7. 其他病理学改变：大网膜未见癌组织；8. 病理分期：AJCC（2017第8版）pT3N2Mx",
           "matched": false,
-          "is_missing": true,
-          "is_spurious": false
+          "is_missing": false,
+          "is_spurious": true
         }
       ]
     }
@@ -327,10 +469,10 @@
       "tcId": "TC001",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhewslq013bwmcsegsux644",
+      "jobId": "cmqh0zbsk0005wmrx53c410ro",
       "status": "needs_review",
       "error": null,
-      "latencyMs": 167241.0,
+      "latencyMs": 167296.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -345,8 +487,8 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "膀胱癌",
-          "actual": "膀胱癌,前列腺癌",
-          "matched": true,
+          "actual": "膀胱高级别尿路上皮癌伴局部鳞状分化、前列腺腺癌",
+          "matched": false,
           "is_missing": false,
           "is_spurious": false
         },
@@ -362,20 +504,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
+          "expected": null,
           "actual": null,
-          "matched": false,
-          "is_missing": true,
+          "matched": true,
+          "is_missing": false,
           "is_spurious": false
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；精囊腺、双侧输精管及输尿管未见肿瘤细胞。",
-          "matched": true,
+          "expected": null,
+          "actual": "1.（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；2.前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；3.精囊腺、双侧输精管及输尿管未见肿瘤细胞。",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -383,10 +525,10 @@
       "tcId": "TC002",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhf0do2013lwmcs6d7rranq",
+      "jobId": "cmqh12wwj000fwmrxx9bq6tac",
       "status": "partial_completed",
       "error": null,
-      "latencyMs": 177228.0,
+      "latencyMs": 117206.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -401,7 +543,7 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "肛缘肠癌",
-          "actual": "直肠癌",
+          "actual": "中分化腺癌",
           "matched": false,
           "is_missing": false,
           "is_spurious": false
@@ -410,7 +552,7 @@
           "field_key": "hospitalName",
           "priority": "required",
           "expected": "__ANY__",
-          "actual": "南京市江宁医院（南京医科大学附属江宁医院）",
+          "actual": "南京市江宁医院、南京医科大学附属江宁医院",
           "matched": true,
           "is_missing": false,
           "is_spurious": false
@@ -418,20 +560,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "女",
-          "matched": true,
+          "expected": null,
+          "actual": "female",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "（距肛缘15cm处）中分化腺癌",
-          "matched": true,
+          "expected": null,
+          "actual": "(距肛缘15cm处)中分化腺癌",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -439,10 +581,10 @@
       "tcId": "TC003",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhf46gc013vwmcs165rpdju",
+      "jobId": "cmqh15fd1000pwmrxn4p2ices",
       "status": "needs_review",
       "error": null,
-      "latencyMs": 207220.0,
+      "latencyMs": 207222.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -457,7 +599,7 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "横纹肌肉瘤",
-          "actual": "横纹肌肉瘤",
+          "actual": "横纹肌肉瘤（梭形细胞/硬化型亚型）",
           "matched": true,
           "is_missing": false,
           "is_spurious": false
@@ -474,20 +616,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "男",
-          "matched": true,
+          "expected": null,
+          "actual": "male",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "（左侧上颌骨肿物）切检：梭形细胞肿瘤，符合横纹肌肉瘤（考虑梭形细胞/硬化型亚型）",
-          "matched": true,
+          "expected": null,
+          "actual": "（左侧上颌骨肿物切检）梭形细胞肿瘤，符合横纹肌肉瘤（考虑梭形细胞/硬化型亚型）",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -495,10 +637,10 @@
       "tcId": "TC004",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhf8md60145wmcsevrxjloa",
+      "jobId": "cmqh19vaf000zwmrxavhcv56z",
       "status": "partial_completed",
       "error": null,
-      "latencyMs": 187228.0,
+      "latencyMs": 197219.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -513,8 +655,8 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "非霍奇金淋巴瘤",
-          "actual": "弥漫性大B细胞淋巴瘤（非特指型）",
-          "matched": false,
+          "actual": "非霍奇金淋巴瘤，侵袭性B细胞淋巴瘤，符合弥漫性大B细胞淋巴瘤（非特指型）",
+          "matched": true,
           "is_missing": false,
           "is_spurious": false
         },
@@ -522,7 +664,7 @@
           "field_key": "hospitalName",
           "priority": "required",
           "expected": "__ANY__",
-          "actual": "吉林省肿瘤医院(高新院区)（吉林省第二人民医院）",
+          "actual": "吉林省肿瘤医院(高新院区)、吉林省第二人民医院",
           "matched": true,
           "is_missing": false,
           "is_spurious": false
@@ -530,20 +672,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "女",
-          "matched": true,
+          "expected": null,
+          "actual": "female",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "（左颈部肿物穿刺）：非霍奇金淋巴瘤，侵袭性B细胞淋巴瘤，符合弥漫性大B细胞淋巴瘤（非特指型），非生发中心B细胞起源（Hans模型），肿瘤细胞高表达Bcl-2、C-myc，建议进一步行FISH-MYC、BCL2检测除外高级别B细胞淋巴瘤等。",
-          "matched": true,
+          "expected": null,
+          "actual": "（左颈部肿物穿刺）：非霍奇金淋巴瘤，侵袭性B细胞淋巴瘤，符合弥漫性大B细胞淋巴瘤（非特指型），非生发中心B细胞起源（Ilans模型），肿瘤细胞高表达Bcl-2、C-myc，建议进一步行FISH-MYC、BCL2检测除外高级别B细胞淋巴瘤等。",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -551,10 +693,10 @@
       "tcId": "TC005",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhfcmvd014fwmcs2icek7u2",
+      "jobId": "cmqh1e3hp0019wmrxuf2j17oh",
       "status": "partial_completed",
       "error": null,
-      "latencyMs": 197236.0,
+      "latencyMs": 187218.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -569,8 +711,8 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "肾癌",
-          "actual": "肾癌",
-          "matched": true,
+          "actual": "FH缺陷型肾细胞癌",
+          "matched": false,
           "is_missing": false,
           "is_spurious": false
         },
@@ -586,20 +728,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "女",
-          "matched": true,
+          "expected": null,
+          "actual": "female",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
+          "expected": null,
           "actual": "（右肾）恶性肿瘤，肿瘤细胞以实性巢团状生长方式为主，胞浆丰富，嗜酸性，可见包涵体样嗜酸性核仁及核周空晕，结合免疫组化染色结果，病理诊断符合FH缺陷型肾细胞癌，肿瘤体积7.5cm×7.5cm×6.5cm，肿瘤灶性侵犯肾被膜，镜下未见侵肾周脂肪组织，输尿管断端镜下未见肿瘤累及。余肾实质萎缩。",
-          "matched": true,
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -607,10 +749,10 @@
       "tcId": "TC006",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhfgv32014pwmcs5kq1jef6",
+      "jobId": "cmqh1i3z0001jwmrx6bzwhbro",
       "status": "partial_completed",
       "error": null,
-      "latencyMs": 147216.0,
+      "latencyMs": 117205.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -625,7 +767,7 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "胶质瘤",
-          "actual": "胶质瘤",
+          "actual": "弥漫性胶质瘤",
           "matched": true,
           "is_missing": false,
           "is_spurious": false
@@ -642,20 +784,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "女",
-          "matched": true,
+          "expected": null,
+          "actual": "female",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "（左侧丘脑占位）弥漫性胶质瘤，组织学至少WHO 3级，需免疫组化及分子检测进一步整合分型分级。",
-          "matched": true,
+          "expected": null,
+          "actual": "（左侧丘脑占位）弥漫性胶质瘤，组织学至少WHO 3级，需免疫组化及分子检测进一步整合分型分级",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -663,10 +805,10 @@
       "tcId": "TC007",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhfk0pv014zwmcs0ef6brvg",
+      "jobId": "cmqh1kmg3001twmrxqz6ia7in",
       "status": "needs_review",
       "error": null,
-      "latencyMs": 127196.0,
+      "latencyMs": 147198.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -681,8 +823,8 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "食管癌",
-          "actual": "食管癌",
-          "matched": true,
+          "actual": "食管鳞状细胞癌（分化较差）",
+          "matched": false,
           "is_missing": false,
           "is_spurious": false
         },
@@ -698,20 +840,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "男",
-          "matched": true,
+          "expected": null,
+          "actual": "male",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "1.（食管26-28cm）鳞状细胞癌，分化较差；2.（食管35cm6点位）表浅的乳头状增生的鳞状上皮，多灶鳞状上皮基底细胞增生，小灶伴低级别上皮内瘤变（轻度异型增生）；3.（食管30cm5点位）少许表浅的乳头状增生的鳞状上皮，多灶鳞状上皮基底细胞增生；4.（胃窦、胃角）胃黏膜组织呈急性及慢性炎，胃角处黏膜固有层小灶淋巴细胞浸润伴挤压",
-          "matched": true,
+          "expected": null,
+          "actual": "1.（食管26-28cm）鳞状细胞癌，分化较差；2.（食管35cm6点位）表浅乳头状增生鳞状上皮，多灶基底细胞增生，小灶低级别上皮内瘤变（轻度异型增生）；3.（食管30cm5点位）少许表浅乳头状增生鳞状上皮，多灶基底细胞增生；4.（胃窦、胃角）胃黏膜急性及慢性炎，胃角黏膜固有层小灶淋巴细胞浸润伴挤压",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -719,10 +861,10 @@
       "tcId": "TC008",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhfmqw30159wmcspxj4oebl",
+      "jobId": "cmqh1ns200023wmrxwo44l0aj",
       "status": "needs_review",
       "error": null,
-      "latencyMs": 117231.0,
+      "latencyMs": 157211.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -737,8 +879,8 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "胃肠道间质瘤",
-          "actual": "胃肠间质瘤",
-          "matched": false,
+          "actual": "胃肠道间质瘤伴局灶坏死、囊性变",
+          "matched": true,
           "is_missing": false,
           "is_spurious": false
         },
@@ -754,20 +896,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
+          "expected": null,
           "actual": null,
-          "matched": false,
-          "is_missing": true,
+          "matched": true,
+          "is_missing": false,
           "is_spurious": false
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "（1.荷瘤空肠+侵犯结肠）胃肠道间质瘤伴局灶坏死、囊性变，肿瘤大小16cm×11cm×4.0cm",
-          "matched": true,
+          "expected": null,
+          "actual": "（1.荷瘤空肠+侵犯结肠）胃肠道间质瘤伴局灶坏死、囊性变，肿瘤大小16cm×11cm×4.0cm；肿瘤侵及空肠浆膜层至固有肌层，侵及左半结肠浆膜层至固有肌层；可见局灶坏死及破裂；切缘远端、近端未见肿瘤；未见确切脉管侵犯及神经侵犯",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -775,10 +917,10 @@
       "tcId": "TC009",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhfp9d7015jwmcst3b8d2rz",
+      "jobId": "cmqh1r5du002dwmrxcnjr3v09",
       "status": "needs_review",
       "error": null,
-      "latencyMs": 177208.0,
+      "latencyMs": 177239.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -793,8 +935,8 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "胰腺癌",
-          "actual": "胰腺癌",
-          "matched": true,
+          "actual": "胰腺中分化导管腺癌",
+          "matched": false,
           "is_missing": false,
           "is_spurious": false
         },
@@ -810,20 +952,20 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
+          "expected": null,
           "actual": null,
-          "matched": false,
-          "is_missing": true,
+          "matched": true,
+          "is_missing": false,
           "is_spurious": false
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "(胰体尾)中分化导管腺癌，肿瘤最大径1.8cm，符合新辅助化疗后肿瘤少部分退缩，肿瘤退缩率约20%(TRG：CAP3级，MDA2级)；慢性胰腺炎伴假性囊肿形成。",
-          "matched": true,
+          "expected": null,
+          "actual": "（胰体尾）中分化导管腺癌，肿瘤最大径1.8cm，符合新辅助化疗后肿瘤少部分退缩，肿瘤退缩率约20%(TRG：CAP3级，MDA2级)；慢性胰腺炎伴假性囊肿形成。",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     },
@@ -831,10 +973,10 @@
       "tcId": "TC010",
       "category": "癌种识别",
       "priority": "P0",
-      "jobId": "cmqhft24j015twmcstjw2g9s6",
+      "jobId": "cmqh1uy6h002nwmrxmzhgpdf6",
       "status": "needs_review",
       "error": null,
-      "latencyMs": 177259.0,
+      "latencyMs": 207267.0,
       "fields": [
         {
           "field_key": "patientName",
@@ -849,7 +991,7 @@
           "field_key": "tumorType",
           "priority": "required",
           "expected": "胃腺癌",
-          "actual": "胃癌",
+          "actual": "（胃小弯）中-低分化腺癌",
           "matched": false,
           "is_missing": false,
           "is_spurious": false
@@ -866,28 +1008,29 @@
         {
           "field_key": "patientGender",
           "priority": "strong",
-          "expected": "__ANY__",
+          "expected": null,
           "actual": null,
-          "matched": false,
-          "is_missing": true,
+          "matched": true,
+          "is_missing": false,
           "is_spurious": false
         },
         {
           "field_key": "pathologicalDiagnosis",
           "priority": "strong",
-          "expected": "__ANY__",
-          "actual": "【胃+上切缘+第8组淋巴结切除术标本】：（胃小弯）中-低分化腺癌，肿瘤浸润至浆膜下层，食管切缘、胃切缘及另送（上切缘）未见癌组织，查见脉管侵犯、神经侵犯，小弯侧淋巴结（5/21）查见转移癌，第8组淋巴结（0/4）未见癌组织，大网膜未见癌组织",
-          "matched": true,
+          "expected": null,
+          "actual": "【胃+上切缘+第8组淋巴结切除术标本】1. 肿瘤组织学亚型：（胃小弯）中-低分化腺癌；2. 镜下肿瘤浸润深度：浆膜下层；3. 切缘情况：食管切缘、胃切缘及另送（上切缘）未见癌组织；4. 脉管侵犯情况：查见脉管侵犯；5. 神经侵犯情况：查见神经侵犯；6. 淋巴结转移情况：小弯侧淋巴结（5/21）查见转移癌，（第8组）淋巴结（0/4）未见癌组织；7. 其他病理学改变：大网膜未见癌组织；8. 病理分期：AJCC（2017第8版）pT3N2Mx",
+          "matched": false,
           "is_missing": false,
-          "is_spurious": false
+          "is_spurious": true
         }
       ]
     }
   ],
   "recommendations": [
     "字段召回率低于80%，建议检查OCR质量和Schema字段定义的提取指引。",
+    "字段精确率低于80%，存在较多误识别，建议增强Schema中的反例指导。",
     "样本完全正确率低于50%，建议针对高频错误字段进行专项优化。",
     "以下测试方向完全正确率极低（<40%），需重点关注：癌种识别",
-    "以下字段准确率低于60%：patientName(required), hospitalName(required)，建议优化提取逻辑或补充知识库。"
+    "以下字段准确率低于60%：patientName(required), tumorType(required), hospitalName(required), patientGender(strong), pathologicalDiagnosis(strong)，建议优化提取逻辑或补充知识库。"
   ]
 }

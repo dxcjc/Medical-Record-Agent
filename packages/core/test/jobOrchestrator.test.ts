@@ -72,7 +72,8 @@ function createBaseOrchestrator(options: {
     knowledgeRetriever: createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase()),
     permissions: ["writeback:execute"],
     autoWritebackEnabled: options.autoWritebackEnabled ?? false,
-    writebackExecutor: options.writebackExecutor
+    writebackExecutor: options.writebackExecutor,
+    multiRound: { enabled: false }
   });
 
   return { orchestrator, repository };
@@ -96,6 +97,7 @@ describe("job orchestrator", () => {
       "ocr",
       "rag",
       "extraction",
+      "visualReview",
       "validation",
       "autoDecision",
       "writeback",

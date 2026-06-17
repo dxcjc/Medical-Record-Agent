@@ -360,3 +360,396 @@ function parseJsonObject(text: string): unknown {
   try { return JSON.parse(text) as unknown; }
   catch { return null; }
 }
+
+// ── Multi-round extraction (P1) ──
+
+/**
+ * Multi-round extraction configuration.
+ */
+export interface MultiRoundExtractionConfig {
+  /** Enable multi-round extraction (default: true) */
+  enabled?: boolean;
+  /** Confidence threshold below which a field is considered missing (default: 0.3) */
+  confidenceThreshold?: number;
+  /** Timeout in ms for the second round extraction (default: 60000) */
+  timeoutMs?: number;
+}
+
+/**
+ * Second-round extraction result with timing metadata.
+ */
+export interface SecondRoundResult {
+  candidates: ModelFieldCandidate[];
+  missingFields: string[];
+  elapsedMs: number;
+  timedOut: boolean;
+}
+
+/**
+ * Detect fields that are missing (null/empty value) or have low confidence
+ * from the first-round extraction results.
+ *
+ * @param candidates - First-round extraction candidates
+ * @param schema - Schema defining which fields are expected
+ * @param confidenceThreshold - Fields below this threshold are considered missing (default: 0.3)
+ * @returns Array of field keys that need re-extraction
+ */
+export function detectMissingFields(
+  candidates: ModelFieldCandidate[],
+  schema: CoreSchemaDraft,
+  confidenceThreshold: number = 0.3
+): string[] {
+  // Build a map of fieldKey -> best candidate (highest confidence)
+  const candidateMap = new Map<string, ModelFieldCandidate>();
+  for (const candidate of candidates) {
+    const existing = candidateMap.get(candidate.fieldKey);
+    if (!existing || candidate.confidence > existing.confidence) {
+      candidateMap.set(candidate.fieldKey, candidate);
+    }
+  }
+
+  const missing: string[] = [];
+  for (const field of schema.fields) {
+    const candidate = candidateMap.get(field.key);
+    if (!candidate) {
+      // Field not present in extraction results at all
+      missing.push(field.key);
+    } else if (candidate.value === null || candidate.value === "" ||
+      (Array.isArray(candidate.value) && candidate.value.length === 0)) {
+      // Field present but has null/empty value
+      missing.push(field.key);
+    } else if (candidate.confidence < confidenceThreshold) {
+      // Field present with value but low confidence
+      missing.push(field.key);
+    }
+  }
+
+  return missing;
+}
+
+// ── Second-round prompt ──
+
+const SECOND_ROUND_SYSTEM_ROLE = [
+  "你是一个医学病历识别专家，正在进行第二轮定向抽取。",
+  "第一轮抽取遗漏了以下字段，请从 OCR 文本中仔细寻找这些字段的值。",
+  "",
+  "注意事项：",
+  "1. 只抽取指定的字段，不要抽取其他字段",
+  "2. 只输出 JSON，不输出解释性文字",
+  "3. 当信息确实不存在时，返回 value: null，confidence: 0",
+  "4. 不要编造缺失信息"
+].join("\n");
+
+const SECOND_ROUND_FIELD_DESCRIPTIONS: Record<string, string> = {
+  cancerType: "肿瘤类型/癌种（如：肺癌、胃癌、乳腺癌等）。从病理诊断中推断。",
+  patientGender: "患者性别（男/女）。通常在患者基本信息区域。",
+  hospitalName: "医院名称。通常在文档抬头或送检单位处。",
+  sampleType: "样本类型（组织/血液/骨髓等）。",
+  reportDate: "报告日期。格式通常为 YYYY-MM-DD 或 YYYY年MM月DD日。",
+  patientName: "患者姓名。注意与医生姓名区分。",
+  patientAge: "患者年龄。通常与姓名同行。",
+  tumorType: "肿瘤类型/癌种。标准化名称，如：肺癌、胃癌、乳腺癌等。",
+  pathologyNo: "病理号/病理编号。",
+  pathologicalDiagnosis: "病理诊断。病理医师给出的诊断结论。",
+  clinicalDiagnosis: "临床诊断。",
+  smokingHistory: "吸烟史。",
+  specimenType: "标本类型/样本类型。",
+};
+
+/**
+ * Build a targeted second-round prompt for extracting only the missing fields.
+ *
+ * @param ocrText - The original OCR text
+ * @param missingFields - Field keys that need re-extraction
+ * @param schema - Schema for field definitions
+ * @returns Prompt string for the second-round LLM call
+ */
+export function buildSecondRoundPrompt(
+  ocrText: string,
+  missingFields: string[],
+  schema: CoreSchemaDraft
+): string {
+  const fieldList = missingFields.map(fieldKey => {
+    const schemaField = schema.fields.find(f => f.key === fieldKey);
+    const label = schemaField?.label ?? fieldKey;
+    const desc = SECOND_ROUND_FIELD_DESCRIPTIONS[fieldKey]
+      ?? `请从 OCR 文本中查找 ${label} 的值。`;
+    const enumHint = schemaField?.enumMap
+      ? `；枚举值：${Object.entries(schemaField.enumMap).map(([k, v]) => `${k}=${v}`).join("，")}`
+      : "";
+    return `- ${fieldKey}（${label}）：${desc}${enumHint}`;
+  }).join("\n");
+
+  const outputFieldsJson = missingFields.map(f => `  "${f}": "..."`).join(",\n");
+
+  return [
+    SECOND_ROUND_SYSTEM_ROLE,
+    "",
+    "## 需要提取的字段",
+    fieldList,
+    "",
+    "## OCR 文本",
+    ocrText,
+    "",
+    "## 输出格式",
+    "请以 JSON 格式返回结果，只包含上述字段。如果无法识别某个字段，返回空字符串。",
+    "",
+    "示例：",
+    `{`,
+    outputFieldsJson,
+    `}`,
+    "",
+    "注意：",
+    "1. 只返回 JSON，不要有其他内容",
+    "2. 字段值尽量简洁，不要包含多余信息",
+    "3. 如果无法识别，返回空字符串"
+  ].join("\n");
+}
+
+/**
+ * Parse a simplified second-round JSON response into ModelFieldCandidate array.
+ * The second round returns a flat JSON object (not the { fields: [...] } format),
+ * so this parser converts it to the standard candidate format.
+ */
+export function parseSecondRoundOutput(
+  output: unknown,
+  schema: CoreSchemaDraft,
+  missingFields: string[]
+): ModelFieldCandidate[] | null {
+  const root = typeof output === "string" ? parseJsonObject(output) : output;
+  if (!isRecord(root)) return null;
+
+  const candidates: ModelFieldCandidate[] = [];
+  for (const fieldKey of missingFields) {
+    const rawValue = root[fieldKey];
+    if (rawValue === undefined) continue;
+
+    const schemaField = schema.fields.find(f => f.key === fieldKey);
+    if (!schemaField) continue;
+
+    // Normalize value: empty string → null
+    let value: ModelFieldCandidate["value"] = null;
+    let rawValueStr = "";
+    let confidence = 0;
+
+    if (typeof rawValue === "string" && rawValue.trim().length > 0) {
+      rawValueStr = rawValue.trim();
+      value = rawValueStr;
+      // Assign a reasonable confidence for second-round results
+      confidence = 0.75;
+    } else if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      rawValueStr = String(rawValue);
+      value = rawValue;
+      confidence = 0.75;
+    } else if (Array.isArray(rawValue) && rawValue.every(v => typeof v === "string")) {
+      rawValueStr = rawValue.join(", ");
+      value = rawValue as string[];
+      confidence = 0.75;
+    }
+
+    if (value !== null) {
+      candidates.push({
+        fieldKey,
+        value,
+        rawValue: rawValueStr,
+        confidence,
+        evidence: [{
+          snippet: rawValueStr,
+          startOffset: 0,
+          endOffset: rawValueStr.length
+        }]
+      });
+    }
+  }
+
+  return candidates.length > 0 ? candidates : null;
+}
+
+/**
+ * Merge two rounds of extraction results.
+ * Strategy:
+ * 1. If only one round has a value for a field, use that value
+ * 2. If both rounds have values, use the one with higher confidence
+ * 3. If confidence is equal, prefer the first round (conservative)
+ *
+ * @param firstRound - Candidates from the first round
+ * @param secondRound - Candidates from the second round
+ * @returns Merged candidates array
+ */
+export function mergeExtractionResults(
+  firstRound: ModelFieldCandidate[],
+  secondRound: ModelFieldCandidate[]
+): ModelFieldCandidate[] {
+  // Build map of fieldKey -> best candidate per round
+  const bestByField = new Map<string, ModelFieldCandidate>();
+
+  // Process first round
+  for (const candidate of firstRound) {
+    const existing = bestByField.get(candidate.fieldKey);
+    if (!existing || candidate.confidence > existing.confidence) {
+      bestByField.set(candidate.fieldKey, candidate);
+    }
+  }
+
+  // Merge second round (override only when better)
+  for (const candidate of secondRound) {
+    if (candidate.value === null) continue;
+
+    const existing = bestByField.get(candidate.fieldKey);
+    if (!existing) {
+      // First round had no result at all → use second round
+      bestByField.set(candidate.fieldKey, candidate);
+    } else if (existing.value === null || existing.value === "" ||
+      (Array.isArray(existing.value) && existing.value.length === 0)) {
+      // First round had empty/null value → use second round
+      bestByField.set(candidate.fieldKey, candidate);
+    } else if (candidate.confidence > existing.confidence) {
+      // Second round has higher confidence → use second round
+      bestByField.set(candidate.fieldKey, candidate);
+    }
+    // Otherwise keep first round (conservative: equal confidence → first round wins)
+  }
+
+  return Array.from(bestByField.values());
+}
+
+/**
+ * Run the second round extraction with timeout protection.
+ *
+ * @param provider - Model provider for LLM calls
+ * @param schema - Schema for field definitions
+ * @param ocrText - Original OCR text
+ * @param missingFields - Fields to re-extract
+ * @param timeoutMs - Timeout in milliseconds (default: 60000)
+ * @returns SecondRoundResult with candidates and metadata, or null on failure
+ */
+export async function runSecondRoundExtraction(
+  provider: ModelProvider,
+  schema: CoreSchemaDraft,
+  ocrText: string,
+  missingFields: string[],
+  timeoutMs: number = 60000
+): Promise<SecondRoundResult> {
+  const startTime = Date.now();
+
+  try {
+    const prompt = buildSecondRoundPrompt(ocrText, missingFields, schema);
+
+    // Use Promise.race for timeout
+    const extractionPromise = provider.extractFields({
+      schema,
+      prompt,
+      ocrText
+    });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("SECOND_ROUND_TIMEOUT"));
+      }, timeoutMs);
+    });
+
+    const result = await Promise.race([extractionPromise, timeoutPromise]);
+    const elapsedMs = Date.now() - startTime;
+
+    console.log("[multiRound] 第二轮抽取完成", {
+      elapsedMs,
+      missingFields,
+      candidateCount: result.candidates.length
+    });
+
+    return {
+      candidates: result.candidates,
+      missingFields,
+      elapsedMs,
+      timedOut: false
+    };
+  } catch (error) {
+    const elapsedMs = Date.now() - startTime;
+    const isTimeout = error instanceof Error && error.message === "SECOND_ROUND_TIMEOUT";
+
+    console.warn("[multiRound] 第二轮抽取失败", {
+      elapsedMs,
+      timedOut: isTimeout,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      candidates: [],
+      missingFields,
+      elapsedMs,
+      timedOut: isTimeout
+    };
+  }
+}
+
+/**
+ * Main multi-round extraction orchestrator.
+ * Runs first-round extraction, detects missing fields, optionally runs
+ * second-round targeted extraction, and merges results.
+ *
+ * @param input - Extraction input with provider, schema, OCR text, etc.
+ * @param config - Multi-round extraction configuration
+ * @returns Extraction result with merged candidates from both rounds
+ */
+export async function extractWithMultiRound(
+  input: ExtractStructuredFieldsInput,
+  config: MultiRoundExtractionConfig = {}
+): Promise<ExtractStructuredFieldsResult & { secondRound?: SecondRoundResult }> {
+  const {
+    enabled = true,
+    confidenceThreshold = 0.3,
+    timeoutMs = 60000
+  } = config;
+
+  // First round: standard extraction
+  const firstResult = await extractStructuredFields(input);
+
+  if (!enabled) {
+    return firstResult;
+  }
+
+  // Detect missing fields
+  const missingFields = detectMissingFields(
+    firstResult.candidates,
+    input.schema,
+    confidenceThreshold
+  );
+
+  if (missingFields.length === 0) {
+    console.log("[multiRound] 第一轮抽取完整，无需第二轮。");
+    return firstResult;
+  }
+
+  console.log("[multiRound] 检测到缺失字段，启动第二轮抽取", {
+    missingFields,
+    totalCandidates: firstResult.candidates.length
+  });
+
+  // Second round: targeted extraction for missing fields
+  const secondResult = await runSecondRoundExtraction(
+    input.provider,
+    input.schema,
+    input.ocrText,
+    missingFields,
+    timeoutMs
+  );
+
+  // Merge results
+  const mergedCandidates = mergeExtractionResults(
+    firstResult.candidates,
+    secondResult.candidates
+  );
+
+  console.log("[multiRound] 合并完成", {
+    firstRoundCount: firstResult.candidates.length,
+    secondRoundCount: secondResult.candidates.length,
+    mergedCount: mergedCandidates.length,
+    timedOut: secondResult.timedOut
+  });
+
+  return {
+    ...firstResult,
+    candidates: mergedCandidates,
+    secondRound: secondResult
+  };
+}

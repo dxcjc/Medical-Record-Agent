@@ -4,27 +4,65 @@
   "generatedAt": "2026-06-16",
   "description": "回归评估基线数据 — 基于 docs/test-cases.json 中各测试用例的 notes 提取期望字段和期望值。null 表示该字段在该样本中不期望有值（选填字段），'__ANY__' 表示仅验证非空。",
   "fieldPriority": {
-    "patientName":           { "level": "required",  "description": "患者姓名，必填" },
-    "tumorType":             { "level": "required",  "description": "癌种/肿瘤类型，必填" },
-    "hospitalName":          { "level": "required",  "description": "医院名称，必填" },
-    "patientGender":         { "level": "strong",    "description": "性别，强期望" },
-    "sampleType":            { "level": "strong",    "description": "样本类型，强期望" },
-    "detectionItems":        { "level": "strong",    "description": "检测项目，强期望" },
-    "reportDate":            { "level": "strong",    "description": "报告日期，强期望" },
-    "treatmentHistory":      { "level": "strong",    "description": "治疗史，强期望" },
-    "pathologicalDiagnosis": { "level": "strong",    "description": "病理诊断，强期望" },
-    "clinicalStage":         { "level": "optional",  "description": "分期，选填" },
-    "geneMutations":         { "level": "optional",  "description": "基因突变，选填" },
-    "notes":                 { "level": "optional",  "description": "备注，选填" }
+    "patientName": {
+      "level": "required",
+      "description": "患者姓名，必填"
+    },
+    "tumorType": {
+      "level": "required",
+      "description": "癌种/肿瘤类型，必填"
+    },
+    "hospitalName": {
+      "level": "required",
+      "description": "医院名称，必填"
+    },
+    "patientGender": {
+      "level": "strong",
+      "description": "性别，强期望"
+    },
+    "sampleType": {
+      "level": "strong",
+      "description": "样本类型，强期望"
+    },
+    "detectionItems": {
+      "level": "strong",
+      "description": "检测项目，强期望"
+    },
+    "reportDate": {
+      "level": "strong",
+      "description": "报告日期，强期望"
+    },
+    "treatmentHistory": {
+      "level": "strong",
+      "description": "治疗史，强期望"
+    },
+    "pathologicalDiagnosis": {
+      "level": "strong",
+      "description": "病理诊断，强期望"
+    },
+    "clinicalStage": {
+      "level": "optional",
+      "description": "分期，选填"
+    },
+    "geneMutations": {
+      "level": "optional",
+      "description": "基因突变，选填"
+    },
+    "notes": {
+      "level": "optional",
+      "description": "备注，选填"
+    }
   },
   "samples": [
     {
       "tcId": "TC001",
       "category": "癌种识别",
       "expectedValues": {
-        "patientName": "__ANY__",
+        "patientName": null,
         "tumorType": "膀胱癌",
-        "hospitalName": "__ANY__"
+        "hospitalName": null,
+        "patientGender": null,
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "验证系统能否正确识别膀胱癌，tumorType 应为'膀胱癌'"
     },
@@ -34,7 +72,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "肛缘肠癌",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "注意区分肛缘和直肠"
     },
@@ -42,9 +82,11 @@
       "tcId": "TC003",
       "category": "癌种识别",
       "expectedValues": {
-        "patientName": "__ANY__",
+        "patientName": null,
         "tumorType": "横纹肌肉瘤",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "罕见肿瘤类型，非上皮来源肿瘤"
     },
@@ -54,7 +96,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "非霍奇金淋巴瘤",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "注意不要与霍奇金淋巴瘤混淆"
     },
@@ -64,7 +108,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "肾癌",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "验证系统能否正确识别肾癌"
     },
@@ -74,7 +120,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "胶质瘤",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "中枢神经系统肿瘤"
     },
@@ -84,7 +132,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "食管癌",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "验证系统能否正确识别食管癌"
     },
@@ -92,9 +142,11 @@
       "tcId": "TC008",
       "category": "癌种识别",
       "expectedValues": {
-        "patientName": "__ANY__",
+        "patientName": null,
         "tumorType": "胃肠道间质瘤",
-        "hospitalName": "__ANY__"
+        "hospitalName": null,
+        "patientGender": null,
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "注意区分GIST与胃腺癌等上皮来源肿瘤"
     },
@@ -102,9 +154,11 @@
       "tcId": "TC009",
       "category": "癌种识别",
       "expectedValues": {
-        "patientName": "__ANY__",
+        "patientName": null,
         "tumorType": "胰腺癌",
-        "hospitalName": "__ANY__"
+        "hospitalName": null,
+        "patientGender": null,
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "验证系统能否正确识别胰腺癌"
     },
@@ -112,9 +166,11 @@
       "tcId": "TC010",
       "category": "癌种识别",
       "expectedValues": {
-        "patientName": "__ANY__",
+        "patientName": null,
         "tumorType": "胃腺癌",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": null,
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "有参考图片 TC010-REF 可用于对比验证"
     },
@@ -165,7 +221,8 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "pathologicalDiagnosis": "__ANY__"
+        "pathologicalDiagnosis": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "非标准格式病理报告，验证对异形格式的鲁棒性"
     },
@@ -177,7 +234,8 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "pathologicalDiagnosis": "__ANY__",
-        "sampleType": "__ANY__"
+        "sampleType": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "不同形式的局部病理报告"
     },
@@ -228,7 +286,8 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "pathologicalDiagnosis": "__ANY__",
-        "sampleType": "__ANY__"
+        "sampleType": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "原发灶未明，tumorType 应如实反映'原发灶未明'"
     },
@@ -252,7 +311,9 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "treatmentHistory": "__ANY__"
+        "treatmentHistory": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "勾选治疗史，验证 treatmentHistory 输出具体值而非'不详'"
     },
@@ -263,7 +324,9 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "treatmentHistory": "__ANY__"
+        "treatmentHistory": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "文字中嵌入手术史信息"
     },
@@ -273,7 +336,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "手写申请单，OCR难度高，允许部分不准确"
     },
@@ -286,7 +351,8 @@
         "hospitalName": "__ANY__",
         "detectionItems": "__ANY__",
         "geneMutations": "__ANY__",
-        "pathologicalDiagnosis": "__ANY__"
+        "pathologicalDiagnosis": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "基因检测报告，验证检测项目和基因突变信息"
     },
@@ -297,7 +363,9 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "treatmentHistory": "__ANY__"
+        "treatmentHistory": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "含用药信息的乳腺癌申请单"
     },
@@ -324,7 +392,8 @@
         "treatmentHistory": "__ANY__",
         "notes": "__ANY__",
         "pathologicalDiagnosis": "__ANY__",
-        "sampleType": "__ANY__"
+        "sampleType": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "一段文字中包含转移、用药和放疗信息，metastasis→notes 中应包含转移信息"
     },
@@ -334,7 +403,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "模糊药厂申请单，允许字段不完全准确"
     },
@@ -347,7 +418,8 @@
         "hospitalName": "__ANY__",
         "patientGender": "__ANY__",
         "reportDate": "__ANY__",
-        "treatmentHistory": "__ANY__"
+        "treatmentHistory": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "清晰标准药厂申请单，应能完整提取"
     },
@@ -357,7 +429,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "倾斜药厂申请单，验证对倾斜图片的处理"
     },
@@ -368,7 +442,9 @@
         "patientName": "李月娥",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "treatmentHistory": "__ANY__"
+        "treatmentHistory": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "患者李月娥，多张用药记录，验证 treatmentHistory 合并"
     },
@@ -434,7 +510,9 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "detectionItems": "__ANY__",
-        "geneMutations": "__ANY__"
+        "geneMutations": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "基因检测报告（样本1），验证 testItems→detectionItems 和 geneMutations"
     },
@@ -446,7 +524,9 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "detectionItems": "__ANY__",
-        "geneMutations": "__ANY__"
+        "geneMutations": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "基因检测报告（样本2）"
     },
@@ -458,7 +538,9 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "detectionItems": "__ANY__",
-        "geneMutations": "__ANY__"
+        "geneMutations": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "基因检测报告（样本3）"
     },
@@ -469,7 +551,9 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "clinicalStage": "__ANY__"
+        "clinicalStage": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "标准病理学TNM分期，staging→clinicalStage"
     },
@@ -479,7 +563,9 @@
       "expectedValues": {
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
-        "hospitalName": "__ANY__"
+        "hospitalName": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "无分期信息，clinicalStage 应为空/null，不应编造"
     },
@@ -490,7 +576,9 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "clinicalStage": "__ANY__"
+        "clinicalStage": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "仅有N分期，clinicalStage 只应输出N分期，不应自行补造T/M"
     },
@@ -501,7 +589,9 @@
         "patientName": "__ANY__",
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
-        "clinicalStage": "__ANY__"
+        "clinicalStage": "__ANY__",
+        "patientGender": "__ANY__",
+        "pathologicalDiagnosis": "__ANY__"
       },
       "notes": "仅有T分期，clinicalStage 只应输出T分期，不应自行补造N/M"
     },
@@ -513,7 +603,8 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "pathologicalDiagnosis": "__ANY__",
-        "sampleType": "__ANY__"
+        "sampleType": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "多部位（结肠、直肠、小肠）病理诊断，验证不混淆部位信息"
     },
@@ -525,7 +616,8 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "pathologicalDiagnosis": "__ANY__",
-        "sampleType": "__ANY__"
+        "sampleType": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "不同部位乳腺癌，验证区分不同象限/部位"
     },
@@ -537,7 +629,8 @@
         "tumorType": "__ANY__",
         "hospitalName": "__ANY__",
         "pathologicalDiagnosis": "__ANY__",
-        "sampleType": "__ANY__"
+        "sampleType": "__ANY__",
+        "patientGender": "__ANY__"
       },
       "notes": "不同部位神经内分泌癌"
     }

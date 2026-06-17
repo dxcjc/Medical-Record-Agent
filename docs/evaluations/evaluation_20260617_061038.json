@@ -1,0 +1,208 @@
+{
+  "reportMeta": {
+    "generatedAt": "2026-06-16T22:10:38.132992+00:00",
+    "durationSeconds": 30.3,
+    "apiBase": "http://127.0.0.1:3000",
+    "schemaKey": "general-medical-record",
+    "filter": {
+      "category": "癌种识别",
+      "priority": null
+    }
+  },
+  "overall": {
+    "totalSamples": 10,
+    "completedSamples": 0,
+    "failedSamples": 10,
+    "fieldMetrics": {
+      "totalFields": 0,
+      "matchedFields": 0,
+      "missingFields": 0,
+      "spuriousFields": 0,
+      "recall": "N/A",
+      "precision": "N/A",
+      "f1": "N/A"
+    },
+    "sampleMetrics": {
+      "perfectSamples": 0,
+      "perfectRate": "N/A"
+    }
+  },
+  "byCategory": {
+    "癌种识别": {
+      "totalSamples": 10,
+      "completedSamples": 0,
+      "failedSamples": 10,
+      "fieldMetrics": {
+        "totalFields": 0,
+        "matchedFields": 0,
+        "missingFields": 0,
+        "spuriousFields": 0,
+        "recall": "N/A",
+        "precision": "N/A",
+        "f1": "N/A"
+      },
+      "sampleMetrics": {
+        "perfectSamples": 0,
+        "perfectRate": "N/A"
+      }
+    }
+  },
+  "byField": {},
+  "failures": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "error": "任务状态: failed"
+    }
+  ],
+  "samples": [
+    {
+      "tcId": "TC001",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh73qs500uvwmcsrnxnqr8f",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC002",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh73t4c00v3wmcsb70lkeda",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3008.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC003",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh73vgf00vbwmcsaiqs6kin",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC004",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh73xsf00vjwmcs6uad3v0u",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC005",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh7404j00vrwmcs3pvxlssi",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC006",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh742h800vzwmcszgkr31ky",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3006.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC007",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh744tf00w7wmcsghsdmem5",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC008",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh7475n00wfwmcsn3difd0b",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3007.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC009",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh749hm00wnwmcs6poia2ls",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3009.0,
+      "fields": []
+    },
+    {
+      "tcId": "TC010",
+      "category": "癌种识别",
+      "priority": "P0",
+      "jobId": "cmqh74bu400wvwmcscgf3497n",
+      "status": "failed",
+      "error": "任务状态: failed",
+      "latencyMs": 3012.0,
+      "fields": []
+    }
+  ],
+  "recommendations": [
+    "各项指标表现良好，建议持续回归监控。"
+  ]
+}

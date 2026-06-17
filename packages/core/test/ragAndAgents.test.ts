@@ -48,7 +48,7 @@ describe("light RAG and specialist agents", () => {
         raw: { contextCount: request.ragContext?.length ?? 0 }
       }))
     };
-    const agent = createExtractionAgent({ provider, retriever });
+    const agent = createExtractionAgent({ provider, retriever, multiRound: { enabled: false } });
 
     const result = await agent.run({
       schema: limsClinicalInfoSchema,

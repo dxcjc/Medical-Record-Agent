@@ -452,6 +452,9 @@ enum KnowledgeEntryKind {
   cancer_alias
   lims_dictionary
   field_description
+  ocr_correction
+  sample_type_mapping
+  gender_inference
 }
 
 model KnowledgeEntry {

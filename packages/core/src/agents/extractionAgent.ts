@@ -1,4 +1,10 @@
 import { extractStructuredFields } from "../engine/extractionEngine";
+import {
+  detectMissingFields,
+  runSecondRoundExtraction,
+  mergeExtractionResults,
+  type MultiRoundExtractionConfig
+} from "../engine/extractionCore";
 import type { ModelExtractionResult, ModelProvider } from "../providers/providerTypes";
 import type { KnowledgeRetrieveRequest, KnowledgeRetriever } from "../rag/inMemoryKnowledgeRetriever";
 import type { CoreSchemaDraft } from "../schemas/schemaValidator";
@@ -27,6 +33,7 @@ export interface ExtractionAgent {
 export interface CreateExtractionAgentInput {
   provider: ModelProvider;
   retriever: KnowledgeRetriever;
+  multiRound?: MultiRoundExtractionConfig;
 }
 
 function buildRetrievalQuery(input: ExtractionAgentInput): string {
@@ -57,9 +64,40 @@ export function createExtractionAgent(config: CreateExtractionAgentInput): Extra
         ...(input.imageBase64 !== undefined ? { imageBase64: input.imageBase64 } : {})
       });
 
+      let candidates = extraction.candidates;
+
+      // Multi-round extraction: detect missing fields and run second round
+      const multiRoundConfig = config.multiRound;
+      const multiRoundEnabled = multiRoundConfig?.enabled !== false;
+      if (multiRoundEnabled && candidates.length > 0) {
+        const confidenceThreshold = multiRoundConfig?.confidenceThreshold ?? 0.3;
+        const missingFields = detectMissingFields(candidates, input.schema, confidenceThreshold);
+
+        if (missingFields.length > 0) {
+          console.log("[extractionAgent] 检测到缺失字段，启动第二轮抽取", { missingFields });
+
+          const secondResult = await runSecondRoundExtraction(
+            config.provider,
+            input.schema,
+            input.ocrText,
+            missingFields,
+            multiRoundConfig?.timeoutMs ?? 60000
+          );
+
+          if (secondResult.candidates.length > 0) {
+            candidates = mergeExtractionResults(candidates, secondResult.candidates);
+            console.log("[extractionAgent] 多轮合并完成", {
+              firstRoundCount: extraction.candidates.length,
+              secondRoundCount: secondResult.candidates.length,
+              mergedCount: candidates.length
+            });
+          }
+        }
+      }
+
       const result: ExtractionAgentResult = {
         providerName: extraction.providerName,
-        candidates: extraction.candidates,
+        candidates,
         trace: {
           ragEntryIds: retrieval.entries.map((entry) => entry.id),
           ragContext: retrieval.context
