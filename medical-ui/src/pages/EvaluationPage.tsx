@@ -1036,6 +1036,31 @@ function CreateRunModal({
   const handleSubmit = async () => {
     try {
       const values = await form.validate();
+
+      // 验证数据集是否有样本
+      const selectedDataset = datasets.find(d => d.id === values.datasetId);
+      if (!selectedDataset) {
+        toast.error('数据集不存在');
+        return;
+      }
+
+      const sampleCount = selectedDataset._count?.samples || 0;
+      if (sampleCount === 0) {
+        toast.error('该数据集没有样本，无法创建评测。请先导入样本数据。');
+        return;
+      }
+
+      // 验证 Provider 是否可用
+      const selectedProvider = providers.find(p => p.key === values.providerKey);
+      if (!selectedProvider) {
+        toast.error('Provider 不存在');
+        return;
+      }
+
+      if (selectedProvider.status !== 'active') {
+        toast.warning(`Provider "${selectedProvider.displayName}" 未启用，评测可能失败`);
+      }
+
       await mutation.mutateAsync({
         datasetId: values.datasetId,
         providerKey: values.providerKey,
@@ -1061,16 +1086,36 @@ function CreateRunModal({
         <FormItem label="数据集" field="datasetId" required rules={[{ required: true, message: '请选择数据集' }]}>
           <Select placeholder="选择评测数据集">
             {datasets.map(d => (
-              <Option key={d.id} value={d.id}>{d.displayName || d.key}</Option>
+              <Option key={d.id} value={d.id}>
+                {d.displayName || d.key}
+                {d._count?.samples !== undefined && (
+                  <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                    ({d._count.samples} 个样本)
+                  </Text>
+                )}
+                {d._count?.samples === 0 && (
+                  <Tag color="red" size="small" style={{ marginLeft: 8 }}>无样本</Tag>
+                )}
+              </Option>
             ))}
           </Select>
         </FormItem>
         <FormItem label="Provider" field="providerKey" required rules={[{ required: true, message: '请选择 Provider' }]}>
           <Select placeholder="选择 Provider">
             {providers.map(p => (
-              <Option key={p.key} value={p.key}>{p.displayName || p.key}</Option>
+              <Option key={p.key} value={p.key} disabled={p.status !== 'active'}>
+                {p.displayName || p.key}
+                {p.status !== 'active' && (
+                  <Tag color="gray" size="small" style={{ marginLeft: 8 }}>已禁用</Tag>
+                )}
+              </Option>
             ))}
           </Select>
+          {providers.length === 0 && (
+            <Text type="warning" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+              没有可用的 Provider，请先在 Provider 管理页面配置
+            </Text>
+          )}
         </FormItem>
         <FormItem label="样本限制" field="sampleLimit">
           <Input placeholder="留空表示全部样本" type="number" />
@@ -1397,7 +1442,9 @@ export default function EvaluationPage() {
       title: 'Provider',
       width: 150,
       render: (_: unknown, record: EvaluationRun) => {
-        const key = record.providerKey;
+        // providerConfig 是 JSON 对象，包含 providerKey
+        const config = record.providerConfig as Record<string, unknown> | undefined;
+        const key = config?.providerKey as string | undefined;
         if (!key) return <span style={{ color: '#999' }}>未指定</span>;
         return providerNameMap[key] || key;
       },

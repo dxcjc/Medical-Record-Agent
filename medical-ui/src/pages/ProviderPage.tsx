@@ -322,8 +322,23 @@ export default function ProviderPage() {
           <Descriptions
             column={1}
             data={[
-              { label: 'Key', value: p.key },
-              ...(showEndpoint ? [{ label: 'Endpoint', value: endpoint }] : []),
+              { label: 'Key', value: <Text style={{ wordBreak: 'break-all' }}>{p.key}</Text> },
+              ...(showEndpoint ? [{
+                label: 'Endpoint',
+                value: (
+                  <Text
+                    style={{
+                      wordBreak: 'break-all',
+                      fontSize: 12,
+                      display: 'block',
+                      maxWidth: '100%',
+                    }}
+                    title={endpoint}
+                  >
+                    {endpoint}
+                  </Text>
+                )
+              }] : []),
               { label: '创建时间', value: p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN') : '-' },
               ...(usage ? [{
                 label: '使用统计',

@@ -21,6 +21,7 @@ import {
 } from '@arco-design/web-react';
 import { toast } from '../components/GlobalToast';
 import { IconLeft, IconSettings, IconPlus, IconDelete, IconUp, IconDown, IconSwap, IconClockCircle, IconUpload, IconDownload } from '@arco-design/web-react/icon';
+import { IconBeaker } from '../icons/appIcons';
 import { useSchemas, useDeactivateSchemaVersion, useActivateSchemaVersion, useRollbackSchemaVersion, useCreateSchemaDraft, usePublishSchemaDraft } from '../hooks/useSchemas';
 import { useFieldStats } from '../hooks/useFieldStats';
 import EmptyState from '../components/EmptyState';
@@ -619,6 +620,14 @@ export default function SchemaPage() {
             返回列表
           </Button>
           <Space>
+            <Button
+              size="small"
+              type="outline"
+              icon={<IconBeaker />}
+              onClick={() => { window.location.href = '/evaluation'; }}
+            >
+              评测中心
+            </Button>
             <Button
               size="small"
               type="outline"

@@ -283,7 +283,7 @@ export interface EvaluationRun {
   datasetId: string;
   schemaKey?: string;
   schemaVersionId?: string;
-  providerKey: string;
+  providerConfig?: Record<string, unknown>;
   status: 'queued' | 'running' | 'completed' | 'failed';
   sampleLimit?: number;
   createdAt: string;

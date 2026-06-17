@@ -865,6 +865,14 @@ export default function JobDetailPage() {
         )}
         <Button
           type="outline"
+          icon={<IconBeaker />}
+          onClick={() => navigate('/evaluation')}
+          style={{ marginLeft: 8 }}
+        >
+          评测中心
+        </Button>
+        <Button
+          type="outline"
           status="danger"
           icon={<IconTrash size={14} />}
           onClick={handleDelete}

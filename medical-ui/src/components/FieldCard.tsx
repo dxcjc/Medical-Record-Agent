@@ -410,7 +410,11 @@ export default function FieldCard({ field, stats, onUpdate }: FieldCardProps) {
               )}
             </div>
           ) : (
-            <Text type="secondary" style={{ fontSize: 12 }}>暂无统计数据</Text>
+            <div style={{ padding: '12px 0', textAlign: 'center', background: 'var(--color-fill-1)', borderRadius: 4 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                暂无统计数据 - 运行识别任务后将显示此字段的使用情况
+              </Text>
+            </div>
           )}
         </div>
       </Space>
