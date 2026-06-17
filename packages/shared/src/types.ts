@@ -385,20 +385,47 @@ export interface FeedbackSubmission {
   submittedAt: IsoDateTimeString;
 }
 
+/** 规则候选状态：proposed 待审核 | accepted 已接受 | rejected 已拒绝 | skipped 暂跳过 */
+export type RuleCandidateStatus = "proposed" | "accepted" | "rejected" | "skipped";
+
+/** 纠偏记录候选 proposal */
+export interface CorrectionProposal {
+  type: "correction";
+  fieldKey: string;
+  originalValue: string;
+  correctedValue: string;
+}
+
+/** 结构化规则候选 proposal */
+export interface RuleProposal {
+  type: "rule";
+  fieldKey: string;
+  condition: string;
+  expectedValue: string;
+  evidenceCount: number;
+}
+
+export type RuleCandidateProposal = CorrectionProposal | RuleProposal;
+
+/** 候选证据，可追溯到具体评测运行和样本 */
+export interface RuleCandidateEvidence {
+  runId: string;
+  sampleId: string;
+  fieldKey: string;
+}
+
 /** 规则候选来自反馈或评测失败样本，等待人工确认后才能进入生产规则。 */
 export interface RuleCandidate {
-  /** 规则候选唯一标识。 */
   id: string;
-  /** 关联字段。 */
+  schemaKey: string;
   fieldKey: string;
-  /** 规则建议说明。 */
-  suggestion: string;
-  /** 证据来源，例如反馈编号或评测运行编号。 */
-  evidenceSourceIds: readonly string[];
-  /** 当前状态。 */
-  status: "proposed" | "accepted" | "rejected";
-  /** 创建时间。 */
+  ruleType: "correction" | "rule";
+  proposal: RuleCandidateProposal;
+  evidence: readonly RuleCandidateEvidence[];
+  status: RuleCandidateStatus;
+  proposalHash: string | null;
   createdAt: IsoDateTimeString;
+  decidedAt: IsoDateTimeString | null;
 }
 
 /** LIMS 回写字段映射把识别字段转换成目标系统字段。 */

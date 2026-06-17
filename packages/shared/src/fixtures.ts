@@ -225,11 +225,23 @@ export const demoFeedbackSubmission: FeedbackSubmission = {
 
 export const demoRuleCandidate: RuleCandidate = {
   id: "demo-rule-candidate-001",
+  schemaKey: "tumor-gene-test",
   fieldKey: "sample_type",
-  suggestion: "当 OCR 块包含“样本类型：外周血”时，可提升 sample_type 候选置信度。",
-  evidenceSourceIds: [demoFeedbackSubmission.id],
+  ruleType: "rule",
+  proposal: {
+    type: "rule",
+    fieldKey: "sample_type",
+    condition: '当 OCR 块包含"样本类型：外周血"时',
+    expectedValue: "外周血",
+    evidenceCount: 3
+  },
+  evidence: [
+    { runId: "demo-eval-run-001", sampleId: "demo-eval-sample-001", fieldKey: "sample_type" }
+  ],
   status: "proposed",
-  createdAt: "2026-06-04T08:14:00.000Z"
+  proposalHash: "demo-hash-001",
+  createdAt: "2026-06-04T08:14:00.000Z",
+  decidedAt: null
 };
 
 export const demoLimsWritebackRequest: LimsWritebackRequest = {
