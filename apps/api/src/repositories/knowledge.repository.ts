@@ -30,6 +30,8 @@ export interface ListKnowledgeEntriesFilter {
   search?: string;
 }
 
+export type KnowledgeRepository = ReturnType<typeof createKnowledgeRepository>;
+
 export function createKnowledgeRepository(dependencies: KnowledgeRepositoryDependencies) {
   return {
     async list(filter: ListKnowledgeEntriesFilter = {}) {
