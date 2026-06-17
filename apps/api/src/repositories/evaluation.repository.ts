@@ -272,6 +272,38 @@ export function createEvaluationRepository(dependencies: EvaluationRepositoryDep
       ]);
 
       return { items, total, page, pageSize };
+    },
+
+    /**
+     * 查找指定 schemaKey 的最新已完成评测运行。
+     *
+     * schemaKey 存储在 SchemaVersion 上（而非 EvaluationDataset），
+     * EvaluationRun 通过 schemaVersionId 关联到 SchemaVersion。
+     * EvaluationRun 没有 `result` 字段；完整的运行结果（含 summary、
+     * sampleResults、warnings、errors）平铺存储在 `summary` JSON 字段中
+     * （见 api-services.ts 中的 toEvaluationRunSummary）。
+     * 这里将 `summary` 映射为 `result` 属性以保持消费者接口兼容。
+     */
+    async findLatestCompletedRunBySchema(schemaKey: string) {
+      const run = await dependencies.evaluationRun.findFirst({
+        where: {
+          status: "completed",
+          schemaVersion: { schemaKey }
+        },
+        include: {
+          dataset: true,
+          schemaVersion: true,
+          metrics: {
+            orderBy: { name: "asc" }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      if (!run) return null;
+      return {
+        ...run,
+        result: run.summary
+      };
     }
   };
 }
