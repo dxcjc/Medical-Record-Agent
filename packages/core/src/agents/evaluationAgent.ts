@@ -158,7 +158,7 @@ export function generateCandidates(
     if (errors.length >= 2) {
       const correctedValues = [...new Set(errors.map(e => e.correctedValue))];
       if (correctedValues.length === 1) {
-        const expectedValue = correctedValues[0];
+        const expectedValue = correctedValues[0]!;
         const originalValues = errors.map(e => e.originalValue);
         const condition = `当识别结果为 ${originalValues.join(" 或 ")} 时，应为 ${expectedValue}`;
         const proposal: RuleProposal = {

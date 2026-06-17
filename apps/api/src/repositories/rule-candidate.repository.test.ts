@@ -82,7 +82,7 @@ describe("rule-candidate.repository", () => {
     });
     const items = await repo.findByField("test-schema", "sample_type");
     expect(items).toHaveLength(1);
-    expect(items[0].fieldKey).toBe("sample_type");
+    expect(items[0]!.fieldKey).toBe("sample_type");
   });
 
   it("existsSimilar 检测重复候选", async () => {

@@ -33,15 +33,15 @@ describe("generateCandidates", () => {
     ];
     const candidates = generateCandidates(results, "test-schema");
     expect(candidates).toHaveLength(1);
-    expect(candidates[0].ruleType).toBe("correction");
-    expect(candidates[0].proposal).toEqual({
+    expect(candidates[0]!.ruleType).toBe("correction");
+    expect(candidates[0]!.proposal).toEqual({
       type: "correction",
       fieldKey: "sample_type",
       originalValue: "血清",
       correctedValue: "外周血"
     });
-    expect(candidates[0].evidence).toHaveLength(1);
-    expect(candidates[0].evidence[0].sampleId).toBe("s1");
+    expect(candidates[0]!.evidence).toHaveLength(1);
+    expect(candidates[0]!.evidence[0]!.sampleId).toBe("s1");
   });
 
   it("同字段 ≥2 条错误时额外生成规则候选", () => {
