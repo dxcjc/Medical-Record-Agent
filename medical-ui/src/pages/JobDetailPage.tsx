@@ -965,9 +965,22 @@ export default function JobDetailPage() {
             {
               label: 'Provider',
               value: (() => {
-                const providerKey = job.providerConfig?.providerKey || job.providerConfig?.ocrProviderKey || '';
-                if (!providerKey) return '未指定';
-                return providerNameMap[providerKey] || providerKey;
+                const config = job.providerConfig as Record<string, unknown> | undefined;
+                const llmKey = config?.providerKey as string | undefined;
+                const ocrKey = config?.ocrProviderKey as string | undefined;
+
+                if (!llmKey && !ocrKey) return '未指定';
+
+                // 如果同时有 LLM 和 OCR，显示两个
+                if (llmKey && ocrKey) {
+                  const llmName = providerNameMap[llmKey] || llmKey;
+                  const ocrName = providerNameMap[ocrKey] || ocrKey;
+                  return `LLM: ${llmName} / OCR: ${ocrName}`;
+                }
+
+                // 只有一个
+                const key = llmKey || ocrKey || '';
+                return providerNameMap[key] || key;
               })(),
             },
             { label: '状态', value: <StatusTag status={displayStatus} /> },

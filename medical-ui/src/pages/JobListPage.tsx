@@ -197,8 +197,34 @@ export default function JobListPage() {
       title: 'Provider',
       width: 140,
       render: (_: unknown, record: RecognitionJob & { provider?: string }) => {
-        const providerKey = record.provider || record.providerConfig?.providerKey || record.providerConfig?.ocrProviderKey || '';
-        return <span>{providerKey ? (providerNameMap[providerKey] || providerKey) : <span style={{ color: '#999' }}>未指定</span>}</span>;
+        const config = record.providerConfig as Record<string, unknown> | undefined;
+        const llmKey = config?.providerKey as string | undefined;
+        const ocrKey = config?.ocrProviderKey as string | undefined;
+
+        // 优先显示 LLM Provider，如果没有则显示 OCR Provider
+        const displayKey = record.provider || llmKey || ocrKey;
+
+        if (!displayKey) {
+          return <span style={{ color: '#999' }}>未指定</span>;
+        }
+
+        const displayName = providerNameMap[displayKey] || displayKey;
+
+        // 如果同时有 LLM 和 OCR，显示两个
+        if (llmKey && ocrKey && llmKey !== ocrKey) {
+          const llmName = providerNameMap[llmKey] || llmKey;
+          const ocrName = providerNameMap[ocrKey] || ocrKey;
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Text style={{ fontSize: 12 }} title={`LLM: ${llmName}`}>{llmName}</Text>
+              <Text type="secondary" style={{ fontSize: 11 }} title={`OCR: ${ocrName}`}>
+                OCR: {ocrName}
+              </Text>
+            </div>
+          );
+        }
+
+        return <span title={displayName}>{displayName}</span>;
       },
     },
     {

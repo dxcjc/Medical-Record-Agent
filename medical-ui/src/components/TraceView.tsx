@@ -122,13 +122,15 @@ export default function TraceView({
 
   const ocrStep = trace.find((s: TraceStep) => (s.node || s.step) === 'ocr');
   const ocrBlocks = ocr.blocks || [];
+  const config = job.providerConfig as Record<string, unknown> | undefined;
+  const ocrProviderKey = (config?.ocrProviderKey as string) || '';
   nodes.push({
     id: 'ocr',
     title: 'OCR 识别',
     icon: <IconEye size={16} style={{ color: '#3370FF' }} />,
     status: ocrStep?.status === 'completed' ? 'completed' : ocrStep?.status === 'failed' ? 'failed' : ocrStep?.status === 'running' ? 'running' : 'pending',
     details: [
-      { label: 'Provider', value: ocr.provider || job.providerConfig?.ocrProviderKey || '-' },
+      { label: 'Provider', value: ocr.provider || ocrProviderKey || '-' },
       { label: '耗时', value: ocrStep?.duration ? formatDuration(ocrStep.duration) : '-' },
       { label: '输出 blocks', value: ocrBlocks.length > 0 ? String(ocrBlocks.length) : '-' },
       ...(ocrStep?.message ? [{ label: '消息', value: String(ocrStep.message) }] : []),
@@ -165,13 +167,14 @@ export default function TraceView({
 
   const extractionStep = trace.find((s: TraceStep) => (s.node || s.step) === 'extraction');
   const tokenUsage = extraction.tokenUsage || {};
+  const llmProviderKey = (config?.providerKey as string) || '';
   nodes.push({
     id: 'extraction',
     title: 'LLM 抽取',
     icon: <IconCode size={16} style={{ color: '#3370FF' }} />,
     status: extractionStep?.status === 'completed' ? 'completed' : extractionStep?.status === 'failed' ? 'failed' : 'pending',
     details: [
-      { label: 'Provider', value: extraction.provider || job.providerConfig?.providerKey || '-' },
+      { label: 'Provider', value: extraction.provider || llmProviderKey || '-' },
       { label: '模型', value: extraction.model || '-' },
       { label: 'Token 用量', value: tokenUsage.total ? `${tokenUsage.total} (prompt: ${tokenUsage.prompt || '-'}, completion: ${tokenUsage.completion || '-'})` : '-' },
       { label: '耗时', value: extractionStep?.duration ? formatDuration(extractionStep.duration) : '-' },
