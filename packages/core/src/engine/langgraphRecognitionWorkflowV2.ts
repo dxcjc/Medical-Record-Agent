@@ -2,9 +2,11 @@ import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 
 import { createEvaluationAgent, type EvaluationAgentResult } from "../agents/evaluationAgent";
 import { createExtractionAgent, type ExtractionAgentResult } from "../agents/extractionAgent";
-import { createVisualReviewAgent, mergeVisualResults, type VisualReviewAgentResult, type VisualReviewConfig } from "../agents/visualReviewAgent";
+import { createVisualReviewAgent, type VisualReviewAgentResult, type VisualReviewConfig } from "../agents/visualReviewAgent";
 import { createWritebackAgent, type WritebackAgentResult } from "../agents/writebackAgent";
-import { ProviderError, type OcrResult } from "../providers/providerTypes";
+import { createSupervisorAgent, type SupervisorDecision } from "../agents/supervisorAgent";
+import { createConflictResolutionAgent, type ConflictResolutionResult } from "../agents/conflictResolutionAgent";
+import { ProviderError, type OcrResult, type ModelFieldCandidate } from "../providers/providerTypes";
 import { evaluateAutoDecision, type AutoDecisionPolicyResult } from "./autoDecisionPolicy";
 import { runDocumentPipeline, runMultiDocumentPipeline } from "./documentPipeline";
 import type {
@@ -18,13 +20,18 @@ import type {
   WritebackExecutionResult
 } from "./jobOrchestrator";
 import { runValidationEngine, type ValidationEngineResult } from "./validationEngine";
+import type { KnowledgeRetrievalResult } from "../rag/inMemoryKnowledgeRetriever";
 
 interface RecognitionWorkflowState extends JobOrchestratorInput {
   trace: RecognitionTraceEvent[];
+  supervisorDecision?: SupervisorDecision;
   ocr?: OcrResult;
   ocrText?: string;
+  ragResult?: KnowledgeRetrievalResult;
   extraction?: ExtractionAgentResult;
   visualReview?: VisualReviewAgentResult;
+  conflictResolution?: ConflictResolutionResult;
+  mergedCandidates?: ModelFieldCandidate[];
   validation?: ValidationEngineResult;
   autoDecision?: AutoDecisionPolicyResult;
   writeback?: WritebackAgentResult;
@@ -32,6 +39,7 @@ interface RecognitionWorkflowState extends JobOrchestratorInput {
   evaluation?: EvaluationAgentResult;
   status?: RecognitionRuntimeStatus;
   error?: JobError;
+  retryCount?: number;
 }
 
 type LangGraphRecognitionState = typeof RecognitionWorkflowAnnotation.State;
@@ -40,21 +48,31 @@ const RecognitionWorkflowAnnotation = Annotation.Root({
   jobId: Annotation<string>,
   document: Annotation<JobOrchestratorInput["document"]>,
   documents: Annotation<JobOrchestratorInput["documents"]>,
+  schemaKey: Annotation<string | undefined>,
+  providerConfig: Annotation<JobOrchestratorInput["providerConfig"]>,
   trace: Annotation<RecognitionTraceEvent[]>({
     reducer: (left, right) => left.concat(right),
     default: () => []
   }),
+  supervisorDecision: Annotation<SupervisorDecision | undefined>,
   ocr: Annotation<OcrResult | undefined>,
   ocrText: Annotation<string | undefined>,
+  ragResult: Annotation<KnowledgeRetrievalResult | undefined>,
   extraction: Annotation<ExtractionAgentResult | undefined>,
   visualReview: Annotation<VisualReviewAgentResult | undefined>,
+  conflictResolution: Annotation<ConflictResolutionResult | undefined>,
+  mergedCandidates: Annotation<ModelFieldCandidate[] | undefined>,
   validation: Annotation<ValidationEngineResult | undefined>,
   autoDecision: Annotation<AutoDecisionPolicyResult | undefined>,
   writeback: Annotation<WritebackAgentResult | undefined>,
   writebackExecution: Annotation<WritebackExecutionResult | undefined>,
   evaluation: Annotation<EvaluationAgentResult | undefined>,
   status: Annotation<RecognitionRuntimeStatus | undefined>,
-  error: Annotation<JobError | undefined>
+  error: Annotation<JobError | undefined>,
+  retryCount: Annotation<number>({
+    reducer: (left, right) => right,
+    default: () => 0
+  })
 });
 
 function trace(node: RecognitionTraceEvent["node"], status: RecognitionTraceEvent["status"], message: string) {
@@ -141,23 +159,45 @@ function resolveStatus(state: RecognitionWorkflowState): RecognitionRuntimeStatu
   return "completed";
 }
 
-export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig) {
+export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConfig) {
+  const supervisorAgent = createSupervisorAgent();
   const extractionAgent = createExtractionAgent({
     provider: config.modelProvider
   });
-  const visualReviewEnabled = config.visualReview?.enabled !== false;
-  const visualReviewAgent = visualReviewEnabled
-    ? createVisualReviewAgent({
-        provider: config.modelProvider,
-        ...(config.visualReview !== undefined ? { config: config.visualReview } : {})
-      })
-    : null;
+  const visualReviewAgent = createVisualReviewAgent({
+    provider: config.modelProvider,
+    ...(config.visualReview !== undefined ? { config: config.visualReview } : {})
+  });
+  const conflictResolutionAgent = createConflictResolutionAgent();
   const writebackAgent = createWritebackAgent();
   const evaluationAgent = createEvaluationAgent();
 
-  const preprocessNode = async () => ({
-    ...trace("preprocess", "completed", "输入文档已完成预处理。")
-  });
+  // ────────────────────────────────────────────────────────────
+  // 节点定义
+  // ────────────────────────────────────────────────────────────
+
+  const supervisorNode = async (state: RecognitionWorkflowState) => {
+    const hasImage = state.documents
+      ? state.documents.some(doc => doc.content !== undefined)
+      : state.document.content !== undefined;
+
+    const docType = state.document.documentId.includes("table") ? "table" : undefined;
+
+    const decision = supervisorAgent.decide({
+      schema: config.schema,
+      ...(docType ? { documentType: docType } : {}),
+      ...(state.ocr ? { ocrResult: state.ocr } : {}),
+      hasImage,
+      jobPriority: "normal"
+    });
+
+    console.log("[supervisor] 执行策略已决策", decision);
+
+    return {
+      ...trace("preprocess", "completed", `策略: ${decision.strategy}, ${decision.reasons.join("; ")}`),
+      supervisorDecision: decision
+    };
+  };
 
   const ocrNode = async (state: RecognitionWorkflowState) => {
     try {
@@ -192,9 +232,37 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
       return trace("rag", "skipped", "前序节点失败，跳过 RAG。");
     }
 
-    // 为保持向后兼容，旧 workflow 暂时保持 RAG 为空操作
-    // 实际检索将在 extractionNode 中内联执行
-    return trace("rag", "completed", "轻量 RAG 将在 Extraction 节点内执行。");
+    if (!state.supervisorDecision?.enableRAG) {
+      return trace("rag", "skipped", "Supervisor 决策跳过 RAG。");
+    }
+
+    if (!state.ocrText) {
+      return trace("rag", "skipped", "缺少 OCR 文本，跳过 RAG。");
+    }
+
+    try {
+      const fieldKeys = config.schema.fields.map(f => f.key);
+      const query = `OCR文本：${state.ocrText.slice(0, 500)}`;
+
+      const retrieval = await config.knowledgeRetriever.retrieve({
+        query,
+        fieldKeys,
+        limit: 5
+      });
+
+      console.log("[rag] 知识检索完成", {
+        entriesCount: retrieval.entries.length,
+        contextLength: retrieval.context.length
+      });
+
+      return {
+        ...trace("rag", "completed", `检索到 ${retrieval.entries.length} 条知识。`),
+        ragResult: retrieval
+      };
+    } catch (error) {
+      console.warn("[rag] 知识检索失败，继续执行", error);
+      return trace("rag", "completed", "知识检索失败，使用空上下文继续。");
+    }
   };
 
   const extractionNode = async (state: RecognitionWorkflowState) => {
@@ -203,25 +271,12 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     }
 
     try {
-      // 执行 RAG 检索
-      const ragContext: string[] = [];
-      try {
-        const retrieval = await config.knowledgeRetriever.retrieve({
-          query: `OCR文本：${state.ocrText.slice(0, 500)}`,
-          fieldKeys: config.schema.fields.map(f => f.key),
-          limit: 5
-        });
-        ragContext.push(...retrieval.context);
-      } catch (error) {
-        console.warn("[extraction] RAG 检索失败，使用空上下文", error);
-      }
-
-      // 启用视觉增强，用于识别勾选框和手写体
-      // 多文档模式下不传递 imageBase64，避免只传第一张图误导模型
       const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 0;
       const imageBase64 = !hasMultipleDocuments && state.document.content
         ? Buffer.from(state.document.content).toString("base64")
         : undefined;
+
+      const ragContext = state.ragResult?.context ?? [];
 
       const extraction = await extractionAgent.run({
         schema: config.schema,
@@ -229,6 +284,11 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
         targetFieldKeys: config.schema.fields.map((field) => field.key),
         ragContext,
         ...(imageBase64 !== undefined ? { imageBase64 } : {})
+      });
+
+      console.log("[extraction] 字段抽取完成", {
+        candidatesCount: extraction.candidates.length,
+        ragContextUsed: ragContext.length > 0
       });
 
       return {
@@ -245,13 +305,19 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
   };
 
   const visualReviewNode = async (state: RecognitionWorkflowState) => {
-    // Skip if visual review is disabled, no agent, no extraction result, or error
-    if (!visualReviewAgent || !state.extraction || state.error) {
-      return trace("visualReview", "skipped", "视觉评审未启用或缺少抽取结果，跳过。");
+    if (state.error) {
+      return trace("visualReview", "skipped", "前序节点失败，跳过视觉评审。");
+    }
+
+    if (!state.supervisorDecision?.enableVisualReview) {
+      return trace("visualReview", "skipped", "Supervisor 决策跳过视觉评审。");
+    }
+
+    if (!state.extraction) {
+      return trace("visualReview", "skipped", "缺少抽取结果，跳过视觉评审。");
     }
 
     try {
-      // Get image for visual review (single document only)
       const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 0;
       if (hasMultipleDocuments) {
         return trace("visualReview", "skipped", "多文档模式暂不支持视觉评审。");
@@ -278,51 +344,84 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
       console.log("[visualReview] 视觉评审完成", {
         elapsedMs,
         overallQuality: visualResult.overallQuality,
-        fieldsAssessed: visualResult.fieldAssessments.length,
-        fieldsFound: visualResult.fieldAssessments.filter(a => a.existsInImage).length
+        fieldsAssessed: visualResult.fieldAssessments.length
       });
-
-      // Merge visual results into extraction candidates
-      const mergedCandidates = mergeVisualResults(
-        state.extraction.candidates,
-        visualResult,
-        config.visualReview
-      );
-
-      // Create enhanced extraction result with merged candidates
-      const enhancedExtraction: ExtractionAgentResult = {
-        ...state.extraction,
-        candidates: mergedCandidates
-      };
 
       return {
         ...trace("visualReview", "completed", `视觉评审已完成（${elapsedMs}ms），质量: ${visualResult.overallQuality}。`),
-        extraction: enhancedExtraction,
         visualReview: visualResult
       };
     } catch (error) {
-      // Visual review failure is non-fatal - log and continue with extraction results
-      console.warn("[visualReview] 视觉评审失败，使用原始抽取结果", {
+      console.warn("[visualReview] 视觉评审失败，继续执行", {
         error: error instanceof Error ? error.message : String(error)
       });
-      return trace("visualReview", "completed", "视觉评审失败，使用原始抽取结果继续。");
+      return trace("visualReview", "completed", "视觉评审失败，继续执行。");
     }
   };
 
-  const validationNode = async (state: RecognitionWorkflowState) => {
+  const conflictResolutionNode = async (state: RecognitionWorkflowState) => {
     if (state.error || !state.extraction) {
-      return trace("validation", "skipped", "缺少抽取结果，跳过验证。");
+      return trace("autoDecision", "skipped", "缺少抽取结果，跳过冲突解决。");
     }
 
-    // Use visual-enhanced candidates if available, otherwise use extraction candidates
-    const candidates = state.extraction.candidates;
+    // 如果没有视觉评审结果，直接使用抽取结果
+    if (!state.visualReview) {
+      return {
+        ...trace("autoDecision", "completed", "无视觉评审结果，直接使用抽取结果。"),
+        mergedCandidates: state.extraction.candidates
+      };
+    }
+
+    // 将视觉评审结果转换为 candidates 格式
+    const visualCandidates: ModelFieldCandidate[] = state.visualReview.fieldAssessments
+      .filter(a => a.visualValue !== null)
+      .map(a => ({
+        fieldKey: a.fieldKey,
+        value: a.visualValue!,
+        rawValue: `[视觉] ${a.visualValue}`,
+        confidence: a.confidence,
+        evidence: [{
+          snippet: `视觉识别: ${a.location}`,
+          startOffset: 0,
+          endOffset: String(a.visualValue).length
+        }]
+      }));
+
+    const resolution = conflictResolutionAgent.run({
+      schema: config.schema,
+      extractionCandidates: state.extraction.candidates,
+      visualCandidates
+    });
+
+    return {
+      ...trace("autoDecision", "completed", resolution.hasConflicts
+        ? `检测到 ${resolution.conflicts.length} 个冲突并已解决。`
+        : "无冲突，已合并抽取和视觉结果。"),
+      conflictResolution: resolution,
+      mergedCandidates: resolution.mergedCandidates
+    };
+  };
+
+  const validationNode = async (state: RecognitionWorkflowState) => {
+    if (state.error || !state.mergedCandidates) {
+      return trace("validation", "skipped", "缺少候选结果，跳过验证。");
+    }
+
+    const validation = runValidationEngine({
+      schema: config.schema,
+      candidates: state.mergedCandidates
+    });
+
+    console.log("[validation] 验证完成", {
+      decision: validation.decision,
+      accepted: validation.acceptedFieldKeys.length,
+      review: validation.reviewFieldKeys.length,
+      missingRequired: validation.missingRequiredFieldKeys.length
+    });
 
     return {
       ...trace("validation", "completed", "字段证据和风险验证已完成。"),
-      validation: runValidationEngine({
-        schema: config.schema,
-        candidates
-      })
+      validation
     };
   };
 
@@ -337,6 +436,7 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
       permissions: config.permissions,
       candidates: state.validation.normalizedCandidates
     });
+
     const autoDecision = evaluateAutoDecision({
       validation: state.validation,
       candidates: state.validation.normalizedCandidates,
@@ -409,6 +509,33 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     };
   };
 
+  const finalizeNode = async (state: RecognitionWorkflowState) => {
+    return {
+      status: resolveStatus(state)
+    };
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // 条件边函数
+  // ────────────────────────────────────────────────────────────
+
+  function shouldRetryExtraction(state: LangGraphRecognitionState): string {
+    const retryCount = state.retryCount ?? 0;
+    const maxRetries = state.supervisorDecision?.maxRetryRounds ?? 2;
+
+    // 检查是否需要因冲突而重新抽取
+    if (state.conflictResolution?.needsReextraction && retryCount < maxRetries) {
+      return "extractionNode";
+    }
+
+    // 检查是否因缺失必填字段而重新抽取
+    if (state.validation?.missingRequiredFieldKeys.length && retryCount < maxRetries) {
+      return "extractionNode";
+    }
+
+    return "autoDecisionNode";
+  }
+
   function toJobOrchestratorResult(state: RecognitionWorkflowState): JobOrchestratorResult {
     const status = resolveStatus(state);
     const result: JobOrchestratorResult = {
@@ -439,19 +566,41 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     const normalized: RecognitionWorkflowState = {
       jobId: state.jobId,
       document: state.document,
-      trace: state.trace
+      trace: state.trace,
+      retryCount: state.retryCount
     };
+    if (state.documents !== undefined) {
+      normalized.documents = state.documents;
+    }
+    if (state.schemaKey !== undefined) {
+      normalized.schemaKey = state.schemaKey;
+    }
+    if (state.providerConfig !== undefined) {
+      normalized.providerConfig = state.providerConfig;
+    }
+    if (state.supervisorDecision !== undefined) {
+      normalized.supervisorDecision = state.supervisorDecision;
+    }
     if (state.ocr !== undefined) {
       normalized.ocr = state.ocr;
     }
     if (state.ocrText !== undefined) {
       normalized.ocrText = state.ocrText;
     }
+    if (state.ragResult !== undefined) {
+      normalized.ragResult = state.ragResult;
+    }
     if (state.extraction !== undefined) {
       normalized.extraction = state.extraction;
     }
     if (state.visualReview !== undefined) {
       normalized.visualReview = state.visualReview;
+    }
+    if (state.conflictResolution !== undefined) {
+      normalized.conflictResolution = state.conflictResolution;
+    }
+    if (state.mergedCandidates !== undefined) {
+      normalized.mergedCandidates = state.mergedCandidates;
     }
     if (state.validation !== undefined) {
       normalized.validation = state.validation;
@@ -478,35 +627,40 @@ export function createLangGraphRecognitionWorkflow(config: JobOrchestratorConfig
     return normalized;
   }
 
-  const finalizeNode = async (state: RecognitionWorkflowState) => {
-    return {
-      status: resolveStatus(state)
-    };
-  };
+  // ────────────────────────────────────────────────────────────
+  // 构建图
+  // ────────────────────────────────────────────────────────────
 
   const graph = new StateGraph(RecognitionWorkflowAnnotation)
-    .addNode("preprocessNode", preprocessNode)
+    .addNode("supervisorNode", supervisorNode)
     .addNode("ocrNode", ocrNode)
     .addNode("ragNode", ragNode)
     .addNode("extractionNode", extractionNode)
     .addNode("visualReviewNode", visualReviewNode)
+    .addNode("conflictResolutionNode", conflictResolutionNode)
     .addNode("validationNode", validationNode)
     .addNode("autoDecisionNode", autoDecisionNode)
     .addNode("writebackNode", writebackNode)
     .addNode("evaluationNode", evaluationNode)
     .addNode("finalizeNode", finalizeNode)
-    .addEdge(START, "preprocessNode")
-    .addEdge("preprocessNode", "ocrNode")
+
+    // 主流程
+    .addEdge(START, "supervisorNode")
+    .addEdge("supervisorNode", "ocrNode")
     .addEdge("ocrNode", "ragNode")
     .addEdge("ragNode", "extractionNode")
     .addEdge("extractionNode", "visualReviewNode")
-    .addEdge("visualReviewNode", "validationNode")
-    .addEdge("validationNode", "autoDecisionNode")
+    .addEdge("visualReviewNode", "conflictResolutionNode")
+    .addEdge("conflictResolutionNode", "validationNode")
+
+    // 条件边：支持重试
+    .addConditionalEdges("validationNode", shouldRetryExtraction)
+
     .addEdge("autoDecisionNode", "writebackNode")
     .addEdge("writebackNode", "evaluationNode")
     .addEdge("evaluationNode", "finalizeNode")
     .addEdge("finalizeNode", END)
-    .compile({ name: "medical-record-recognition-workflow" });
+    .compile({ name: "medical-record-recognition-workflow-v2" });
 
   const workflow: RecognitionWorkflow = {
     async invoke(input) {

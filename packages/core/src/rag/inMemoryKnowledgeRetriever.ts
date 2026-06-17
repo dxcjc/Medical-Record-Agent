@@ -6,10 +6,13 @@ export interface KnowledgeRetrieveRequest {
   limit?: number;
 }
 
-export interface KnowledgeRetrieveResult {
+export interface KnowledgeRetrievalResult {
   entries: KnowledgeEntry[];
   context: string[];
 }
+
+// 保持向后兼容
+export type KnowledgeRetrieveResult = KnowledgeRetrievalResult;
 
 export interface KnowledgeRetriever {
   retrieve(request: KnowledgeRetrieveRequest): Promise<KnowledgeRetrieveResult>;

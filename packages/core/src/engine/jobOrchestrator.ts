@@ -139,7 +139,9 @@ export function createInMemoryJobRepository(): InMemoryJobRepository {
 }
 
 export function createJobOrchestrator(config: JobOrchestratorConfig): JobOrchestrator {
-  const workflow = createLangGraphRecognitionWorkflow(config);
+  // 使用新版 V2 workflow，支持 Supervisor、冲突解决和反馈循环
+  const { createLangGraphRecognitionWorkflowV2 } = require("./langgraphRecognitionWorkflowV2");
+  const workflow = createLangGraphRecognitionWorkflowV2(config);
 
   return {
     workflow,
