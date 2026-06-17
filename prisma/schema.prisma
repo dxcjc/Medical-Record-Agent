@@ -65,6 +65,7 @@ enum RuleCandidateStatus {
   proposed
   accepted
   rejected
+  skipped
 }
 
 enum ProviderKind {
@@ -322,13 +323,16 @@ model RuleCandidate {
   ruleType      String
   proposal      Json
   evidence      Json                @default("[]")
+  proposalHash  String?
   createdAt     DateTime            @default(now())
   decidedAt     DateTime?
+  updatedAt     DateTime            @updatedAt
   feedback      FeedbackSubmission? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
 
   @@index([feedbackId])
   @@index([schemaKey, fieldKey])
   @@index([status])
+  @@index([schemaKey, fieldKey, proposalHash])
 }
 
 model ProviderConfig {
