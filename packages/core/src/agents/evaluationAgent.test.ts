@@ -92,4 +92,31 @@ describe("generateCandidates", () => {
     expect(candidates).toHaveLength(2);
     expect(candidates.map(c => c.fieldKey).sort()).toEqual(["gene", "sample_type"]);
   });
+
+  it("同字段 ≥2 条错误但 correctedValue 不一致时不生成规则候选", () => {
+    const results: EvaluationSampleResult[] = [
+      {
+        sampleId: "s1",
+        status: "completed",
+        latencyMs: 100,
+        fieldResults: [
+          { fieldKey: "sample_type", groundTruthValue: "外周血", predictedValue: "血清", normalizedGroundTruthValue: "外周血", normalizedPredictedValue: "血清" }
+        ],
+        warnings: []
+      },
+      {
+        sampleId: "s2",
+        status: "completed",
+        latencyMs: 100,
+        fieldResults: [
+          { fieldKey: "sample_type", groundTruthValue: "全血", predictedValue: "血浆", normalizedGroundTruthValue: "全血", normalizedPredictedValue: "血浆" }
+        ],
+        warnings: []
+      }
+    ];
+    const candidates = generateCandidates(results, "test-schema");
+    // 2 条纠偏候选，但不生成规则候选（因为 correctedValue 不一致）
+    expect(candidates).toHaveLength(2);
+    expect(candidates.every(c => c.ruleType === "correction")).toBe(true);
+  });
 });
