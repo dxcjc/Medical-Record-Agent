@@ -33,8 +33,20 @@ describe("createStatsService", () => {
         },
         recognitionResult: {
           findMany: vi.fn(async () => [
-            { fields: { patientName: "张三", age: "50" }, confidence: "0.9", reviewRequired: false },
-            { fields: { patientName: "李四", gender: "男" }, confidence: "0.8", reviewRequired: true },
+            {
+              fields: [
+                { fieldKey: "patientName", value: "张三", confidence: 0.9 },
+                { fieldKey: "age", value: "50", confidence: 0.85 },
+              ],
+              reviewRequired: false,
+            },
+            {
+              fields: [
+                { fieldKey: "patientName", value: "李四", confidence: 0.8 },
+                { fieldKey: "gender", value: "男", confidence: 0.7 },
+              ],
+              reviewRequired: true,
+            },
           ]),
         },
         feedbackSubmission: {
@@ -62,7 +74,10 @@ describe("createStatsService", () => {
         },
         recognitionResult: {
           findMany: vi.fn(async () => [
-            { fields: { patientName: "张三丰" }, confidence: "0.6", reviewRequired: true },
+            {
+              fields: [{ fieldKey: "patientName", value: "张三丰", confidence: 0.6 }],
+              reviewRequired: true,
+            },
           ]),
         },
         feedbackSubmission: {

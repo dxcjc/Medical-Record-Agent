@@ -81,11 +81,12 @@ export function createStatsService(deps: StatsRepositoryDeps) {
       // 2) Get recognition results for these jobs (capped to prevent unbounded loading)
       const results = await deps.recognitionResult.findMany({
         where: { jobId: { in: jobIds } },
-        select: { fields: true, confidence: true, reviewRequired: true },
+        select: { fields: true, reviewRequired: true },
         take: 1000,
       });
 
       // 3) Aggregate per-field recognition data
+      // fields 存的是 FieldCandidate[] 数组，不是 key-value 对象
       const fieldMap = new Map<string, {
         count: number;
         totalConfidence: number;
@@ -94,18 +95,20 @@ export function createStatsService(deps: StatsRepositoryDeps) {
       }>();
 
       for (const result of results) {
-        const fields = (result.fields ?? {}) as Record<string, unknown>;
-        for (const fieldKey of Object.keys(fields)) {
-          const existing = fieldMap.get(fieldKey) ?? { count: 0, totalConfidence: 0, confidenceCount: 0, reviewCount: 0 };
+        const candidates = (result.fields ?? []) as Array<{ fieldKey?: string; confidence?: number | string }>;
+        for (const candidate of candidates) {
+          if (!candidate.fieldKey) continue;
+          const existing = fieldMap.get(candidate.fieldKey) ?? { count: 0, totalConfidence: 0, confidenceCount: 0, reviewCount: 0 };
           existing.count += 1;
-          if (result.confidence) {
-            existing.totalConfidence += Number(result.confidence);
+          const candidateConfidence = Number(candidate.confidence);
+          if (!Number.isNaN(candidateConfidence)) {
+            existing.totalConfidence += candidateConfidence;
             existing.confidenceCount += 1;
           }
           if (result.reviewRequired) {
             existing.reviewCount += 1;
           }
-          fieldMap.set(fieldKey, existing);
+          fieldMap.set(candidate.fieldKey, existing);
         }
       }
 
