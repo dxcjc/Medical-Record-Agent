@@ -2,7 +2,7 @@ import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 
 import { createEvaluationAgent, type EvaluationAgentResult } from "../agents/evaluationAgent";
 import { createExtractionAgent, type ExtractionAgentResult } from "../agents/extractionAgent";
-import { createVisualReviewAgent, type VisualReviewAgentResult, type VisualReviewConfig } from "../agents/visualReviewAgent";
+import { createVisualReviewAgent, applyVisualPriority, type VisualReviewAgentResult, type VisualReviewConfig } from "../agents/visualReviewAgent";
 import { createWritebackAgent, type WritebackAgentResult } from "../agents/writebackAgent";
 import { createSupervisorAgent, type SupervisorDecision } from "../agents/supervisorAgent";
 import { createConflictResolutionAgent, type ConflictResolutionResult } from "../agents/conflictResolutionAgent";
@@ -373,19 +373,29 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     }
 
     // 将视觉评审结果转换为 candidates 格式
+    // 修复：必须过滤掉 existsInImage=false 的幻觉值和低置信度结果
+    // 修复：对勾选框/手写体字段应用 visual priority boost
+    const minConfidence = config.visualReview?.minConfidence ?? 0.3;
     const visualCandidates: ModelFieldCandidate[] = state.visualReview.fieldAssessments
-      .filter(a => a.visualValue !== null)
-      .map(a => ({
-        fieldKey: a.fieldKey,
-        value: a.visualValue!,
-        rawValue: `[视觉] ${a.visualValue}`,
-        confidence: a.confidence,
-        evidence: [{
-          snippet: `视觉识别: ${a.location}`,
-          startOffset: 0,
-          endOffset: String(a.visualValue).length
-        }]
-      }));
+      .filter(a => a.existsInImage && a.visualValue !== null && a.confidence >= minConfidence)
+      .map(a => {
+        const boostedConfidence = applyVisualPriority(
+          a.fieldKey,
+          a.confidence,
+          config.visualReview ?? {}
+        );
+        return {
+          fieldKey: a.fieldKey,
+          value: a.visualValue!,
+          rawValue: `[视觉] ${a.visualValue}`,
+          confidence: boostedConfidence,
+          evidence: [{
+            snippet: `视觉识别: ${a.location}`,
+            startOffset: 0,
+            endOffset: String(a.visualValue).length
+          }]
+        };
+      });
 
     const resolution = conflictResolutionAgent.run({
       schema: config.schema,

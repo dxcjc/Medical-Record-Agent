@@ -247,7 +247,7 @@ function parseRawValue(rawValue: string): { location: string; exists: string; de
  * Apply visual priority boost to a field's confidence.
  * For fields configured as visual-priority, the visual result gets a confidence boost.
  */
-function applyVisualPriority(
+export function applyVisualPriority(
   fieldKey: string,
   visualConfidence: number,
   config: VisualReviewConfig
