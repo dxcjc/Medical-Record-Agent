@@ -98,6 +98,7 @@ describe("job orchestrator", () => {
       "rag",
       "extraction",
       "visualReview",
+      "conflictResolution",
       "validation",
       "autoDecision",
       "writeback",

@@ -12,6 +12,7 @@ export interface BuildExtractionPromptInput {
   ragContext?: string[];
   evidenceRequirements?: string[];
   imageBase64?: string;
+  focusedFieldKeys?: string[];
 }
 
 export interface ExtractStructuredFieldsInput {
@@ -21,6 +22,7 @@ export interface ExtractStructuredFieldsInput {
   ragContext?: string[];
   evidenceRequirements?: string[];
   imageBase64?: string;
+  focusedFieldKeys?: string[];
 }
 
 export interface ExtractStructuredFieldsResult extends ModelExtractionResult {
@@ -123,6 +125,12 @@ export function buildExtractionPrompt(input: BuildExtractionPromptInput): string
       "1. 勾选框识别：对于 list/enum 类型字段，仔细查看图片中对应的勾选框（□），判断哪些被勾选（☑ 或 ✓ 或手写标记）。被勾选的选项加入 list 值，未勾选的不要包含。",
       "2. 手写体修正：OCR 对手写内容识别较差（如身份证号、日期、医生签名、诊断名称等），请对照图片中的手写内容修正 OCR 文本中的错误。",
       "3. 冲突处理：如果图片与 OCR 文本不一致，以图片为准，在 rawValue 中注明 OCR 原文。"
+    ] : []),
+    ...(input.focusedFieldKeys?.length ? [
+      "",
+      "【本轮重点抽取字段】",
+      `上一轮以下字段缺失或存在冲突，请重点从 OCR 文本和图片中定位并抽取：${input.focusedFieldKeys.join("、")}。`,
+      "已确认的字段仍可输出，但务必确保上述重点字段的值、证据和置信度完整。"
     ] : [])
   ].join("\n");
 }

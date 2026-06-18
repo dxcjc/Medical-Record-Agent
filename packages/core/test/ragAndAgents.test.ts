@@ -30,8 +30,17 @@ describe("light RAG and specialist agents", () => {
     expect(result.context.length).toBeLessThanOrEqual(3);
   });
 
-  it("extraction agent calls model provider with RAG context and fixed tool permissions", async () => {
+  it("extraction agent forwards RAG context to model provider and returns candidates", async () => {
+    // V2 架构下 RAG 检索由 workflow 层负责，agent 只接收并透传 ragContext。
+    // 这里先独立检索字段相关知识，再交给 extraction agent，验证透传与字段过滤。
     const retriever = createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase());
+    const retrieval = await retriever.retrieve({
+      query: "病理提示肺腺癌，抽取 tumorType。",
+      fieldKeys: ["tumorType"],
+      limit: 3
+    });
+    const ragContext = retrieval.context;
+
     const provider: ModelProvider = {
       providerName: "agent-model-test",
       extractFields: vi.fn(async (request) => ({
@@ -48,21 +57,20 @@ describe("light RAG and specialist agents", () => {
         raw: { contextCount: request.ragContext?.length ?? 0 }
       }))
     };
-    const agent = createExtractionAgent({ provider, retriever, multiRound: { enabled: false } });
+    const agent = createExtractionAgent({ provider });
 
     const result = await agent.run({
       schema: limsClinicalInfoSchema,
       ocrText: demoOcrText,
-      targetFieldKeys: ["tumorType"]
+      targetFieldKeys: ["tumorType"],
+      ragContext
     });
 
-    expect(agent.allowedTools).toEqual(["knowledge.retrieve", "model.extractFields"]);
     expect(provider.extractFields).toHaveBeenCalledTimes(1);
     const request = vi.mocked(provider.extractFields).mock.calls[0]?.[0];
     expect(request?.ragContext?.join("\n")).toContain("肺腺癌");
     expect(request?.ragContext?.join("\n")).not.toContain("样本类型 LIMS 字典");
     expect(result.candidates[0]?.fieldKey).toBe("tumorType");
-    expect(result.trace.ragEntryIds).toContain("cancer-alias-lung-adenocarcinoma");
   });
 
   it("validation agent returns evidence-backed risk decisions for missing evidence and confidence", () => {

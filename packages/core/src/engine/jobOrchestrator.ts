@@ -12,7 +12,7 @@ import type { CoreSchemaDraft } from "../schemas/schemaValidator";
 import type { AutoDecisionPolicyResult } from "./autoDecisionPolicy";
 import type { MultiRoundExtractionConfig } from "./extractionCore";
 import type { VisualReviewConfig } from "../agents/visualReviewAgent";
-import { createLangGraphRecognitionWorkflow } from "./langgraphRecognitionWorkflow";
+import { createLangGraphRecognitionWorkflowV2 } from "./langgraphRecognitionWorkflowV2";
 import type { ValidationEngineResult } from "./validationEngine";
 
 export type RecognitionRuntimeStatus =
@@ -62,6 +62,7 @@ export interface RecognitionTraceEvent {
     | "rag"
     | "extraction"
     | "visualReview"
+    | "conflictResolution"
     | "validation"
     | "autoDecision"
     | "writeback"
@@ -139,8 +140,7 @@ export function createInMemoryJobRepository(): InMemoryJobRepository {
 }
 
 export function createJobOrchestrator(config: JobOrchestratorConfig): JobOrchestrator {
-  // 使用新版 V2 workflow，支持 Supervisor、冲突解决和反馈循环
-  const { createLangGraphRecognitionWorkflowV2 } = require("./langgraphRecognitionWorkflowV2");
+  // 使用 V2 workflow，支持 Supervisor、冲突解决和反馈循环
   const workflow = createLangGraphRecognitionWorkflowV2(config);
 
   return {

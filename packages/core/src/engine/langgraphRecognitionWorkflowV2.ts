@@ -186,15 +186,13 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     const decision = supervisorAgent.decide({
       schema: config.schema,
       ...(docType ? { documentType: docType } : {}),
-      ...(state.ocr ? { ocrResult: state.ocr } : {}),
-      hasImage,
-      jobPriority: "normal"
+      hasImage
     });
 
     console.log("[supervisor] 执行策略已决策", decision);
 
     return {
-      ...trace("preprocess", "completed", `策略: ${decision.strategy}, ${decision.reasons.join("; ")}`),
+      ...trace("preprocess", "completed", `视觉评审: ${decision.enableVisualReview ? "开" : "关"}；RAG: ${decision.enableRAG ? "开" : "关"}；最大重试: ${decision.maxRetryRounds}。${decision.reasons.length ? " " + decision.reasons.join("; ") : ""}`),
       supervisorDecision: decision
     };
   };
@@ -278,21 +276,35 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
 
       const ragContext = state.ragResult?.context ?? [];
 
+      // 反馈循环针对性重抽：合并冲突提示字段和缺失的必填字段，作为本轮聚焦字段。
+      // 这样重试不会全量重抽，而是引导模型优先补齐问题字段（focusedFieldKeys 会在 prompt 中体现）。
+      const isRetry = (state.retryCount ?? 0) > 0;
+      const focusedFieldKeys = isRetry
+        ? Array.from(new Set([
+            ...(state.conflictResolution?.reextractionHints?.fieldKeys ?? []),
+            ...(state.validation?.missingRequiredFieldKeys ?? [])
+          ]))
+        : undefined;
+
       const extraction = await extractionAgent.run({
         schema: config.schema,
         ocrText: state.ocrText,
         targetFieldKeys: config.schema.fields.map((field) => field.key),
         ragContext,
-        ...(imageBase64 !== undefined ? { imageBase64 } : {})
+        ...(imageBase64 !== undefined ? { imageBase64 } : {}),
+        ...(focusedFieldKeys !== undefined && focusedFieldKeys.length > 0 ? { focusedFieldKeys } : {})
       });
 
       console.log("[extraction] 字段抽取完成", {
         candidatesCount: extraction.candidates.length,
-        ragContextUsed: ragContext.length > 0
+        ragContextUsed: ragContext.length > 0,
+        ...(isRetry ? { retryRound: state.retryCount, focusedFieldKeys } : {})
       });
 
       return {
-        ...trace("extraction", "completed", "字段抽取已完成。"),
+        ...trace("extraction", "completed", isRetry && focusedFieldKeys?.length
+          ? `第 ${state.retryCount} 轮重抽完成，聚焦字段：${focusedFieldKeys.join("、")}。`
+          : "字段抽取已完成。"),
         extraction
       };
     } catch (error) {
@@ -361,13 +373,13 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
 
   const conflictResolutionNode = async (state: RecognitionWorkflowState) => {
     if (state.error || !state.extraction) {
-      return trace("autoDecision", "skipped", "缺少抽取结果，跳过冲突解决。");
+      return trace("conflictResolution", "skipped", "缺少抽取结果，跳过冲突解决。");
     }
 
     // 如果没有视觉评审结果，直接使用抽取结果
     if (!state.visualReview) {
       return {
-        ...trace("autoDecision", "completed", "无视觉评审结果，直接使用抽取结果。"),
+        ...trace("conflictResolution", "completed", "无视觉评审结果，直接使用抽取结果。"),
         mergedCandidates: state.extraction.candidates
       };
     }
@@ -404,7 +416,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     });
 
     return {
-      ...trace("autoDecision", "completed", resolution.hasConflicts
+      ...trace("conflictResolution", "completed", resolution.hasConflicts
         ? `检测到 ${resolution.conflicts.length} 个冲突并已解决。`
         : "无冲突，已合并抽取和视觉结果。"),
       conflictResolution: resolution,
@@ -525,6 +537,17 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     };
   };
 
+  // 重试闸门节点：每次因冲突或缺失必填字段回到抽取前，先在此自增 retryCount。
+  // 原先条件边直接回到 extractionNode，retryCount 从不自增，导致满足重试条件时无限循环
+  // （实测会撞 LangGraph 的 recursionLimit）。此节点确保重试计数生效，maxRetryRounds 真正起作用。
+  const retryGateNode = async (state: RecognitionWorkflowState) => {
+    const nextRetryCount = (state.retryCount ?? 0) + 1;
+    return {
+      ...trace("validation", "completed", `触发反馈循环，开始第 ${nextRetryCount} 轮重试。`),
+      retryCount: nextRetryCount
+    };
+  };
+
   // ────────────────────────────────────────────────────────────
   // 条件边函数
   // ────────────────────────────────────────────────────────────
@@ -535,12 +558,12 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
 
     // 检查是否需要因冲突而重新抽取
     if (state.conflictResolution?.needsReextraction && retryCount < maxRetries) {
-      return "extractionNode";
+      return "retryGateNode";
     }
 
     // 检查是否因缺失必填字段而重新抽取
     if (state.validation?.missingRequiredFieldKeys.length && retryCount < maxRetries) {
-      return "extractionNode";
+      return "retryGateNode";
     }
 
     return "autoDecisionNode";
@@ -653,6 +676,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     .addNode("writebackNode", writebackNode)
     .addNode("evaluationNode", evaluationNode)
     .addNode("finalizeNode", finalizeNode)
+    .addNode("retryGateNode", retryGateNode)
 
     // 主流程
     .addEdge(START, "supervisorNode")
@@ -663,8 +687,11 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     .addEdge("visualReviewNode", "conflictResolutionNode")
     .addEdge("conflictResolutionNode", "validationNode")
 
-    // 条件边：支持重试
+    // 条件边：支持重试（重试分支经 retryGateNode 自增计数后再回抽取）
     .addConditionalEdges("validationNode", shouldRetryExtraction)
+
+    // 重试闸门无条件回到抽取节点
+    .addEdge("retryGateNode", "extractionNode")
 
     .addEdge("autoDecisionNode", "writebackNode")
     .addEdge("writebackNode", "evaluationNode")

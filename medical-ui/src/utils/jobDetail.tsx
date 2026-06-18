@@ -28,6 +28,8 @@ export function traceStepTitle(step: import('../api/types').TraceStep): string {
     ocr: 'OCR 识别',
     rag: 'RAG 检索',
     extraction: '字段抽取',
+    visualReview: '视觉评审',
+    conflictResolution: '冲突解决',
     validation: '字段验证',
     autoDecision: '自动决策',
     writeback: '写回',
