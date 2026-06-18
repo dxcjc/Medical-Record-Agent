@@ -2,19 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDefaultMedicalKnowledgeBase,
-  createEvaluationAgent,
-  createExtractionAgent,
+  createEvaluationNode,
+  createExtractionNode,
   createInMemoryKnowledgeRetriever,
-  createValidationAgent,
-  createWritebackAgent,
+  createWritebackNode,
   limsClinicalInfoSchema,
+  runValidationEngine,
   type CoreSchemaDraft,
   type ModelProvider
 } from "../src/index";
 
 const demoOcrText = "DEMO_CASE_002：诊断：DEMO_DIAGNOSIS_A；病理提示肺腺癌；样本类型：组织。";
 
-describe("light RAG and specialist agents", () => {
+describe("light RAG and specialist nodes", () => {
   it("retrieves field-scoped medical knowledge without exposing unrelated dictionary entries", async () => {
     const retriever = createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase());
 
@@ -30,9 +30,9 @@ describe("light RAG and specialist agents", () => {
     expect(result.context.length).toBeLessThanOrEqual(3);
   });
 
-  it("extraction agent forwards RAG context to model provider and returns candidates", async () => {
-    // V2 架构下 RAG 检索由 workflow 层负责，agent 只接收并透传 ragContext。
-    // 这里先独立检索字段相关知识，再交给 extraction agent，验证透传与字段过滤。
+  it("extraction node forwards RAG context to model provider and returns candidates", async () => {
+    // V2 架构下 RAG 检索由 workflow 层负责，node 只接收并透传 ragContext。
+    // 这里先独立检索字段相关知识，再交给 extraction node，验证透传与字段过滤。
     const retriever = createInMemoryKnowledgeRetriever(createDefaultMedicalKnowledgeBase());
     const retrieval = await retriever.retrieve({
       query: "病理提示肺腺癌，抽取 tumorType。",
@@ -57,9 +57,9 @@ describe("light RAG and specialist agents", () => {
         raw: { contextCount: request.ragContext?.length ?? 0 }
       }))
     };
-    const agent = createExtractionAgent({ provider });
+    const node = createExtractionNode({ provider });
 
-    const result = await agent.run({
+    const result = await node.run({
       schema: limsClinicalInfoSchema,
       ocrText: demoOcrText,
       targetFieldKeys: ["tumorType"],
@@ -73,10 +73,9 @@ describe("light RAG and specialist agents", () => {
     expect(result.candidates[0]?.fieldKey).toBe("tumorType");
   });
 
-  it("validation agent returns evidence-backed risk decisions for missing evidence and confidence", () => {
-    const validationAgent = createValidationAgent();
-
-    const result = validationAgent.run({
+  it("validation engine returns evidence-backed risk decisions for missing evidence and confidence", () => {
+    // sampleType 缺少证据（error）→ 字段 rejected → 顶层 blocked（修复后语义）
+    const result = runValidationEngine({
       schema: limsClinicalInfoSchema,
       candidates: [
         {
@@ -96,8 +95,7 @@ describe("light RAG and specialist agents", () => {
       ]
     });
 
-    expect(validationAgent.allowedTools).toEqual(["schema.validateCandidates"]);
-    expect(result.decision).toBe("needs_review");
+    expect(result.decision).toBe("blocked");
     expect(result.fieldResults.find((field) => field.fieldKey === "clinicalDiagnosis")?.decision).toBe("accepted");
     expect(result.fieldResults.find((field) => field.fieldKey === "sampleType")?.issues).toEqual(
       expect.arrayContaining([
@@ -107,7 +105,7 @@ describe("light RAG and specialist agents", () => {
     );
   });
 
-  it("writeback agent allows auto writeback only for configured auto fields with green decisions and permission", () => {
+  it("writeback node allows auto writeback only for configured auto fields with green decisions and permission", () => {
     const schema: CoreSchemaDraft = {
       ...limsClinicalInfoSchema,
       fields: limsClinicalInfoSchema.fields.map((field) =>
@@ -116,9 +114,9 @@ describe("light RAG and specialist agents", () => {
           : field
       )
     };
-    const writebackAgent = createWritebackAgent();
+    const writebackNode = createWritebackNode();
 
-    const ready = writebackAgent.run({
+    const ready = writebackNode.run({
       schema,
       validationDecision: "green",
       permissions: ["writeback:execute"],
@@ -132,14 +130,13 @@ describe("light RAG and specialist agents", () => {
         }
       ]
     });
-    const blocked = writebackAgent.run({
+    const blocked = writebackNode.run({
       schema,
       validationDecision: "green",
       permissions: [],
       candidates: ready.readyFields
     });
 
-    expect(writebackAgent.allowedTools).toEqual(["writeback.checkReadiness"]);
     expect(ready.ready).toBe(true);
     expect(ready.readyFields).toEqual([
       expect.objectContaining({
@@ -152,7 +149,7 @@ describe("light RAG and specialist agents", () => {
     expect(blocked.blockers).toContainEqual(expect.objectContaining({ code: "MISSING_PERMISSION" }));
   });
 
-  it("writeback agent blocks empty values while keeping explicit zero and false values", () => {
+  it("writeback node blocks empty values while keeping explicit zero and false values", () => {
     const schema: CoreSchemaDraft = {
       ...limsClinicalInfoSchema,
       fields: [
@@ -183,9 +180,9 @@ describe("light RAG and specialist agents", () => {
         }
       ]
     };
-    const writebackAgent = createWritebackAgent();
+    const writebackNode = createWritebackNode();
 
-    const result = writebackAgent.run({
+    const result = writebackNode.run({
       schema,
       validationDecision: "green",
       permissions: ["writeback:execute"],
@@ -227,10 +224,10 @@ describe("light RAG and specialist agents", () => {
     );
   });
 
-  it("evaluation agent creates de-identified evaluation sample candidates from accepted fields only", () => {
-    const evaluationAgent = createEvaluationAgent();
+  it("evaluation node creates de-identified evaluation sample candidates from accepted fields only", () => {
+    const evaluationNode = createEvaluationNode();
 
-    const result = evaluationAgent.run({
+    const result = evaluationNode.run({
       documentId: "demo-document-002",
       schema: limsClinicalInfoSchema,
       validation: {
@@ -250,7 +247,12 @@ describe("light RAG and specialist agents", () => {
             evidenceCount: 0,
             issues: [{ code: "MISSING_EVIDENCE", message: "缺少证据片段", severity: "error" }]
           }
-        ]
+        ],
+        requiredFieldKeys: [],
+        missingRequiredFieldKeys: [],
+        acceptedFieldKeys: ["clinicalDiagnosis"],
+        reviewFieldKeys: ["sampleType"],
+        normalizedCandidates: []
       },
       candidates: [
         {
@@ -271,7 +273,6 @@ describe("light RAG and specialist agents", () => {
       markDeidentified: true
     });
 
-    expect(evaluationAgent.allowedTools).toEqual(["evaluation.createSampleCandidate"]);
     expect(result.sampleCandidate).toEqual({
       documentId: "demo-document-002",
       schemaKey: "lims-clinical-info",

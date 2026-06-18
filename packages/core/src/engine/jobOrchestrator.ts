@@ -1,6 +1,6 @@
-import type { EvaluationAgentResult } from "../agents/evaluationAgent";
-import type { ExtractionAgentResult } from "../agents/extractionAgent";
-import type { WritebackAgentResult, WritebackReadyField } from "../agents/writebackAgent";
+import type { EvaluationNodeResult } from "../nodes/evaluationNode";
+import type { ExtractionNodeResult } from "../nodes/extractionNode";
+import type { WritebackNodeResult, WritebackReadyField } from "../nodes/writebackNode";
 import type {
   ModelProvider,
   OcrDocumentInput,
@@ -11,7 +11,7 @@ import type { KnowledgeRetriever } from "../rag/inMemoryKnowledgeRetriever";
 import type { CoreSchemaDraft } from "../schemas/schemaValidator";
 import type { AutoDecisionPolicyResult } from "./autoDecisionPolicy";
 import type { MultiRoundExtractionConfig } from "./extractionCore";
-import type { VisualReviewConfig } from "../agents/visualReviewAgent";
+import type { VisualReviewConfig } from "../nodes/visualReviewNode";
 import { createLangGraphRecognitionWorkflowV2 } from "./langgraphRecognitionWorkflowV2";
 import type { ValidationEngineResult } from "./validationEngine";
 
@@ -94,11 +94,11 @@ export interface JobOrchestratorResult {
   status: RecognitionRuntimeStatus;
   trace: RecognitionTraceEvent[];
   ocr?: OcrResult;
-  extraction?: ExtractionAgentResult;
+  extraction?: ExtractionNodeResult;
   validation: ValidationEngineResult;
   autoDecision: AutoDecisionPolicyResult;
-  writeback: WritebackAgentResult;
-  evaluation?: EvaluationAgentResult;
+  writeback: WritebackNodeResult;
+  evaluation?: EvaluationNodeResult;
   error?: JobError;
 }
 

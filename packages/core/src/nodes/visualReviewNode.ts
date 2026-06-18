@@ -65,22 +65,21 @@ export interface VisualReviewConfig {
   timeoutMs?: number;
 }
 
-// ── Visual Review Agent ──
+// ── Visual Review Node ──
 
-export interface VisualReviewAgentInput {
+export interface VisualReviewNodeInput {
   imageBase64: string;
   schema: CoreSchemaDraft;
   ocrText: string;
 }
 
-export interface VisualReviewAgentResult extends VisualReviewResult {}
+export interface VisualReviewNodeResult extends VisualReviewResult {}
 
-export interface VisualReviewAgent {
-  allowedTools: readonly ["model.extractFields"];
-  run(input: VisualReviewAgentInput): Promise<VisualReviewAgentResult>;
+export interface VisualReviewNode {
+  run(input: VisualReviewNodeInput): Promise<VisualReviewNodeResult>;
 }
 
-export interface CreateVisualReviewAgentInput {
+export interface CreateVisualReviewNodeInput {
   provider: ModelProvider;
   config?: VisualReviewConfig;
 }
@@ -161,9 +160,8 @@ function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string): stri
   ].join("\n");
 }
 
-export function createVisualReviewAgent(config: CreateVisualReviewAgentInput): VisualReviewAgent {
+export function createVisualReviewNode(config: CreateVisualReviewNodeInput): VisualReviewNode {
   return {
-    allowedTools: ["model.extractFields"],
     async run(input) {
       const prompt = buildVisualReviewPrompt(input.schema, input.ocrText);
 

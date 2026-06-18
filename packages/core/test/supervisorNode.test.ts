@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createSupervisorAgent } from "../src/index";
+import { createSupervisorNode } from "../src/index";
 import { limsClinicalInfoSchema, type CoreSchemaDraft } from "../src/index";
 
-describe("supervisor agent", () => {
+describe("supervisor node", () => {
   it("disables visual review when document has no image", () => {
-    const agent = createSupervisorAgent();
-    const decision = agent.decide({
+    const node = createSupervisorNode();
+    const decision = node.decide({
       schema: limsClinicalInfoSchema,
       hasImage: false
     });
@@ -16,8 +16,8 @@ describe("supervisor agent", () => {
   });
 
   it("enables visual review and RAG by default for image documents", () => {
-    const agent = createSupervisorAgent();
-    const decision = agent.decide({
+    const node = createSupervisorNode();
+    const decision = node.decide({
       schema: limsClinicalInfoSchema,
       hasImage: true
     });
@@ -32,8 +32,8 @@ describe("supervisor agent", () => {
       ...limsClinicalInfoSchema,
       fields: limsClinicalInfoSchema.fields.slice(0, 3)
     };
-    const agent = createSupervisorAgent();
-    const decision = agent.decide({
+    const node = createSupervisorNode();
+    const decision = node.decide({
       schema: smallSchema,
       hasImage: true
     });
@@ -44,8 +44,8 @@ describe("supervisor agent", () => {
   });
 
   it("forces visual review on for table/form documents even without image", () => {
-    const agent = createSupervisorAgent();
-    const decision = agent.decide({
+    const node = createSupervisorNode();
+    const decision = node.decide({
       schema: limsClinicalInfoSchema,
       documentType: "table",
       hasImage: false
@@ -57,8 +57,8 @@ describe("supervisor agent", () => {
   });
 
   it("does not output removed strategy or confidenceThreshold fields", () => {
-    const agent = createSupervisorAgent();
-    const decision = agent.decide({
+    const node = createSupervisorNode();
+    const decision = node.decide({
       schema: limsClinicalInfoSchema,
       hasImage: true
     });

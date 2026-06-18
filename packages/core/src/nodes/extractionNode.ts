@@ -2,31 +2,29 @@ import { extractStructuredFields } from "../engine/extractionEngine";
 import type { ModelExtractionResult, ModelProvider } from "../providers/providerTypes";
 import type { CoreSchemaDraft } from "../schemas/schemaValidator";
 
-export interface ExtractionAgentInput {
+export interface ExtractionNodeInput {
   schema: CoreSchemaDraft;
   ocrText: string;
   targetFieldKeys?: string[];
   imageBase64?: string;  // 原图 base64，用于 LLM 视觉增强
   ragContext?: string[];  // RAG 上下文由 workflow 层传入
-  focusedFieldKeys?: string[];  // 针对性抽取（用于多轮场景）
+  focusedFieldKeys?: string[];  // 针对性抽取（用于多轮/重试场景）
 }
 
-export interface ExtractionAgentResult extends ModelExtractionResult {}
+export interface ExtractionNodeResult extends ModelExtractionResult {}
 
-export interface ExtractionAgent {
-  allowedTools: readonly ["model.extractFields"];
-  run(input: ExtractionAgentInput): Promise<ExtractionAgentResult>;
+export interface ExtractionNode {
+  run(input: ExtractionNodeInput): Promise<ExtractionNodeResult>;
 }
 
-export interface CreateExtractionAgentInput {
+export interface CreateExtractionNodeInput {
   provider: ModelProvider;
 }
 
-export function createExtractionAgent(config: CreateExtractionAgentInput): ExtractionAgent {
+export function createExtractionNode(config: CreateExtractionNodeInput): ExtractionNode {
   return {
-    allowedTools: ["model.extractFields"],
     async run(input) {
-      // Extraction Agent 专注于结构化抽取，不负责 RAG 检索
+      // Extraction 节点专注于结构化抽取，不负责 RAG 检索
       // RAG 上下文由 workflow 层面统一管理和传入
       const extraction = await extractStructuredFields({
         provider: config.provider,

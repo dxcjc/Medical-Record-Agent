@@ -1,6 +1,6 @@
 import type { ModelFieldCandidate } from "../providers/providerTypes";
 import type { CoreSchemaDraft } from "../schemas/schemaValidator";
-import type { ValidationAgentResult } from "./validationAgent";
+import type { ValidationEngineResult } from "../engine/validationEngine";
 import type {
   RuleCandidateProposal,
   RuleCandidateEvidence,
@@ -21,27 +21,25 @@ export interface EvaluationSampleCandidate {
   }>;
 }
 
-export interface EvaluationAgentInput {
+export interface EvaluationNodeInput {
   documentId: string;
   schema: CoreSchemaDraft;
-  validation: ValidationAgentResult;
+  validation: ValidationEngineResult;
   candidates: ModelFieldCandidate[];
   markDeidentified: boolean;
 }
 
-export interface EvaluationAgentResult {
+export interface EvaluationNodeResult {
   sampleCandidate: EvaluationSampleCandidate;
   excludedFieldKeys: string[];
 }
 
-export interface EvaluationAgent {
-  allowedTools: readonly ["evaluation.createSampleCandidate"];
-  run(input: EvaluationAgentInput): EvaluationAgentResult;
+export interface EvaluationNode {
+  run(input: EvaluationNodeInput): EvaluationNodeResult;
 }
 
-export function createEvaluationAgent(): EvaluationAgent {
+export function createEvaluationNode(): EvaluationNode {
   return {
-    allowedTools: ["evaluation.createSampleCandidate"],
     run(input) {
       const acceptedFieldKeys = new Set(
         input.validation.fieldResults

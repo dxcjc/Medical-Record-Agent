@@ -1,4 +1,4 @@
-import type { WritebackAgentResult } from "../agents/writebackAgent";
+import type { WritebackNodeResult } from "../nodes/writebackNode";
 import type { ModelFieldCandidate } from "../providers/providerTypes";
 import type { ValidationEngineResult } from "./validationEngine";
 
@@ -20,7 +20,7 @@ export interface AutoDecisionReason {
 export interface AutoDecisionPolicyInput {
   validation: ValidationEngineResult;
   candidates: ModelFieldCandidate[];
-  writeback: WritebackAgentResult;
+  writeback: WritebackNodeResult;
   autoWritebackEnabled: boolean;
   schemaActive: boolean;
   hasWritebackPermission: boolean;

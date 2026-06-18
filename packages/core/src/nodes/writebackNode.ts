@@ -1,6 +1,6 @@
 import type { ModelFieldCandidate } from "../providers/providerTypes";
 import type { CoreFieldDefinition, CoreSchemaDraft } from "../schemas/schemaValidator";
-import type { ValidationDecision } from "./validationAgent";
+import type { ValidationDecision } from "../engine/validationEngine";
 
 export interface WritebackReadyField {
   fieldKey: string;
@@ -19,22 +19,21 @@ export interface WritebackBlocker {
   fieldKey?: string;
 }
 
-export interface WritebackAgentInput {
+export interface WritebackNodeInput {
   schema: CoreSchemaDraft;
   validationDecision: ValidationDecision;
   permissions: string[];
   candidates: ModelFieldCandidate[];
 }
 
-export interface WritebackAgentResult {
+export interface WritebackNodeResult {
   ready: boolean;
   readyFields: WritebackReadyField[];
   blockers: WritebackBlocker[];
 }
 
-export interface WritebackAgent {
-  allowedTools: readonly ["writeback.checkReadiness"];
-  run(input: WritebackAgentInput): WritebackAgentResult;
+export interface WritebackNode {
+  run(input: WritebackNodeInput): WritebackNodeResult;
 }
 
 function findField(schema: CoreSchemaDraft, fieldKey: string): CoreFieldDefinition | undefined {
@@ -57,9 +56,8 @@ function hasWritebackValue(value: ModelFieldCandidate["value"]): boolean {
   return true;
 }
 
-export function createWritebackAgent(): WritebackAgent {
+export function createWritebackNode(): WritebackNode {
   return {
-    allowedTools: ["writeback.checkReadiness"],
     run(input) {
       const blockers: WritebackBlocker[] = [];
 

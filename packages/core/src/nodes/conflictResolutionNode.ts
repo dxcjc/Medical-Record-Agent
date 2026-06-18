@@ -2,10 +2,7 @@ import type { ModelFieldCandidate } from "../providers/providerTypes";
 import type { CoreSchemaDraft } from "../schemas/schemaValidator";
 
 export type ConflictResolutionStrategy =
-  | "use_extraction"    // 使用抽取结果
-  | "use_visual"        // 使用视觉结果
   | "use_higher_confidence"  // 使用置信度更高的
-  | "merge_evidence"    // 合并证据
   | "needs_human_review";  // 需要人工复核
 
 export interface FieldConflict {
@@ -30,16 +27,15 @@ export interface ConflictResolutionResult {
   };
 }
 
-export interface ConflictResolutionAgentInput {
+export interface ConflictResolutionNodeInput {
   schema: CoreSchemaDraft;
   extractionCandidates: ModelFieldCandidate[];
   visualCandidates: ModelFieldCandidate[];
   conflictThreshold?: number;  // 置信度差异超过此值才算冲突
 }
 
-export interface ConflictResolutionAgent {
-  allowedTools: readonly ["conflict.detectAndResolve"];
-  run(input: ConflictResolutionAgentInput): ConflictResolutionResult;
+export interface ConflictResolutionNode {
+  run(input: ConflictResolutionNodeInput): ConflictResolutionResult;
 }
 
 /**
@@ -114,11 +110,10 @@ function decideResolutionStrategy(
 }
 
 /**
- * Conflict Resolution Agent 负责检测和解决 Extraction 与 Visual Review 之间的冲突
+ * Conflict Resolution 节点负责检测和解决 Extraction 与 Visual Review 之间的冲突
  */
-export function createConflictResolutionAgent(): ConflictResolutionAgent {
+export function createConflictResolutionNode(): ConflictResolutionNode {
   return {
-    allowedTools: ["conflict.detectAndResolve"],
     run(input) {
       const conflictThreshold = input.conflictThreshold ?? 0.1;
       const conflicts: FieldConflict[] = [];
