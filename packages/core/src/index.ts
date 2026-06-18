@@ -15,6 +15,7 @@ export {
 export * from "./engine/documentPipeline";
 export * from "./engine/validationEngine";
 export * from "./engine/autoDecisionPolicy";
+export * from "./engine/workflowShared";
 export * from "./engine/langgraphRecognitionWorkflowV2";
 export * from "./engine/jobOrchestrator";
 export * from "./adapters/genericJsonAdapter";

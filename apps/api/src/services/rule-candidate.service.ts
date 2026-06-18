@@ -60,7 +60,7 @@ export function createRuleCandidateService(deps: RuleCandidateServiceDependencie
       if (!schemaKey) {
         throw Object.assign(new Error("SCHEMA_KEY_MISSING"), { code: "SCHEMA_KEY_MISSING", statusCode: 400 });
       }
-      const drafts = generateCandidates(sampleResults, schemaKey);
+      const drafts = generateCandidates(sampleResults, schemaKey, runId);
       return persistCandidates(drafts, runId);
     },
 
@@ -73,7 +73,7 @@ export function createRuleCandidateService(deps: RuleCandidateServiceDependencie
         return { created: 0, skipped: 0 };
       }
       const sampleResults: EvaluationSampleResult[] = run.result?.sampleResults ?? [];
-      const drafts = generateCandidates(sampleResults, schemaKey);
+      const drafts = generateCandidates(sampleResults, schemaKey, run.id);
       return persistCandidates(drafts, run.id);
     },
 

@@ -1,3 +1,6 @@
+// TODO(arch-debt): 本文件的 buildExtractionPrompt/extractStructuredFields 与 extractionEngine.ts 重复。
+// extractionCore 含多轮抽取逻辑（更完整），extractionEngine 是节点实际使用的轻量版本。
+// 二者长期并存是技术债，合并需迁移多轮逻辑，列为后续独立任务，勿在此处临时合并。
 import type { CoreFieldDefinition, CoreSchemaDraft } from "../schemas/schemaValidator";
 import type {
   ModelExtractionRequest,

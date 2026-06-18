@@ -97,7 +97,8 @@ function computeProposalHash(proposal: RuleCandidateProposal): string {
  */
 export function generateCandidates(
   sampleResults: EvaluationSampleResult[],
-  schemaKey: string
+  schemaKey: string,
+  runId: string
 ): CandidateDraft[] {
   const drafts: CandidateDraft[] = [];
 
@@ -123,7 +124,7 @@ export function generateCandidates(
       }
       errorsByField.get(field.fieldKey)!.push({
         sampleId: result.sampleId,
-        runId: "",
+        runId,
         originalValue: String(pred),
         correctedValue: String(truth)
       });

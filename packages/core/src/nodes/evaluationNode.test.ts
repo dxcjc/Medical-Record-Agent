@@ -15,7 +15,7 @@ describe("generateCandidates", () => {
         warnings: []
       }
     ];
-    const candidates = generateCandidates(results, "test-schema");
+    const candidates = generateCandidates(results, "test-schema", "run-1");
     expect(candidates).toEqual([]);
   });
 
@@ -31,7 +31,7 @@ describe("generateCandidates", () => {
         warnings: []
       }
     ];
-    const candidates = generateCandidates(results, "test-schema");
+    const candidates = generateCandidates(results, "test-schema", "run-1");
     expect(candidates).toHaveLength(1);
     expect(candidates[0]!.ruleType).toBe("correction");
     expect(candidates[0]!.proposal).toEqual({
@@ -65,7 +65,7 @@ describe("generateCandidates", () => {
         warnings: []
       }
     ];
-    const candidates = generateCandidates(results, "test-schema");
+    const candidates = generateCandidates(results, "test-schema", "run-1");
     // 2 条纠偏候选 + 1 条规则候选
     expect(candidates).toHaveLength(3);
     const ruleCandidate = candidates.find(c => c.ruleType === "rule");
@@ -88,7 +88,7 @@ describe("generateCandidates", () => {
         warnings: []
       }
     ];
-    const candidates = generateCandidates(results, "test-schema");
+    const candidates = generateCandidates(results, "test-schema", "run-1");
     expect(candidates).toHaveLength(2);
     expect(candidates.map(c => c.fieldKey).sort()).toEqual(["gene", "sample_type"]);
   });
@@ -114,7 +114,7 @@ describe("generateCandidates", () => {
         warnings: []
       }
     ];
-    const candidates = generateCandidates(results, "test-schema");
+    const candidates = generateCandidates(results, "test-schema", "run-1");
     // 2 条纠偏候选，但不生成规则候选（因为 correctedValue 不一致）
     expect(candidates).toHaveLength(2);
     expect(candidates.every(c => c.ruleType === "correction")).toBe(true);

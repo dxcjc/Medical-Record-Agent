@@ -20,6 +20,14 @@ import type {
   WritebackExecutionResult
 } from "./jobOrchestrator";
 import { runValidationEngine, type ValidationEngineResult } from "./validationEngine";
+import {
+  mapUnknownError,
+  createEmptyValidationResult,
+  createEmptyDecision,
+  createEmptyWriteback,
+  resolveStatus,
+  trace
+} from "./workflowShared";
 import type { KnowledgeRetrievalResult } from "../rag/inMemoryKnowledgeRetriever";
 
 interface RecognitionWorkflowState extends JobOrchestratorInput {
@@ -74,90 +82,6 @@ const RecognitionWorkflowAnnotation = Annotation.Root({
     default: () => 0
   })
 });
-
-function trace(node: RecognitionTraceEvent["node"], status: RecognitionTraceEvent["status"], message: string) {
-  return {
-    trace: [
-      {
-        node,
-        status,
-        message
-      }
-    ]
-  };
-}
-
-function mapUnknownError(error: unknown): JobError {
-  if (error instanceof ProviderError) {
-    const mapped: JobError = {
-      code: error.code,
-      message: error.message,
-      retryable: error.retryable
-    };
-    if (error.providerName) {
-      mapped.providerName = error.providerName;
-    }
-    return mapped;
-  }
-
-  return {
-    code: "WORKFLOW_UNEXPECTED_FAILURE",
-    message: "识别流程执行失败，错误已脱敏。",
-    retryable: false
-  };
-}
-
-function createEmptyValidationResult(): ValidationEngineResult {
-  return {
-    decision: "blocked",
-    fieldResults: [],
-    requiredFieldKeys: [],
-    missingRequiredFieldKeys: [],
-    acceptedFieldKeys: [],
-    reviewFieldKeys: [],
-    normalizedCandidates: []
-  };
-}
-
-function createEmptyDecision(): AutoDecisionPolicyResult {
-  return {
-    decision: "red",
-    shouldWriteback: false,
-    reasons: []
-  };
-}
-
-function createEmptyWriteback(): WritebackNodeResult {
-  return {
-    ready: false,
-    readyFields: [],
-    blockers: []
-  };
-}
-
-function resolveStatus(state: RecognitionWorkflowState): RecognitionRuntimeStatus {
-  if (state.error) {
-    return state.error.code === "WRITEBACK_FAILED" ? "writeback_failed" : "failed";
-  }
-
-  if (state.writebackExecution?.status === "success") {
-    return "writeback_completed";
-  }
-
-  if (state.autoDecision?.shouldWriteback && state.writeback?.ready) {
-    return "writeback_pending";
-  }
-
-  if (state.autoDecision?.decision === "red") {
-    return "needs_review";
-  }
-
-  if (state.autoDecision?.decision === "yellow") {
-    return "partial_completed";
-  }
-
-  return "completed";
-}
 
 export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConfig) {
   const supervisorNode = createSupervisorNode();
@@ -259,7 +183,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
       };
     } catch (error) {
       console.warn("[rag] 知识检索失败，继续执行", error);
-      return trace("rag", "completed", "知识检索失败，使用空上下文继续。");
+      return trace("rag", "degraded", "知识检索失败，使用空上下文继续。");
     }
   };
 
@@ -367,7 +291,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
       console.warn("[visualReview] 视觉评审失败，继续执行", {
         error: error instanceof Error ? error.message : String(error)
       });
-      return trace("visualReview", "completed", "视觉评审失败，继续执行。");
+      return trace("visualReview", "degraded", "视觉评审失败，继续执行。");
     }
   };
 

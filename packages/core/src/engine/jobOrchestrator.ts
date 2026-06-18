@@ -67,7 +67,7 @@ export interface RecognitionTraceEvent {
     | "autoDecision"
     | "writeback"
     | "evaluation";
-  status: "completed" | "skipped" | "failed";
+  status: "completed" | "skipped" | "failed" | "degraded";
   message: string;
 }
 
