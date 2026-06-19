@@ -207,13 +207,15 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
         (entry) => `[${entry.kind}] ${entry.title}：${entry.content}`
       ) ?? [];
 
-      // 反馈循环针对性重抽：合并冲突提示字段和缺失的必填字段，作为本轮聚焦字段。
-      // 这样重试不会全量重抽，而是引导模型优先补齐问题字段（focusedFieldKeys 会在 prompt 中体现）。
+      // 反馈循环针对性重抽：合并冲突提示字段、缺失必填字段、超长需重抽字段，
+      // 作为本轮聚焦字段。这样重试不会全量重抽，而是引导模型优先补齐问题字段
+      //（focusedFieldKeys 会在 prompt 中体现）。
       const isRetry = (state.retryCount ?? 0) > 0;
       const focusedFieldKeys = isRetry
         ? Array.from(new Set([
             ...(state.conflictResolution?.reextractionHints?.fieldKeys ?? []),
-            ...(state.validation?.missingRequiredFieldKeys ?? [])
+            ...(state.validation?.missingRequiredFieldKeys ?? []),
+            ...(state.validation?.reextractionFieldKeys ?? [])
           ]))
         : undefined;
 
@@ -516,6 +518,11 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
 
     // 检查是否因缺失必填字段而重新抽取
     if (state.validation?.missingRequiredFieldKeys.length && retryCount < maxRetries) {
+      return "retryGateNode";
+    }
+
+    // P1-3：检查是否因字段值过长（后处理无法简化）而重新抽取
+    if (state.validation?.reextractionFieldKeys.length && retryCount < maxRetries) {
       return "retryGateNode";
     }
 

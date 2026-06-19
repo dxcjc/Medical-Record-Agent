@@ -44,7 +44,8 @@ export function createEmptyValidationResult(): ValidationEngineResult {
     missingRequiredFieldKeys: [],
     acceptedFieldKeys: [],
     reviewFieldKeys: [],
-    normalizedCandidates: []
+    normalizedCandidates: [],
+    reextractionFieldKeys: []
   };
 }
 

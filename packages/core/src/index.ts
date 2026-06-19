@@ -1,6 +1,7 @@
 export * from "./schemas/limsClinicalInfoSchema";
 export * from "./schemas/schemaValidator";
 export * from "./normalizers/clinicalNormalizers";
+export * from "./normalizers/pathologyNormalizer";
 export * from "./engine/extractionEngine";
 export {
   type MultiRoundExtractionConfig,

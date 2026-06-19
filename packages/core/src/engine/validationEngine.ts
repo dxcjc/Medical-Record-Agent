@@ -1,5 +1,6 @@
 import type { ModelFieldCandidate } from "../providers/providerTypes";
 import type { CoreFieldDefinition, CoreSchemaDraft } from "../schemas/schemaValidator";
+import { normalizePathologicalDiagnosis } from "../normalizers/pathologyNormalizer";
 
 export type ValidationDecision = "green" | "needs_review" | "blocked";
 export type FieldValidationDecision = "accepted" | "needs_review" | "rejected";
@@ -13,7 +14,8 @@ export interface ValidationIssue {
     | "MISSING_PAGE_REFERENCE"
     | "TYPE_MISMATCH"
     | "ENUM_MISMATCH"
-    | "CONFLICTING_CANDIDATES";
+    | "CONFLICTING_CANDIDATES"
+    | "VALUE_TOO_LONG";
   message: string;
   severity: ValidationIssueSeverity;
 }
@@ -42,6 +44,12 @@ export interface ValidationEngineResult extends ValidationAgentResult {
   acceptedFieldKeys: string[];
   reviewFieldKeys: string[];
   normalizedCandidates: ModelFieldCandidate[];
+  /**
+   * 需要重新抽取的字段 key（P1-3）。
+   * 当字段值过长且后处理 normalizer 无法简化到阈值内时填充，
+   * 供 workflow shouldRetryExtraction 触发针对该字段的重抽。
+   */
+  reextractionFieldKeys: string[];
 }
 
 function isRequiredFieldKey(field: CoreFieldDefinition): boolean {
@@ -84,6 +92,66 @@ function normalizeEnumCandidate(schema: CoreSchemaDraft, candidate: ModelFieldCa
 
 function normalizeCandidates(schema: CoreSchemaDraft, candidates: ModelFieldCandidate[]): ModelFieldCandidate[] {
   return candidates.map((candidate) => normalizeEnumCandidate(schema, candidate));
+}
+
+// ── P1-3：字段值长度校验与后处理 ──
+
+/**
+ * 需要长度校验的字段配置：字段 key → { 阈值字符数, 后处理 normalizer }。
+ * 超过阈值的字段先尝试 normalizer 简化；简化后仍超长则触发重抽。
+ */
+const LENGTH_CONSTRAINED_FIELDS: Record<string, { maxLength: number; normalize: (text: string) => { normalizedValue: string; confidence: number } }> = {
+  pathologicalDiagnosis: {
+    maxLength: 40,
+    normalize: (text) => {
+      const result = normalizePathologicalDiagnosis(text);
+      return { normalizedValue: result.normalizedValue, confidence: result.confidence };
+    }
+  }
+};
+
+/**
+ * 对超长字段尝试后处理简化。
+ * 返回 { candidate: 后处理后的候选（若简化成功）, needsReextraction: 是否仍需重抽 }。
+ */
+function applyLengthPostProcess(
+  candidate: ModelFieldCandidate
+): { candidate: ModelFieldCandidate; needsReextraction: boolean; issue?: ValidationIssue } {
+  const constraint = LENGTH_CONSTRAINED_FIELDS[candidate.fieldKey];
+  if (!constraint || typeof candidate.value !== "string") {
+    return { candidate, needsReextraction: false };
+  }
+
+  const originalLength = candidate.value.length;
+  if (originalLength <= constraint.maxLength) {
+    return { candidate, needsReextraction: false };
+  }
+
+  // 超长：先尝试 normalizer 简化
+  const normalized = constraint.normalize(candidate.value);
+  if (normalized.normalizedValue.length <= constraint.maxLength && normalized.normalizedValue.length > 0) {
+    // 简化成功，更新候选值
+    return {
+      candidate: { ...candidate, value: normalized.normalizedValue },
+      needsReextraction: false,
+      issue: {
+        code: "VALUE_TOO_LONG",
+        message: `字段 ${candidate.fieldKey} 原值过长（${originalLength} 字符），已后处理简化为 ${normalized.normalizedValue.length} 字符。`,
+        severity: "warning"
+      }
+    };
+  }
+
+  // 简化后仍超长或为空，触发重抽
+  return {
+    candidate,
+    needsReextraction: true,
+    issue: {
+      code: "VALUE_TOO_LONG",
+      message: `字段 ${candidate.fieldKey} 值过长（${originalLength} 字符，阈值 ${constraint.maxLength}），后处理仍无法简化，需重新抽取。`,
+      severity: "warning"
+    }
+  };
 }
 
 function matchesFieldType(candidate: ModelFieldCandidate, field: CoreFieldDefinition): boolean {
@@ -215,10 +283,33 @@ function appendConflictWarnings(
 }
 
 export function runValidationEngine(input: ValidationEngineInput): ValidationEngineResult {
-  const normalizedCandidates = normalizeCandidates(input.schema, input.candidates);
+  const enumNormalized = normalizeCandidates(input.schema, input.candidates);
+
+  // P1-3：对超长字段做后处理，收集需重抽的字段
+  const reextractionFieldKeys: string[] = [];
+  const lengthIssuesByField = new Map<string, ValidationIssue>();
+  const normalizedCandidates = enumNormalized.map((candidate) => {
+    const { candidate: processed, needsReextraction, issue } = applyLengthPostProcess(candidate);
+    if (issue) {
+      lengthIssuesByField.set(candidate.fieldKey, issue);
+    }
+    if (needsReextraction) {
+      reextractionFieldKeys.push(candidate.fieldKey);
+    }
+    return processed;
+  });
+
   const fieldResults: FieldValidationResult[] = appendConflictWarnings(
     [
-      ...normalizedCandidates.map((candidate) => createFieldValidationResult(input.schema, candidate)),
+      ...normalizedCandidates.map((candidate) => {
+        const result = createFieldValidationResult(input.schema, candidate);
+        // 将长度校验 issue 追加到对应字段结果
+        const lengthIssue = lengthIssuesByField.get(candidate.fieldKey);
+        if (lengthIssue) {
+          return { ...result, issues: [...result.issues, lengthIssue] };
+        }
+        return result;
+      }),
       ...getMissingRequiredFieldResults(input.schema, normalizedCandidates)
     ],
     normalizedCandidates
@@ -252,7 +343,8 @@ export function runValidationEngine(input: ValidationEngineInput): ValidationEng
     missingRequiredFieldKeys,
     acceptedFieldKeys,
     reviewFieldKeys,
-    normalizedCandidates
+    normalizedCandidates,
+    reextractionFieldKeys
   };
 }
 
