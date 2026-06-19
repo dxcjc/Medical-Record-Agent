@@ -68,7 +68,10 @@ export interface VisualReviewConfig {
 // ── Visual Review Node ──
 
 export interface VisualReviewNodeInput {
-  imageBase64: string;
+  /** 单张原图 base64（单文档场景）。与 images 互斥，images 优先。 */
+  imageBase64?: string;
+  /** 多张原图 base64 数组（多文档场景）。支持多图输入的视觉模型可一次交叉验证。 */
+  images?: string[];
   schema: CoreSchemaDraft;
   ocrText: string;
 }
@@ -84,7 +87,7 @@ export interface CreateVisualReviewNodeInput {
   config?: VisualReviewConfig;
 }
 
-function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string): string {
+function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string, imageCount = 1): string {
   const fieldList = schema.fields
     .map((f) => {
       const enumHint = f.enumMap
@@ -95,9 +98,21 @@ function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string): stri
     })
     .join("\n");
 
+  const multiDocHint = imageCount > 1
+    ? [
+        "",
+        `## 多文档说明`,
+        `本次提供 ${imageCount} 张图片，可能来自不同文档（如病理报告 + 影像报告 + 基因检测）。`,
+        `请综合所有图片信息，对每个字段判断：信息是否在任意一张图片中存在，并给出最可信的值。`,
+        `若同一字段在多张图片中出现冲突，在 reason 中说明并取置信度最高的来源。`,
+        ""
+      ].join("\n")
+    : "";
+
   return [
     "你是一名医学文档视觉分析专家，擅长从病历图片中精准识别结构化信息。",
-    "请仔细查看这张病历图片，完成以下两项任务：",
+    `请仔细查看这${imageCount > 1 ? `${imageCount}张` : "张"}病历图片，完成以下两项任务：`,
+    multiDocHint,
     "",
     "## 任务一：验证并补充字段",
     "",
@@ -163,13 +178,25 @@ function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string): stri
 export function createVisualReviewNode(config: CreateVisualReviewNodeInput): VisualReviewNode {
   return {
     async run(input) {
-      const prompt = buildVisualReviewPrompt(input.schema, input.ocrText);
+      // 收集图片：images 优先（多文档），回退 imageBase64（单文档）
+      const images = input.images && input.images.length > 0
+        ? input.images
+        : input.imageBase64
+          ? [input.imageBase64]
+          : [];
+
+      const prompt = buildVisualReviewPrompt(input.schema, input.ocrText, images.length);
 
       const result = await config.provider.extractFields({
         schema: input.schema,
         prompt,
         ocrText: input.ocrText,
-        imageBase64: input.imageBase64
+        // 多图走 images[]，单图仍走 imageBase64（保持向后兼容）
+        ...(images.length > 1
+          ? { images }
+          : images.length === 1
+            ? { imageBase64: images[0] as string }
+            : {})
       });
 
       // 从标准 candidates 格式重建视觉字段评估

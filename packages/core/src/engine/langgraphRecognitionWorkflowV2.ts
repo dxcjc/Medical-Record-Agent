@@ -261,26 +261,29 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     }
 
     try {
-      const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 1;
-      if (hasMultipleDocuments) {
-        return trace("visualReview", "skipped", "多文档模式暂不支持视觉评审。");
+      // 收集所有图片 base64：多文档时从 state.documents 收集每张图，
+      // 单文档时用 state.document.content。多图一次性传给视觉模型做交叉验证。
+      let images: string[] = [];
+      if (state.documents && state.documents.length > 0) {
+        images = state.documents
+          .map((doc) => (doc.content ? Buffer.from(doc.content).toString("base64") : undefined))
+          .filter((img): img is string => img !== undefined);
+      } else if (state.document.content) {
+        images = [Buffer.from(state.document.content).toString("base64")];
       }
 
-      const imageBase64 = state.document.content
-        ? Buffer.from(state.document.content).toString("base64")
-        : undefined;
-
-      if (!imageBase64) {
+      if (images.length === 0) {
         return trace("visualReview", "skipped", "无图片内容，跳过视觉评审。");
       }
 
-      console.log("[visualReview] 启动视觉评审...");
+      const isMultiDoc = images.length > 1;
+      console.log(`[visualReview] 启动视觉评审（${isMultiDoc ? `${images.length} 张图片` : "单图"}）...`);
       const startTime = Date.now();
 
       const visualResult = await visualReviewNode.run({
         schema: config.schema,
         ocrText: state.ocrText ?? "",
-        imageBase64
+        ...(isMultiDoc ? { images } : { imageBase64: images[0] as string })
       });
 
       const elapsedMs = Date.now() - startTime;
