@@ -8,6 +8,7 @@ export interface ExtractionNodeInput {
   targetFieldKeys?: string[];
   imageBase64?: string;  // 原图 base64，用于 LLM 视觉增强
   ragContext?: string[];  // RAG 上下文由 workflow 层传入
+  fieldRuleContext?: string[];  // L1: field_description rules (guaranteed injection)
   focusedFieldKeys?: string[];  // 针对性抽取（用于多轮/重试场景）
 }
 
@@ -31,6 +32,7 @@ export function createExtractionNode(config: CreateExtractionNodeInput): Extract
         schema: input.schema,
         ocrText: input.ocrText,
         ragContext: input.ragContext ?? [],
+        fieldRuleContext: input.fieldRuleContext ?? [],
         ...(input.imageBase64 !== undefined ? { imageBase64: input.imageBase64 } : {}),
         ...(input.focusedFieldKeys !== undefined ? { focusedFieldKeys: input.focusedFieldKeys } : {})
       });

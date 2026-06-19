@@ -169,7 +169,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
       const retrieval = await config.knowledgeRetriever.retrieve({
         query,
         fieldKeys,
-        limit: 5
+        limit: 15
       });
 
       console.log("[rag] 知识检索完成", {
@@ -193,12 +193,17 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     }
 
     try {
-      const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 0;
+      const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 1;
       const imageBase64 = !hasMultipleDocuments && state.document.content
         ? Buffer.from(state.document.content).toString("base64")
         : undefined;
 
       const ragContext = state.ragResult?.context ?? [];
+      
+      // L1: field_description rules — guaranteed injection from knowledge base
+      const fieldRuleContext = state.ragResult?.fieldRules?.map(
+        (entry) => `[${entry.kind}] ${entry.title}：${entry.content}`
+      ) ?? [];
 
       // 反馈循环针对性重抽：合并冲突提示字段和缺失的必填字段，作为本轮聚焦字段。
       // 这样重试不会全量重抽，而是引导模型优先补齐问题字段（focusedFieldKeys 会在 prompt 中体现）。
@@ -215,6 +220,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
         ocrText: state.ocrText,
         targetFieldKeys: config.schema.fields.map((field) => field.key),
         ragContext,
+        fieldRuleContext,
         ...(imageBase64 !== undefined ? { imageBase64 } : {}),
         ...(focusedFieldKeys !== undefined && focusedFieldKeys.length > 0 ? { focusedFieldKeys } : {})
       });
@@ -254,7 +260,7 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     }
 
     try {
-      const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 0;
+      const hasMultipleDocuments = state.documents !== undefined && state.documents.length > 1;
       if (hasMultipleDocuments) {
         return trace("visualReview", "skipped", "多文档模式暂不支持视觉评审。");
       }

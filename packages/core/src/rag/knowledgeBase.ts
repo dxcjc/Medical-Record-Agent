@@ -1,4 +1,17 @@
-export type KnowledgeEntryKind = "medical-term" | "cancer-alias" | "lims-dictionary" | "field-description";
+export type KnowledgeEntryKind = 
+  | "medical-term" | "medical_term"
+  | "cancer-alias" | "cancer_alias"
+  | "lims-dictionary" | "lims_dictionary"
+  | "field-description" | "field_description"
+  | "interpretation_match"
+  | "staging"
+  | "gene_detection"
+  | "treatment"
+  | "medication"
+  | "gender_inference"
+  | "ocr_correction"
+  | "cancer_tag"
+  | "sample_type_mapping";
 
 export interface KnowledgeEntry {
   id: string;

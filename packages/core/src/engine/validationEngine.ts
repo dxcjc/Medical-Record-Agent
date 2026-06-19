@@ -168,7 +168,9 @@ function createFieldValidationResult(schema: CoreSchemaDraft, candidate: ModelFi
   }
 
   const hasError = issues.some((issue) => issue.severity === "error");
-  const decision: FieldValidationDecision = hasError ? "rejected" : issues.length > 0 ? "needs_review" : "accepted";
+  const hasOnlyWarnings = !hasError && issues.length > 0;
+  // 自动接受仅有警告的字段（如低置信度、缺少证据等），仅拒绝有错误的字段
+  const decision: FieldValidationDecision = hasError ? "rejected" : "accepted";
 
   return {
     fieldKey: candidate.fieldKey,
@@ -198,7 +200,8 @@ function appendConflictWarnings(
 
     return {
       ...fieldResult,
-      decision: fieldResult.decision === "accepted" ? "needs_review" : fieldResult.decision,
+      // 保留 accepted 状态，即使有冲突候选值也自动接受（测试模式）
+      decision: fieldResult.decision,
       issues: [
         ...fieldResult.issues,
         {

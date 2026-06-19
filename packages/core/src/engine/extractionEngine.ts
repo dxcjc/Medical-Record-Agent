@@ -10,6 +10,7 @@ export interface BuildExtractionPromptInput {
   schema: CoreSchemaDraft;
   ocrText: string;
   ragContext?: string[];
+  fieldRuleContext?: string[];
   evidenceRequirements?: string[];
   imageBase64?: string;
   focusedFieldKeys?: string[];
@@ -20,6 +21,7 @@ export interface ExtractStructuredFieldsInput {
   schema: CoreSchemaDraft;
   ocrText: string;
   ragContext?: string[];
+  fieldRuleContext?: string[];
   evidenceRequirements?: string[];
   imageBase64?: string;
   focusedFieldKeys?: string[];
@@ -86,6 +88,12 @@ function formatField(field: CoreFieldDefinition): string {
 }
 
 export function buildExtractionPrompt(input: BuildExtractionPromptInput): string {
+  // L1: field_description rules — always injected
+  const fieldRules = input.fieldRuleContext?.length
+    ? input.fieldRuleContext.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    : "无字段提取规则。";
+  
+  // L2: RAG context — other knowledge entries
   const ragContext = input.ragContext?.length
     ? input.ragContext.map((item, index) => `${index + 1}. ${item}`).join("\n")
     : "无补充知识。";
@@ -107,7 +115,10 @@ export function buildExtractionPrompt(input: BuildExtractionPromptInput): string
     "字段定义：",
     input.schema.fields.map(formatField).join("\n"),
     "",
-    "轻量 RAG 上下文：",
+    "【字段提取规则】（从知识库提取，每个字段的识别方法）",
+    fieldRules,
+    "",
+    "领域知识补充：",
     ragContext,
     "",
     "证据要求：",

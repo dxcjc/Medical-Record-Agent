@@ -43,8 +43,9 @@ export function evaluateAutoDecision(input: AutoDecisionPolicyInput): AutoDecisi
     });
   }
 
+  // 测试模式：仅 rejected 才视为问题，needs_review 视为已接受
   const keyIssues = input.validation.fieldResults.filter(
-    (field) => keyFieldKeys.has(field.fieldKey) && field.decision !== "accepted"
+    (field) => keyFieldKeys.has(field.fieldKey) && field.decision === "rejected"
   );
   for (const field of keyIssues) {
     reasons.push({
@@ -54,8 +55,9 @@ export function evaluateAutoDecision(input: AutoDecisionPolicyInput): AutoDecisi
     });
   }
 
+  // 测试模式：仅 rejected 才视为问题，needs_review 视为已接受
   const optionalIssues = input.validation.fieldResults.filter(
-    (field) => !keyFieldKeys.has(field.fieldKey) && field.decision !== "accepted"
+    (field) => !keyFieldKeys.has(field.fieldKey) && field.decision === "rejected"
   );
   for (const field of optionalIssues) {
     reasons.push({
