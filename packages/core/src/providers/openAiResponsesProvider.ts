@@ -13,6 +13,20 @@ function createMalformedResponsesOutputError(providerName: string): ProviderErro
   });
 }
 
+/**
+ * 收集请求中的所有图片 base64（images 优先，回退 imageBase64）。
+ * 返回 null 表示无图片。
+ */
+function collectImages(request: { images?: string[]; imageBase64?: string }): string[] | null {
+  if (request.images && request.images.length > 0) {
+    return request.images;
+  }
+  if (request.imageBase64 && request.imageBase64.length > 0) {
+    return [request.imageBase64];
+  }
+  return null;
+}
+
 export function createOpenAiResponsesProvider(config: OpenAiResponsesProviderConfig): ModelProvider {
   const providerName = config.providerName ?? "openai-responses";
   if (config.experimental?.enabled !== true) {
@@ -29,9 +43,22 @@ export function createOpenAiResponsesProvider(config: OpenAiResponsesProviderCon
       try {
         // Responses provider 是 OpenAI Responses API 的实验适配层。
         // client 从外部注入，单元测试只使用 mock client，避免触达真实 OpenAI 服务。
+        // 视觉增强：当请求携带图片时，input 构造为多模态内容数组（文本 + image_url blocks），
+        // 兼容 OpenAI Responses API 的多模态输入。此前 responses provider 会丢弃图片。
+        const images = collectImages(request);
+        const input = images
+          ? [
+              { type: "input_text", text: request.prompt },
+              ...images.map((img) => ({
+                type: "input_image",
+                image_url: `data:image/jpeg;base64,${img}`
+              }))
+            ]
+          : request.prompt;
+
         const response = await config.client.responses.create({
           model: config.model,
-          input: request.prompt,
+          input,
           text: {
             format: {
               type: "json_object"
@@ -52,7 +79,9 @@ export function createOpenAiResponsesProvider(config: OpenAiResponsesProviderCon
           providerName,
           candidates,
           raw: {
-            providerMode: "openai-responses"
+            providerMode: "openai-responses",
+            multimodal: images !== null,
+            imageCount: images ? images.length : 0
           }
         };
       } catch (error) {

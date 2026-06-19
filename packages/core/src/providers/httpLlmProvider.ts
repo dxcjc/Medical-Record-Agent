@@ -58,6 +58,20 @@ async function delay(ms: number): Promise<void> {
   });
 }
 
+/**
+ * 收集请求中的所有图片 base64（images 优先，回退 imageBase64）。
+ * 返回 null 表示无图片。
+ */
+function collectImages(request: { images?: string[]; imageBase64?: string }): string[] | null {
+  if (request.images && request.images.length > 0) {
+    return request.images;
+  }
+  if (request.imageBase64 && request.imageBase64.length > 0) {
+    return [request.imageBase64];
+  }
+  return null;
+}
+
 export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvider {
   const providerName = config.providerName ?? "http-llm";
   const fetchFn = config.fetchFn ?? fetch;
@@ -66,9 +80,12 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
   return {
     providerName,
     async extractFields(request) {
-      // Vision 请求（带图片）需要更长超时
-      const hasImage = request.imageBase64 && request.imageBase64.length > 0;
-      const timeoutMs = hasImage ? 300_000 : (config.timeoutMs ?? 120_000);
+      // Vision 请求（带图片）需要更长超时；多图按图数动态加时，每图额外 120s，下限 300s
+      const images = collectImages(request);
+      const hasImage = images !== null;
+      const timeoutMs = hasImage
+        ? Math.max(300_000, images!.length * 120_000)
+        : (config.timeoutMs ?? 120_000);
 
       let lastError: unknown;
 
@@ -89,22 +106,22 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
               messages: [
                 {
                   role: "system",
-                  content: request.imageBase64
+                  content: hasImage
                     ? "你是病历字段结构化抽取模型，只能返回 JSON 对象。你会仔细查看文档图片，准确识别勾选框状态和手写内容。"
                     : "你是病历字段结构化抽取模型，只能返回 JSON 对象。"
                 },
                 {
                   role: "user",
-                  content: request.imageBase64
+                  content: hasImage
                     ? [
                         { type: "text", text: request.prompt },
-                        {
+                        ...images!.map((img) => ({
                           type: "image_url",
                           image_url: {
-                            url: `data:image/jpeg;base64,${request.imageBase64}`,
+                            url: `data:image/jpeg;base64,${img}`,
                             detail: "high"
                           }
-                        }
+                        }))
                       ]
                     : request.prompt
                 }

@@ -73,7 +73,13 @@ export interface ModelExtractionRequest {
   prompt: string;
   ocrText: string;
   ragContext?: string[];
-  imageBase64?: string;  // 原图 base64，用于 LLM 视觉增强
+  imageBase64?: string;  // 原图 base64，用于 LLM 视觉增强（单图）
+  /**
+   * 多张原图 base64 数组，用于多文档视觉审查/视觉增强。
+   * 与 imageBase64 互斥：images 优先；未提供 images 时回退 imageBase64。
+   * 支持多图输入的视觉模型（如豆包 vision）可一次接收多张图片做交叉验证。
+   */
+  images?: string[];
 }
 
 export interface ModelExtractionResult {
@@ -169,13 +175,20 @@ export interface HttpOcrProviderConfig {
   fetchFn?: FetchLike;
 }
 
+/**
+ * 结构化模型调用入参。除纯文本 prompt 外，还兼容多模态消息
+ * （如 LangChain HumanMessage，其 content 为文本+图片块的数组）。
+ * 真实 ChatModel 由外部注入，此处放宽类型以适配多模态输入。
+ */
+export type StructuredModelInvokeInput = string | object | unknown[];
+
 export interface StructuredModelLike {
-  invoke(input: string): Promise<unknown>;
+  invoke(input: StructuredModelInvokeInput): Promise<unknown>;
 }
 
 export interface StructuredLanguageModel {
   withStructuredOutput?(schema: Record<string, unknown>): StructuredModelLike;
-  invoke?(input: string): Promise<unknown>;
+  invoke?(input: StructuredModelInvokeInput): Promise<unknown>;
 }
 
 export interface StructuredModelProviderConfig {

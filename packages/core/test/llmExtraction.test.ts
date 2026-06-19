@@ -537,4 +537,201 @@ describe("LLM extraction engine", () => {
       }).providerName
     ).toBe("responses-disabled-test");
   });
+
+  // ── 多模态图片注入（P2-8 / P0-1 前置）──
+  // 此前 langchain / openai-responses provider 会丢弃 imageBase64，只有 http 模式真正用图。
+  // 以下测试验证三个 provider 都不再丢弃图片，并支持多图（images[]）。
+
+  it("HTTP LLM provider sends multiple image_url blocks when images[] provided", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  fields: [
+                    {
+                      fieldKey: "tumorType",
+                      value: "DEMO_DIAGNOSIS_A",
+                      rawValue: "诊断：DEMO_DIAGNOSIS_A",
+                      confidence: 0.9,
+                      evidence: [{ snippet: "诊断", startOffset: 0, endOffset: 2, pageNumber: 1 }]
+                    }
+                  ]
+                })
+              }
+            }
+          ]
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    const provider = createHttpLlmProvider({
+      endpoint: "https://llm-gateway.example.test/v1/chat/completions",
+      model: "demo-vision-model",
+      fetchFn: fetchMock
+    });
+
+    await provider.extractFields({
+      schema: limsClinicalInfoSchema,
+      prompt: "请抽取字段。",
+      ocrText: demoOcrText,
+      images: ["img-base64-1", "img-base64-2", "img-base64-3"]
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
+    const userContent = body.messages[1].content;
+    expect(Array.isArray(userContent)).toBe(true);
+    const imageBlocks = userContent.filter((b: { type: string }) => b.type === "image_url");
+    // 3 张图应生成 3 个 image_url block + 1 个 text block
+    expect(imageBlocks).toHaveLength(3);
+    expect(imageBlocks[0].image_url.url).toContain("img-base64-1");
+    expect(imageBlocks[2].image_url.url).toContain("img-base64-3");
+  });
+
+  it("HTTP LLM provider falls back to imageBase64 when images[] absent", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  fields: [
+                    {
+                      fieldKey: "tumorType",
+                      value: "DEMO_DIAGNOSIS_A",
+                      rawValue: "诊断",
+                      confidence: 0.9,
+                      evidence: [{ snippet: "x", startOffset: 0, endOffset: 1, pageNumber: 1 }]
+                    }
+                  ]
+                })
+              }
+            }
+          ]
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    const provider = createHttpLlmProvider({
+      endpoint: "https://llm-gateway.example.test/v1/chat/completions",
+      model: "demo-vision-model",
+      fetchFn: fetchMock
+    });
+
+    await provider.extractFields({
+      schema: limsClinicalInfoSchema,
+      prompt: "请抽取字段。",
+      ocrText: demoOcrText,
+      imageBase64: "single-img"
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
+    const imageBlocks = body.messages[1].content.filter((b: { type: string }) => b.type === "image_url");
+    expect(imageBlocks).toHaveLength(1);
+    expect(imageBlocks[0].image_url.url).toContain("single-img");
+  });
+
+  it("langchain provider injects image content and no longer drops imageBase64", async () => {
+    const invoke = vi.fn(async () => ({
+      fields: [
+        {
+          fieldKey: "sampleType",
+          value: "tissue",
+          rawValue: "样本类型：DEMO_TISSUE",
+          confidence: 0.9,
+          evidence: [{ snippet: "x", startOffset: 0, endOffset: 1, pageNumber: 1 }]
+        }
+      ]
+    }));
+    const withStructuredOutput = vi.fn(() => ({ invoke }));
+    const provider = createLangChainModelProvider({
+      providerName: "langchain-vision-test",
+      model: { withStructuredOutput }
+    });
+
+    const result = await provider.extractFields({
+      schema: limsClinicalInfoSchema,
+      prompt: "请抽取字段。",
+      ocrText: demoOcrText,
+      imageBase64: "vision-img"
+    });
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    // invoke 应收到一个对象（HumanMessage），而非纯字符串 —— 证明图片已注入
+    const arg = invoke.mock.calls[0][0];
+    expect(typeof arg).toBe("object");
+    expect(result.raw?.multimodal).toBe(true);
+    expect(result.raw?.imageCount).toBe(1);
+  });
+
+  it("langchain provider supports multiple images via images[]", async () => {
+    const invoke = vi.fn(async () => ({
+      fields: [
+        {
+          fieldKey: "sampleType",
+          value: "tissue",
+          rawValue: "样本类型",
+          confidence: 0.9,
+          evidence: [{ snippet: "x", startOffset: 0, endOffset: 1, pageNumber: 1 }]
+        }
+      ]
+    }));
+    const withStructuredOutput = vi.fn(() => ({ invoke }));
+    const provider = createLangChainModelProvider({
+      providerName: "langchain-multi-img-test",
+      model: { withStructuredOutput }
+    });
+
+    const result = await provider.extractFields({
+      schema: limsClinicalInfoSchema,
+      prompt: "请抽取字段。",
+      ocrText: demoOcrText,
+      images: ["a", "b"]
+    });
+
+    const arg = invoke.mock.calls[0][0];
+    expect(typeof arg).toBe("object");
+    expect(result.raw?.imageCount).toBe(2);
+  });
+
+  it("openai-responses provider injects image content and no longer drops imageBase64", async () => {
+    const create = vi.fn(async () => ({
+      output_text: JSON.stringify({
+        fields: [
+          {
+            fieldKey: "sampleType",
+            value: "tissue",
+            rawValue: "样本类型",
+            confidence: 0.9,
+            evidence: [{ snippet: "x", startOffset: 0, endOffset: 1, pageNumber: 1 }]
+          }
+        ]
+      })
+    }));
+    const provider = createOpenAiResponsesProvider({
+      providerName: "responses-vision-test",
+      model: "gpt-demo",
+      client: { responses: { create } },
+      experimental: { enabled: true }
+    });
+
+    const result = await provider.extractFields({
+      schema: limsClinicalInfoSchema,
+      prompt: "请抽取字段。",
+      ocrText: demoOcrText,
+      images: ["img-1", "img-2"]
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    const inputArg = create.mock.calls[0][0].input;
+    expect(Array.isArray(inputArg)).toBe(true);
+    const imageInputs = inputArg.filter((b: { type: string }) => b.type === "input_image");
+    expect(imageInputs).toHaveLength(2);
+    expect(result.raw?.multimodal).toBe(true);
+    expect(result.raw?.imageCount).toBe(2);
+  });
 });

@@ -1,3 +1,4 @@
+import { HumanMessage } from "@langchain/core/messages";
 import { PromptTemplate } from "@langchain/core/prompts";
 
 import { extractionOutputSchema, parseModelExtractionOutput } from "../engine/extractionEngine";
@@ -9,6 +10,20 @@ function createMalformedOutputError(providerName: string): ProviderError {
     retryable: false,
     code: "MODEL_OUTPUT_MALFORMED"
   });
+}
+
+/**
+ * 收集请求中的所有图片 base64（images 优先，回退 imageBase64）。
+ * 返回 null 表示无图片。
+ */
+function collectImages(request: { images?: string[]; imageBase64?: string }): string[] | null {
+  if (request.images && request.images.length > 0) {
+    return request.images;
+  }
+  if (request.imageBase64 && request.imageBase64.length > 0) {
+    return [request.imageBase64];
+  }
+  return null;
 }
 
 export function createLangChainModelProvider(config: StructuredModelProviderConfig): ModelProvider {
@@ -30,7 +45,24 @@ export function createLangChainModelProvider(config: StructuredModelProviderConf
           throw createMalformedOutputError(providerName);
         }
 
-        const output = await structuredModel.invoke(prompt);
+        // 视觉增强：当请求携带图片时，构造多模态 HumanMessage（文本 + image_url blocks）。
+        // LangChain ChatModel 的 invoke 支持 HumanMessage with multimodal content，
+        // 兼容 OpenAI 协议的 image_url 结构。此前 langchain provider 会丢弃图片，导致
+        // 视觉审查节点在 langchain 模式下无法收图。
+        const images = collectImages(request);
+        const message = images
+          ? new HumanMessage({
+              content: [
+                { type: "text", text: prompt },
+                ...images.map((img) => ({
+                  type: "image_url",
+                  image_url: { url: `data:image/jpeg;base64,${img}` }
+                }))
+              ]
+            })
+          : prompt;
+
+        const output = await structuredModel.invoke(message);
         const candidates = parseModelExtractionOutput(output, request.schema);
         if (!candidates) {
           throw createMalformedOutputError(providerName);
@@ -41,7 +73,9 @@ export function createLangChainModelProvider(config: StructuredModelProviderConf
           candidates,
           raw: {
             // raw 只保留 provider 类型摘要，不能透传模型完整输出，因为模型输出可能复述病历原文。
-            providerMode: "langchain-structured-output"
+            providerMode: "langchain-structured-output",
+            multimodal: images !== null,
+            imageCount: images ? images.length : 0
           }
         };
       } catch (error) {
