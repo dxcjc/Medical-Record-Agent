@@ -1330,7 +1330,8 @@ function createConfigurationFailureResult(jobId: string, error: JobOrchestratorR
       missingRequiredFieldKeys: [],
       acceptedFieldKeys: [],
       reviewFieldKeys: [],
-      normalizedCandidates: []
+      normalizedCandidates: [],
+      reextractionFieldKeys: []
     },
     autoDecision: {
       decision: "red",
