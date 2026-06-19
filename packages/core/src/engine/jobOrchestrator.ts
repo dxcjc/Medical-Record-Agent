@@ -86,6 +86,11 @@ export interface JobOrchestratorInput {
   providerConfig?: {
     ocrProviderKey?: string;
     providerKey?: string;
+    /**
+     * 视觉审查专用 provider key（可选）。指定后用该 provider 做视觉审查，
+     * 通常配置为支持多图的多模态模型；未指定则回退到 providerKey 的模型。
+     */
+    visualProviderKey?: string;
   };
 }
 
@@ -111,6 +116,12 @@ export interface JobOrchestratorConfig {
   schema: CoreSchemaDraft;
   ocrProvider: OcrProvider;
   modelProvider: ModelProvider;
+  /**
+   * 视觉审查专用模型 provider（多模态）。未配置时回退到 modelProvider。
+   * 允许视觉审查使用专门的多模态模型（如豆包 vision），
+   * 文本抽取仍用纯文本模型，避免共用导致视觉能力受限或成本浪费。
+   */
+  visualModelProvider?: ModelProvider;
   knowledgeRetriever: KnowledgeRetriever;
   permissions: string[];
   autoWritebackEnabled: boolean;

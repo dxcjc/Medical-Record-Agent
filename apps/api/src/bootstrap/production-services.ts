@@ -1396,6 +1396,12 @@ type ProductionSchemaResolution =
 type ProductionProviderRuntimeSelection = {
   ocrProvider?: OcrProvider;
   modelProvider?: ModelProvider;
+  /**
+   * 视觉审查专用模型 provider（多模态）。未解析到时为 undefined，
+   * 调用方应回退到 modelProvider。仅在 providerConfig 显式指定
+   * visualProviderKey 且该 provider 启用、kind 为 llm 时填充。
+   */
+  visualModelProvider?: ModelProvider;
 };
 
 type ProductionRecognitionOrchestratorFactory = (
@@ -1537,6 +1543,9 @@ async function resolveProductionProviderRuntime(input: {
   const config = readPayloadRecord(input.providerConfig);
   const ocrProviderKey = readOptionalString(config.ocrProviderKey);
   const modelProviderKey = readOptionalString(config.providerKey);
+  // 视觉审查专用 provider（可选）。仅在显式指定时解析；未指定则保持 undefined，
+  // 由 orchestrator 回退到 modelProvider。
+  const visualProviderKey = readOptionalString(config.visualProviderKey);
   const effectiveOcrProviderKey =
     ocrProviderKey ??
     (await findDefaultSavedProviderKey({
@@ -1579,6 +1588,20 @@ async function resolveProductionProviderRuntime(input: {
     return { available: false };
   }
   providers.modelProvider = modelProvider as ModelProvider;
+
+  // 视觉模型独立解析：失败不阻断主流程，仅记 undefined 触发回退。
+  // 这样视觉 provider 临时不可用时识别仍能继续（用通用模型做视觉审查）。
+  if (visualProviderKey !== undefined) {
+    const visualModelProvider = await resolveSavedProviderRuntime({
+      key: visualProviderKey,
+      expectedKind: "llm",
+      providerRepository: input.providerRepository,
+      runtimeOptions: input.runtimeOptions
+    });
+    if (visualModelProvider) {
+      providers.visualModelProvider = visualModelProvider as ModelProvider;
+    }
+  }
 
   return {
     available: true,
@@ -2599,6 +2622,8 @@ export function createProductionApiServices(options: CreateProductionApiServices
       schema,
       ocrProvider: providers.ocrProvider ?? createUnconfiguredOcrProvider(),
       modelProvider: providers.modelProvider ?? createUnconfiguredModelProvider(),
+      // 视觉审查优先用独立多模态模型；未配置时 createJobOrchestrator 内部回退到 modelProvider。
+      ...(providers.visualModelProvider ? { visualModelProvider: providers.visualModelProvider } : {}),
       knowledgeRetriever: createDatabaseKnowledgeRetriever(knowledgeRepository),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: true,
@@ -2627,6 +2652,7 @@ export function createProductionApiServices(options: CreateProductionApiServices
       modelProvider:
         providers.modelProvider ??
         createUnconfiguredModelProvider(),
+      ...(providers.visualModelProvider ? { visualModelProvider: providers.visualModelProvider } : {}),
       knowledgeRetriever: createDatabaseKnowledgeRetriever(knowledgeRepository),
       permissions: Object.values(PERMISSIONS),
       autoWritebackEnabled: false,

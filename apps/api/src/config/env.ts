@@ -35,7 +35,13 @@ const rawEnvSchema = z.object({
   LLM_MODEL: z.string().default("unconfigured-real-model"),
   LLM_BASE_URL: z.string().default("http://localhost:11434/v1"),
   LLM_API_KEY: z.string().default("replace-with-llm-api-key"),
-  OPENAI_API_KEY: z.string().optional()
+  OPENAI_API_KEY: z.string().optional(),
+
+  // 视觉审查专用多模态模型（可选）。全部缺省时视觉审查回退到 LLM_* 配置的通用模型。
+  VISUAL_LLM_PROVIDER: z.string().optional(),
+  VISUAL_LLM_MODEL: z.string().optional(),
+  VISUAL_LLM_BASE_URL: z.string().optional(),
+  VISUAL_LLM_API_KEY: z.string().optional()
 });
 
 const checkedEnvSchema = rawEnvSchema.superRefine((env, context) => {
@@ -119,6 +125,13 @@ export function parseEnv(input: NodeJS.ProcessEnv) {
         baseUrl: env.LLM_BASE_URL,
         apiKey: env.LLM_API_KEY,
         openAiApiKey: env.OPENAI_API_KEY
+      },
+      // 视觉审查专用多模态模型配置（全部可选）。未配置时视觉审查回退到 llm。
+      visualLlm: {
+        provider: env.VISUAL_LLM_PROVIDER,
+        model: env.VISUAL_LLM_MODEL,
+        baseUrl: env.VISUAL_LLM_BASE_URL,
+        apiKey: env.VISUAL_LLM_API_KEY
       }
     }
   };

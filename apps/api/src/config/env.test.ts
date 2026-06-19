@@ -84,4 +84,34 @@ describe("parseEnv", () => {
     expect(env.providers.ocr.provider).toBe("none");
     expect(env.providers.llm.provider).toBe("none");
   });
+
+  it("未配置 VISUAL_LLM_* 时 visualLlm 各字段为 undefined（回退到通用 llm）", () => {
+    const env = parseEnv({
+      DATABASE_URL: "postgresql://medical_record_agent:change_me@localhost:5432/medical_record_agent?schema=public",
+      JWT_SECRET: "replace-with-a-long-random-development-secret"
+    });
+
+    expect(env.providers.visualLlm.provider).toBeUndefined();
+    expect(env.providers.visualLlm.model).toBeUndefined();
+    expect(env.providers.visualLlm.baseUrl).toBeUndefined();
+    expect(env.providers.visualLlm.apiKey).toBeUndefined();
+  });
+
+  it("配置 VISUAL_LLM_* 时 visualLlm 解析为独立多模态模型配置", () => {
+    // 这里的值是本地测试占位，非真实凭据。
+    const env = parseEnv({
+      DATABASE_URL: "postgresql://medical_record_agent:change_me@localhost:5432/medical_record_agent?schema=public",
+      JWT_SECRET: "replace-with-a-long-random-development-secret",
+      LLM_PROVIDER: "http",
+      VISUAL_LLM_PROVIDER: "http",
+      VISUAL_LLM_MODEL: "doubao-vision-pro",
+      VISUAL_LLM_BASE_URL: "https://ark.cn-beijing.volces.com/api/v3",
+      VISUAL_LLM_API_KEY: "replace-with-visual-api-key"
+    });
+
+    expect(env.providers.visualLlm.provider).toBe("http");
+    expect(env.providers.visualLlm.model).toBe("doubao-vision-pro");
+    expect(env.providers.visualLlm.baseUrl).toBe("https://ark.cn-beijing.volces.com/api/v3");
+    expect(env.providers.visualLlm.apiKey).toBe("replace-with-visual-api-key");
+  });
 });

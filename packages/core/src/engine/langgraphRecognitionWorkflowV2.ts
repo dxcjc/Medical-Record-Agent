@@ -89,7 +89,8 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
     provider: config.modelProvider
   });
   const visualReviewNode = createVisualReviewNode({
-    provider: config.modelProvider,
+    // 视觉审查优先用独立的多模态模型 provider，未配置时回退到通用 modelProvider。
+    provider: config.visualModelProvider ?? config.modelProvider,
     ...(config.visualReview !== undefined ? { config: config.visualReview } : {})
   });
   const conflictResolutionNode = createConflictResolutionNode();
