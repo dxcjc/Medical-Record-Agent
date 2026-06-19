@@ -107,4 +107,54 @@ describe("validationEngine 长度校验与后处理（P1-3）", () => {
 
     expect(result.reextractionFieldKeys).toEqual([]);
   });
+
+  // ── P1-5：clinicalStage 格式标准化后处理 ──
+
+  it("clinicalStage 含 yp 前缀时被后处理去除", () => {
+    const schema: CoreSchemaDraft = {
+      ...limsClinicalInfoSchema,
+      fields: [
+        ...limsClinicalInfoSchema.fields,
+        { key: "clinicalStage", label: "临床分期", type: "string", comments: [], required: true }
+      ]
+    };
+    const result = runValidationEngine({
+      schema,
+      candidates: [{
+        fieldKey: "clinicalStage",
+        value: "ypT1cN1Mx",
+        rawValue: "ypT1cN1Mx",
+        confidence: 0.9,
+        evidence: [{ snippet: "x", startOffset: 0, endOffset: 1, pageNumber: 1 }]
+      }]
+    });
+
+    const processed = result.normalizedCandidates.find((c) => c.fieldKey === "clinicalStage");
+    expect(processed?.value).toBe("T1cN1Mx");
+    // 格式标准化不触发重抽
+    expect(result.reextractionFieldKeys).not.toContain("clinicalStage");
+  });
+
+  it("clinicalStage 临床分期与TNM并存时优先临床分期", () => {
+    const schema: CoreSchemaDraft = {
+      ...limsClinicalInfoSchema,
+      fields: [
+        ...limsClinicalInfoSchema.fields,
+        { key: "clinicalStage", label: "临床分期", type: "string", comments: [], required: true }
+      ]
+    };
+    const result = runValidationEngine({
+      schema,
+      candidates: [{
+        fieldKey: "clinicalStage",
+        value: "IV期（T3N1M0）",
+        rawValue: "IV期（T3N1M0）",
+        confidence: 0.9,
+        evidence: [{ snippet: "x", startOffset: 0, endOffset: 1, pageNumber: 1 }]
+      }]
+    });
+
+    const processed = result.normalizedCandidates.find((c) => c.fieldKey === "clinicalStage");
+    expect(processed?.value).toBe("IV期");
+  });
 });

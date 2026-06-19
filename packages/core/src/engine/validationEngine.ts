@@ -1,6 +1,7 @@
 import type { ModelFieldCandidate } from "../providers/providerTypes";
 import type { CoreFieldDefinition, CoreSchemaDraft } from "../schemas/schemaValidator";
 import { normalizePathologicalDiagnosis } from "../normalizers/pathologyNormalizer";
+import { normalizeClinicalStage } from "../normalizers/clinicalStageNormalizer";
 
 export type ValidationDecision = "green" | "needs_review" | "blocked";
 export type FieldValidationDecision = "accepted" | "needs_review" | "rejected";
@@ -154,6 +155,47 @@ function applyLengthPostProcess(
   };
 }
 
+// ── P1-5：字段格式标准化后处理（不触发重抽，纯格式归一化）──
+
+/**
+ * 需要格式标准化的字段配置：字段 key → normalizer。
+ * 与长度校验不同，格式标准化是纯后处理：将 Agent 输出的非标准格式
+ * 归一化为标准格式（如 clinicalStage 的 TNM/临床分期统一），不触发重抽。
+ */
+const FORMAT_NORMALIZED_FIELDS: Record<string, { normalize: (text: string) => { normalizedValue: string; confidence: number; notes: string[] } }> = {
+  clinicalStage: {
+    normalize: (text) => {
+      const result = normalizeClinicalStage(text);
+      return { normalizedValue: result.normalizedValue, confidence: result.confidence, notes: result.notes };
+    }
+  }
+};
+
+/**
+ * 对字段做格式标准化后处理。值实际改变时更新候选并生成 info 级 issue。
+ */
+function applyFormatPostProcess(candidate: ModelFieldCandidate): { candidate: ModelFieldCandidate; issue?: ValidationIssue } {
+  const formatter = FORMAT_NORMALIZED_FIELDS[candidate.fieldKey];
+  if (!formatter || typeof candidate.value !== "string") {
+    return { candidate };
+  }
+
+  const original = candidate.value;
+  const normalized = formatter.normalize(original);
+  if (normalized.normalizedValue === original) {
+    return { candidate };
+  }
+
+  return {
+    candidate: { ...candidate, value: normalized.normalizedValue },
+    issue: {
+      code: "VALUE_TOO_LONG", // 复用现有 issue code，标记为格式调整（warning）
+      message: `字段 ${candidate.fieldKey} 已格式标准化："${original}" → "${normalized.normalizedValue}"。`,
+      severity: "warning"
+    }
+  };
+}
+
 function matchesFieldType(candidate: ModelFieldCandidate, field: CoreFieldDefinition): boolean {
   const value = candidate.value;
   if (value === null) {
@@ -285,28 +327,37 @@ function appendConflictWarnings(
 export function runValidationEngine(input: ValidationEngineInput): ValidationEngineResult {
   const enumNormalized = normalizeCandidates(input.schema, input.candidates);
 
-  // P1-3：对超长字段做后处理，收集需重抽的字段
+  // P1-3 / P1-5：字段值后处理（长度校验 + 格式标准化），收集需重抽的字段
   const reextractionFieldKeys: string[] = [];
-  const lengthIssuesByField = new Map<string, ValidationIssue>();
+  const postProcessIssuesByField = new Map<string, ValidationIssue>();
   const normalizedCandidates = enumNormalized.map((candidate) => {
-    const { candidate: processed, needsReextraction, issue } = applyLengthPostProcess(candidate);
-    if (issue) {
-      lengthIssuesByField.set(candidate.fieldKey, issue);
+    // P1-3：长度校验（超长先简化，仍超长触发重抽）
+    const { candidate: lengthProcessed, needsReextraction, issue: lengthIssue } = applyLengthPostProcess(candidate);
+    if (lengthIssue) {
+      postProcessIssuesByField.set(candidate.fieldKey, lengthIssue);
     }
     if (needsReextraction) {
       reextractionFieldKeys.push(candidate.fieldKey);
     }
-    return processed;
+    // P1-5：格式标准化（纯后处理，不触发重抽）
+    const { candidate: formatProcessed, issue: formatIssue } = applyFormatPostProcess(lengthProcessed);
+    if (formatIssue) {
+      // 格式标准化 issue 优先级低于长度 issue，仅在该字段无长度 issue 时记录
+      if (!postProcessIssuesByField.has(candidate.fieldKey)) {
+        postProcessIssuesByField.set(candidate.fieldKey, formatIssue);
+      }
+    }
+    return formatProcessed;
   });
 
   const fieldResults: FieldValidationResult[] = appendConflictWarnings(
     [
       ...normalizedCandidates.map((candidate) => {
         const result = createFieldValidationResult(input.schema, candidate);
-        // 将长度校验 issue 追加到对应字段结果
-        const lengthIssue = lengthIssuesByField.get(candidate.fieldKey);
-        if (lengthIssue) {
-          return { ...result, issues: [...result.issues, lengthIssue] };
+        // 将后处理 issue 追加到对应字段结果
+        const postProcessIssue = postProcessIssuesByField.get(candidate.fieldKey);
+        if (postProcessIssue) {
+          return { ...result, issues: [...result.issues, postProcessIssue] };
         }
         return result;
       }),

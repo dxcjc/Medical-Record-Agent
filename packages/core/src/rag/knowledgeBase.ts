@@ -292,6 +292,14 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         keywords: ["肿瘤分类", "胃肠间质瘤", "甲状腺癌", "黑色素癌", "乳腺癌", "肺癌", "结直肠癌", "胃癌", "其他", "tumorCategory"],
         fieldKeys: ["tumorCategory"]
       },
+      {
+        id: "field-description-tumor-category-path",
+        kind: "field-description",
+        title: "肿瘤分类标准路径模板",
+        content: "tumorCategory 输出格式为「器官系统/癌种/亚型」三级路径，不要使用系统级分类路径（如消化系统/结直肠/腺癌）。标准路径映射：结直肠癌→肠道/结直肠腺癌/直肠腺癌 或 肠道/结直肠腺癌/结肠腺癌；胃癌→消化系统/胃癌/胃腺癌；肺癌→呼吸系统/肺癌/肺腺癌 或 呼吸系统/肺癌/肺鳞癌；膀胱癌→泌尿系统/膀胱癌/尿路上皮癌；乳腺癌→乳腺/乳腺癌/浸润性癌。路径末级应为具体亚型名，与 tumorType 保持一致。",
+        keywords: ["tumorCategory", "标准路径", "路径模板", "结直肠", "肠道", "分类路径", "亚型"],
+        fieldKeys: ["tumorCategory"]
+      },
 
       // ========== 输血史 ==========
       {
@@ -366,8 +374,8 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         id: "field-description-clinical-stage",
         kind: "field-description",
         title: "临床分期字段说明",
-        content: "临床分期（clinicalStage）通常采用 TNM 分期系统，格式如 IIA、IIIB、IV 等。也可能显示为 I 期、II 期、III 期、IV 期。病理报告中可能出现在诊断描述中，如'右肺上叶腺癌 pT2aN1M0 IIA期'。归一化时保留原始分期描述。",
-        keywords: ["临床分期", "clinicalStage", "TNM", "分期", "IA", "IB", "IIA", "IIB", "IIIA", "IIIB", "IV"],
+        content: "临床分期（clinicalStage）输出规则：1) 报告中有临床分期（如 IV期、IIIA期）时优先输出临床分期；2) 无临床分期则输出 TNM 分期（如 T2aN1M0）；3) 不要混用 yp 前缀（新辅助治疗后分期），输出标准 TNM 即可。格式二选一：临床分期（罗马数字+期）或 TNM（T数字N数字M数字），不要同时输出两者。归一化时保留原始分期描述。",
+        keywords: ["临床分期", "clinicalStage", "TNM", "分期", "IA", "IB", "IIA", "IIB", "IIIA", "IIIB", "IV", "ypT", "新辅助"],
         fieldKeys: ["clinicalStage"]
       },
 

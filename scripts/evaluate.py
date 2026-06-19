@@ -311,15 +311,20 @@ def normalize_value(value: Any) -> Any:
     return value
 
 
-def fuzzy_match(expected: Any, actual: Any) -> bool:
-    """模糊匹配：检查期望值是否被包含在实际值中（支持子串匹配）。"""
+def fuzzy_match(expected: Any, actual: Any, field_key: str = "") -> bool:
+    """模糊匹配：检查期望值是否被包含在实际值中（支持子串匹配）。
+
+    对特定字段做交叉匹配增强：
+    - tumorCategory：路径匹配，期望末级关键词在实际路径中即算匹配
+    - clinicalStage：TNM 与临床分期两种格式交叉匹配
+    """
     exp = normalize_value(expected)
     act = normalize_value(actual)
-    
+
     # 处理 __ANY__ 特殊标记：期望有值，任意值都匹配
     if exp == "__ANY__":
         return act is not None
-    
+
     if exp is None and act is None:
         return True
     if exp is None or act is None:
@@ -328,8 +333,81 @@ def fuzzy_match(expected: Any, actual: Any) -> bool:
         return True
     # 字符串子串匹配
     if isinstance(exp, str) and isinstance(act, str):
-        return exp in act or act in exp
+        if exp in act or act in exp:
+            return True
+        # P1-4：tumorCategory 路径匹配 —— 期望末级关键词在实际路径中即算匹配
+        if field_key in ("tumorCategory", "tumor_category"):
+            if _path_keyword_match(exp, act):
+                return True
+        # P1-5：clinicalStage 交叉匹配 —— TNM 与临床分期两种格式
+        if field_key in ("clinicalStage", "clinical_stage", "tumorStage", "tumor_stage"):
+            if _stage_cross_match(exp, act):
+                return True
     return False
+
+
+def _path_keyword_match(expected: str, actual: str) -> bool:
+    """P1-4：tumorCategory 路径匹配。
+    期望值和实际值都是「系统/癌种/亚型」路径，只要末级（或任意一级）
+    关键词在对方路径中出现即算匹配，忽略层级和命名差异。
+    """
+    exp_parts = [p.strip() for p in expected.split("/") if p.strip()]
+    act_parts = [p.strip() for p in actual.split("/") if p.strip()]
+    if not exp_parts or not act_parts:
+        return False
+    # 期望的任意一级在实际路径的任意一级中出现
+    for ep in exp_parts:
+        for ap in act_parts:
+            if ep == ap or ep in ap or ap in ep:
+                return True
+    return False
+
+
+# TNM 分期 → 临床分期粗略对照（用于交叉匹配）
+_STAGE_TNM_TO_CLINICAL = {
+    "T0": "0期", "Tis": "0期",
+    "T1": "I期", "T2": "I期",
+    "T3": "II期", "T4": "II期",
+}
+_CLINICAL_STAGE_PATTERN = re.compile(r"^([ⅠⅡⅢⅣⅤ一二三四五ivxIVX]{1,3})\s*期?$")
+
+
+def _stage_cross_match(expected: str, actual: str) -> bool:
+    """P1-5：clinicalStage 交叉匹配。
+    支持 TNM 分期与临床分期（如 IV期）互相匹配。
+    去除 yp/y 前缀后比较；临床分期按罗马数字对照。
+    """
+    def clean(s: str) -> str:
+        # 去除新辅助治疗前后缀 y/yp
+        s = re.sub(r"^y(?:p)?", "", s, flags=re.IGNORECASE)
+        # TNM 主标记大写
+        s = re.sub(r"([tnm])(?=\d|[xabc])", lambda m: m.group(1).upper(), s, flags=re.IGNORECASE)
+        return s.strip()
+
+    exp_c = clean(expected)
+    act_c = clean(actual)
+    if exp_c == act_c:
+        return True
+
+    # 提取临床分期罗马数字
+    exp_clinical = _CLINICAL_STAGE_PATTERN.match(exp_c)
+    act_clinical = _CLINICAL_STAGE_PATTERN.match(act_c)
+
+    # 一方是临床分期，另一方含 TNM：按 T 分级粗略对照
+    if exp_clinical or act_clinical:
+        # 提取 TNM 中的 T 分级
+        exp_t = re.match(r"^T(\d)", exp_c)
+        act_t = re.match(r"^T(\d)", act_c)
+        t_to_stage = {"1": "I期", "2": "I期", "3": "II期", "4": "II期"}
+        if exp_clinical and act_t:
+            if t_to_stage.get(act_t.group(1)) == exp_clinical.group(0):
+                return True
+        if act_clinical and exp_t:
+            if t_to_stage.get(exp_t.group(1)) == act_clinical.group(0):
+                return True
+
+    return False
+
 
 
 def compare_fields(
@@ -363,7 +441,7 @@ def compare_fields(
         # 从映射中取值
         actual_val = field_value_map.get(field_key)
 
-        matched = fuzzy_match(expected_val, actual_val)
+        matched = fuzzy_match(expected_val, actual_val, field_key)
         is_missing = expected_val is not None and normalize_value(actual_val) is None
         is_spurious = expected_val is None and normalize_value(actual_val) is not None
 
