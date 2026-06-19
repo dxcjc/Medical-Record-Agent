@@ -79,6 +79,8 @@ class EvalConfig:
     schema_key: str = DEFAULT_SCHEMA_KEY
     results_dir: Path = DEFAULT_RESULTS_DIR
     job_timeout: int = 300
+    # 标记 job_timeout 是否由用户显式指定。False 时按图片数量动态计算超时（P2-6）。
+    job_timeout_explicit: bool = False
     filter_category: Optional[str] = None
     filter_priority: Optional[str] = None
     concurrency: int = 3
@@ -791,8 +793,15 @@ def run_evaluation(config: EvalConfig) -> dict:
             print(f"  🔧 任务已创建: {job_id[:8]}...")
 
             # 3. 等待完成
+            # P2-6：按图片数量动态调整超时。用户未显式指定 --timeout 时，
+            # 用 max(180, file_count * 90) 秒；显式指定则用固定值。
+            file_count = len(file_ids)
+            if config.job_timeout_explicit:
+                effective_timeout = config.job_timeout
+            else:
+                effective_timeout = max(180, file_count * 90)
             t0 = time.time()
-            job_detail = wait_for_job(client, job_id, config.job_timeout)
+            job_detail = wait_for_job(client, job_id, effective_timeout)
             sr.latency_ms = (time.time() - t0) * 1000
             sr.job_status = job_detail.get("status", "unknown")
 
@@ -883,6 +892,15 @@ def print_summary(report: dict, report_path: Path):
 # ---------------------------------------------------------------------------
 
 def main():
+    # P2-7：启用行缓冲，确保 nohup/重定向输出时实时可见进度，不被块缓冲吞掉。
+    # 用户也可用 PYTHONUNBUFFERED=1 环境变量达到同样效果。
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
+    except AttributeError:
+        # 某些环境（如重定向的 stream）不支持 reconfigure，忽略即可
+        pass
+
     parser = argparse.ArgumentParser(
         description="医疗记录识别 - 自动化回归评估",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -892,11 +910,17 @@ def main():
     parser.add_argument("--filter-priority", help="按优先级过滤（如 P0）")
     parser.add_argument("--concurrency", type=int, default=3, help="并发数（默认3）")
     parser.add_argument("--dry-run", action="store_true", help="仅校验配置，不调用API")
-    parser.add_argument("--timeout", type=int, default=300, help="单任务超时秒数（默认300）")
+    parser.add_argument("--timeout", type=int, default=None, help="单任务超时秒数（未指定时按图片数量动态计算，每图90s下限180s）")
     parser.add_argument("--api-base", default=None, help="API地址")
     parser.add_argument("--schema-key", default=None, help="Schema Key")
     parser.add_argument("--output-dir", default=None, help="报告输出目录")
     args = parser.parse_args()
+
+    # P2-6：--timeout 或 JOB_TIMEOUT 显式指定时用固定值，否则按图片数量动态计算
+    env_timeout = os.getenv("JOB_TIMEOUT")
+    explicit_timeout = args.timeout if args.timeout is not None else (
+        int(env_timeout) if env_timeout else None
+    )
 
     config = EvalConfig(
         api_base=args.api_base or os.getenv("API_BASE_URL", "http://127.0.0.1:3000"),
@@ -907,7 +931,8 @@ def main():
         results_dir=Path(args.output_dir) if args.output_dir else Path(
             os.getenv("RESULTS_DIR", str(DEFAULT_RESULTS_DIR))
         ),
-        job_timeout=args.timeout or int(os.getenv("JOB_TIMEOUT", "300")),
+        job_timeout=explicit_timeout if explicit_timeout is not None else 300,
+        job_timeout_explicit=explicit_timeout is not None,
         filter_category=args.filter_category,
         filter_priority=args.filter_priority,
         concurrency=args.concurrency,
