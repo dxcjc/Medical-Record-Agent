@@ -22,6 +22,13 @@ export interface CoreFieldDefinition {
   critical?: boolean;
   adapterHints?: CoreFieldAdapterHints;
   enumMap?: Record<string, string>;
+  /**
+   * 关键区域关键词（可选）。用于 OCR 漏识兜底：当 OCR 文本中出现该关键词
+   * 但其后续内容为空或过短时，判定为关键区域漏识，强制触发视觉审查。
+   * 例如 pathologicalDiagnosis 字段可标注 "病理诊断"、"诊断意见"。
+   * 未标注时 detectOcrGaps 按内置默认关键词表检测。
+   */
+  criticalRegion?: string;
 }
 
 export interface CoreSchemaDraft {

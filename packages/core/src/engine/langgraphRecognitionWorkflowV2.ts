@@ -26,7 +26,8 @@ import {
   createEmptyDecision,
   createEmptyWriteback,
   resolveStatus,
-  trace
+  trace,
+  detectOcrGaps
 } from "./workflowShared";
 import type { KnowledgeRetrievalResult } from "../rag/inMemoryKnowledgeRetriever";
 
@@ -252,7 +253,21 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
       return trace("visualReview", "skipped", "前序节点失败，跳过视觉评审。");
     }
 
-    if (!state.supervisorDecision?.enableVisualReview) {
+    // P0-2：OCR 关键区域漏识兜底。即使 Supervisor 决策关闭视觉审查，
+    // 若 OCR 文本中关键区域（如"病理诊断："）后内容缺失，强制触发视觉审查，
+    // 让视觉模型补充 OCR 漏掉的关键诊断文字。
+    let forceVisualReview = false;
+    let gapReason = "";
+    if (!state.supervisorDecision?.enableVisualReview && state.ocrText) {
+      const gaps = detectOcrGaps(state.ocrText, config.schema);
+      if (gaps.length > 0) {
+        forceVisualReview = true;
+        gapReason = `OCR 关键区域漏识（${gaps.map((g) => g.fieldKey).join("、")}），强制触发视觉审查`;
+        console.log(`[visualReview] ${gapReason}`, { gaps });
+      }
+    }
+
+    if (!state.supervisorDecision?.enableVisualReview && !forceVisualReview) {
       return trace("visualReview", "skipped", "Supervisor 决策跳过视觉评审。");
     }
 
@@ -294,7 +309,11 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
       });
 
       return {
-        ...trace("visualReview", "completed", `视觉评审已完成（${elapsedMs}ms），质量: ${visualResult.overallQuality}。`),
+        ...trace(
+          "visualReview",
+          "completed",
+          `视觉评审已完成（${elapsedMs}ms），质量: ${visualResult.overallQuality}。${gapReason ? "【" + gapReason + "】" : ""}`
+        ),
         visualReview: visualResult
       };
     } catch (error) {
