@@ -49,3 +49,6 @@ playwright-report/
 # 测试上传文件
 apps/api/storage/uploads/
 storage/
+
+# Windows 系统残留
+nul
