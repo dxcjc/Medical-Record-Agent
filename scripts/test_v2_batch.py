@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """批量测试 V2 Schema，每个样本输出对比结果"""
 import sys, json, time
-sys.path.insert(0, '.')
+sys.path.insert(0, 'scripts')
 from test_agent_full import load_expectations, load_testcases, test_one_sample
 
 expectations = load_expectations()
