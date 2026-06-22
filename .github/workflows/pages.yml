@@ -57,21 +57,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 只构建 Demo Web，并通过 GITHUB_PAGES 标记启用 /Medical-Record-Agent/ 静态资源前缀。
-      - name: Build demo web
-        run: pnpm --filter @medical-record-agent/demo-web build
+      # 只构建 Web 前端（原 demo-web 已迁移到 apps/web），
+      # 通过 GITHUB_PAGES 标记启用 /Medical-Record-Agent/ 静态资源前缀。
+      - name: Build web
+        run: pnpm --filter @medical-record-agent/web build
         env:
           GITHUB_PAGES: "true"
 
       # GitHub Pages 不会天然支持 BrowserRouter 深层路径刷新；复制 404.html 作为 SPA 回退页。
       - name: Prepare single-page app fallback
-        run: cp apps/demo-web/dist/index.html apps/demo-web/dist/404.html
+        run: cp apps/web/dist/index.html apps/web/dist/404.html
 
       # 上传 Vite 构建产物，deploy job 会从这个 artifact 发布页面。
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/demo-web/dist
+          path: apps/web/dist
 
   deploy:
     name: Deploy to GitHub Pages
