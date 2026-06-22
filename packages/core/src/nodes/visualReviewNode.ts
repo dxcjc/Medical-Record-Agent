@@ -187,7 +187,13 @@ export function createVisualReviewNode(config: CreateVisualReviewNodeInput): Vis
 
       const prompt = buildVisualReviewPrompt(input.schema, input.ocrText, images.length);
 
-      const result = await config.provider.extractFields({
+      // 阶段级超时：读取 VisualReviewConfig.timeoutMs（默认 90000ms）。
+      // 此前该字段是死配置(从未被读取),视觉审查走 langchain/responses provider 时
+      // 无任何超时保护,可能挂起数分钟拖垮整个 workflow。超时后抛错,由 workflow 的
+      // catch 块走降级路径(degraded trace + 回退纯抽取,不阻塞流程)。
+      const timeoutMs = config.config?.timeoutMs ?? 90_000;
+
+      const extractPromise = config.provider.extractFields({
         schema: input.schema,
         prompt,
         ocrText: input.ocrText,
@@ -199,6 +205,8 @@ export function createVisualReviewNode(config: CreateVisualReviewNodeInput): Vis
             : {})
       });
 
+      const result = await withTimeout(extractPromise, timeoutMs, "视觉评审");
+
       // 从标准 candidates 格式重建视觉字段评估
       const parsed = convertCandidatesToVisualAssessment(result.candidates, input.schema);
 
@@ -208,6 +216,28 @@ export function createVisualReviewNode(config: CreateVisualReviewNodeInput): Vis
       };
     }
   };
+}
+
+/**
+ * 为 Promise 附加超时。超时后 reject,避免长时间挂起。
+ * 用 Promise.race 实现,超时定时器在 resolve/reject 后清除防止内存泄漏。
+ */
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label}超时（${timeoutMs}ms），降级继续`)),
+      timeoutMs
+    );
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 function convertCandidatesToVisualAssessment(

@@ -319,10 +319,15 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
         visualReview: visualResult
       };
     } catch (error) {
-      console.warn("[visualReview] 视觉评审失败，继续执行", {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      return trace("visualReview", "degraded", "视觉评审失败，继续执行。");
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const isTimeout = errMsg.includes("超时");
+      console.warn("[visualReview] 视觉评审失败，继续执行", { error: errMsg });
+      // 超时与普通失败都走降级(不阻塞流程),trace 文案区分便于审计
+      return trace(
+        "visualReview",
+        "degraded",
+        isTimeout ? errMsg : "视觉评审失败，继续执行。"
+      );
     }
   };
 
