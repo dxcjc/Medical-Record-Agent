@@ -39,7 +39,9 @@ export interface ConflictResolutionNode {
 }
 
 /**
- * 判断两个值是否实质性不同
+ * 判断两个值是否实质性不同。
+ * 任务5重构:值相近(子串包含)不算冲突——提取和视觉审查输入高度重叠,
+ * 输出差异多为同模型两次采样的噪声,不应触发重试。
  */
 function valuesConflict(
   value1: ModelFieldCandidate["value"],
@@ -48,11 +50,16 @@ function valuesConflict(
   if (value1 === value2) return false;
   if (value1 == null || value2 == null) return false;  // 一方为空不算冲突
 
-  // 字符串类型：忽略大小写和空格差异
+  // 字符串类型：忽略大小写和空格差异;子串包含不算冲突(值相近)
   if (typeof value1 === "string" && typeof value2 === "string") {
     const normalized1 = value1.trim().toLowerCase();
     const normalized2 = value2.trim().toLowerCase();
-    return normalized1 !== normalized2;
+    if (normalized1 === normalized2) return false;
+    // 子串包含:一方是另一方的子串,视为值相近,不算冲突
+    if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
+      return false;
+    }
+    return true;
   }
 
   // 数组类型：比较元素
@@ -67,7 +74,8 @@ function valuesConflict(
 }
 
 /**
- * 计算冲突严重程度
+ * 计算冲突严重程度。
+ * 任务5重构:提高 high 阈值从 0.6 到 0.7,减少噪声冲突触发重试。
  */
 function calculateConflictSeverity(
   extractionConf: number,
@@ -79,8 +87,8 @@ function calculateConflictSeverity(
   const isRequired = field?.required === true;
   const confidenceDiff = Math.abs(extractionConf - visualConf);
 
-  // 关键字段 + 置信度都较高 = 高严重性
-  if (isRequired && extractionConf > 0.6 && visualConf > 0.6) {
+  // 关键字段 + 置信度都较高(>0.7) = 高严重性
+  if (isRequired && extractionConf > 0.7 && visualConf > 0.7) {
     return "high";
   }
 
