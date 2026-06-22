@@ -5,6 +5,7 @@ import type {
   VisualFieldAssessment,
   VisualReviewResult
 } from "../providers/providerTypes";
+import { withTimeout } from "../engine/workflowShared";
 
 // ── Visual Priority Field Configuration ──
 
@@ -216,28 +217,6 @@ export function createVisualReviewNode(config: CreateVisualReviewNodeInput): Vis
       };
     }
   };
-}
-
-/**
- * 为 Promise 附加超时。超时后 reject,避免长时间挂起。
- * 用 Promise.race 实现,超时定时器在 resolve/reject 后清除防止内存泄漏。
- */
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`${label}超时（${timeoutMs}ms），降级继续`)),
-      timeoutMs
-    );
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
-  }
 }
 
 function convertCandidatesToVisualAssessment(

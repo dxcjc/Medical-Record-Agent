@@ -27,7 +27,8 @@ import {
   createEmptyWriteback,
   resolveStatus,
   trace,
-  detectOcrGaps
+  detectOcrGaps,
+  withTimeout
 } from "./workflowShared";
 import type { KnowledgeRetrievalResult } from "../rag/inMemoryKnowledgeRetriever";
 
@@ -241,15 +242,22 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
           ]))
         : undefined;
 
-      const extractionResult = await extractionNode.run({
-        schema: config.schema,
-        ocrText: state.ocrText,
-        targetFieldKeys: config.schema.fields.map((field) => field.key),
-        ragContext,
-        fieldRuleContext,
-        ...(imageBase64 !== undefined ? { imageBase64 } : {}),
-        ...(focusedFieldKeys !== undefined && focusedFieldKeys.length > 0 ? { focusedFieldKeys } : {})
-      });
+      // P1#5：提取阶段超时。用 withTimeout 包装 extractionNode.run(),
+      // 默认 120s(纯文本请求),超时后降级而非阻断(和 visualReview 相同的降级语义)。
+      const extractionTimeoutMs = 120_000;
+      const extractionResult = await withTimeout(
+        extractionNode.run({
+          schema: config.schema,
+          ocrText: state.ocrText,
+          targetFieldKeys: config.schema.fields.map((field) => field.key),
+          ragContext,
+          fieldRuleContext,
+          ...(imageBase64 !== undefined ? { imageBase64 } : {}),
+          ...(focusedFieldKeys !== undefined && focusedFieldKeys.length > 0 ? { focusedFieldKeys } : {})
+        }),
+        extractionTimeoutMs,
+        "字段抽取"
+      );
 
       console.log("[extraction] 字段抽取完成", {
         candidatesCount: extractionResult.candidates.length,
@@ -264,6 +272,14 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
         extraction: extractionResult
       };
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const isTimeout = errMsg.includes("超时");
+      console.warn("[extraction] 字段抽取失败", { error: errMsg });
+      // 超时走降级(不阻断流程,extraction 保持 undefined,下游回退)
+      // 其他错误仍阻断
+      if (isTimeout) {
+        return trace("extraction", "degraded", errMsg);
+      }
       return {
         ...trace("extraction", "failed", "模型 provider 调用失败。"),
         status: "failed" as const,

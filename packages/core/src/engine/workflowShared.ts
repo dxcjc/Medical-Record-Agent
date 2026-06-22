@@ -115,6 +115,29 @@ export function trace(
   };
 }
 
+/**
+ * 为 Promise 附加超时。超时后 reject,避免长时间挂起。
+ * 用 Promise.race 实现,超时定时器在 resolve/reject 后清除防止内存泄漏。
+ * 同时被 extractionNodeAction 和 visualReviewNode 复用。
+ */
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label}超时（${timeoutMs}ms），降级继续`)),
+      timeoutMs
+    );
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 // ── OCR 关键区域漏识检测（P0-2）──
 
 /**
