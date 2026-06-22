@@ -20,6 +20,7 @@ const KIND_WEIGHTS: Record<string, number> = {
   "field_description": 5,
   "staging": 4,
   "gene_detection": 4,
+  "cancer_category": 4,
   "treatment": 3,
   "medication": 3,
   "ocr_correction": 3,

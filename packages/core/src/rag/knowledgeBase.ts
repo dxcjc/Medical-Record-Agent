@@ -11,7 +11,8 @@ export type KnowledgeEntryKind =
   | "gender_inference"
   | "ocr_correction"
   | "cancer_tag"
-  | "sample_type_mapping";
+  | "sample_type_mapping"
+  | "cancer_category";
 
 export interface KnowledgeEntry {
   id: string;
@@ -473,6 +474,206 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         content: "放疗（radiotherapy）字段提取放疗相关信息。提取规则：1）保留放疗部位、剂量、次数等关键信息；2）忠实原文表述，不要改变标点符号格式；3）多程放疗用分号（；）分隔；4）如果报告明确写'无放疗'或'未行放疗'，返回'无'。",
         keywords: ["放疗", "radiotherapy", "放射治疗", "剂量", "次数", "提取规则"],
         fieldKeys: ["radiotherapy"]
+      },
+
+      // ========== 以下条目同步自 seed-knowledge.ts (P0#2 知识库同步) ==========
+
+      // ── cancer_category（新增 kind,Prisma enum 已有）──
+      {
+        id: "cancer-category-malignant-mapping",
+        kind: "cancer_category",
+        title: "恶性肿瘤cancerCategory映射规则",
+        content: "【绝对规则】当病理诊断仅写'恶性肿瘤'而未明确病理类型时，cancerCategory仍需按部位推断具体亚型。标准映射：直肠恶性肿瘤→'肠道/结直肠腺癌/直肠腺癌'；结肠恶性肿瘤→'肠道/结直肠腺癌/结肠腺癌'；胃恶性肿瘤→'胃/胃腺癌'；肺恶性肿瘤→'肺/非小细胞肺癌'。【注意】不能直接输出'结直肠/直肠恶性肿瘤'这样的路径，必须使用标准三级路径格式。",
+        keywords: ["恶性肿瘤", "cancerCategory", "直肠恶性肿瘤", "结肠恶性肿瘤", "标准路径", "三级路径"],
+        fieldKeys: ["cancerCategory"]
+      },
+      {
+        id: "cancer-category-unknown-primary",
+        kind: "cancer_category",
+        title: "原发灶不明cancerCategory路径",
+        content: "【重要规则】当cancerTag为'原发灶不明'时，cancerCategory必须为'其他/其他/原发灶不明'，不能输出'实体瘤'或其他非标准路径。",
+        keywords: ["原发灶不明", "cancerCategory", "其他", "实体瘤"],
+        fieldKeys: ["cancerCategory"]
+      },
+      {
+        id: "cancer-category-colorectal-path",
+        kind: "cancer_category",
+        title: "结直肠癌cancerCategory标准路径",
+        content: "【绝对规则】结直肠癌cancerCategory标准路径映射：直肠腺癌→'肠道/结直肠腺癌/直肠腺癌'；结肠腺癌→'肠道/结直肠腺癌/结肠腺癌'。路径格式必须为'肠道/结直肠腺癌/具体亚型'。",
+        keywords: ["结直肠癌", "直肠癌", "结肠癌", "cancerCategory", "腺癌", "肠道"],
+        fieldKeys: ["cancerCategory"]
+      },
+
+      // ── sample_type_mapping（内存版缺失）──
+      {
+        id: "sample-type-standard-mapping",
+        kind: "sample_type_mapping",
+        title: "样本类型标准化映射",
+        content: "样本类型标准化规则：组织标本→组织；活检组织→组织；手术标本→组织；穿刺活检→穿刺；外周血→血液；全血→血液；血浆→血液；胸水→胸水；胸腔积液→胸水；腹水→腹水；脑脊液→脑脊液。",
+        keywords: ["样本", "标本", "组织", "活检", "穿刺", "血液", "胸水", "腹水", "脑脊液"],
+        fieldKeys: ["sampleType"]
+      },
+
+      // ── gender_inference（内存版缺失）──
+      {
+        id: "gender-inference-rules",
+        kind: "gender_inference",
+        title: "性别推断规则",
+        content: "性别推断规则：1. 直接标识：男/女、M/F；2. 疾病关联推断：乳腺癌→女性（99%），前列腺癌→男性（100%），宫颈癌/卵巢癌→女性（100%），睾丸癌→男性（100%）；3. 仅在无法直接识别时使用推断，推断结果confidence应降低0.2。",
+        keywords: ["性别", "男", "女", "gender", "乳腺", "前列腺", "宫颈", "卵巢", "推断"],
+        fieldKeys: ["patientGender"]
+      },
+
+      // ── ocr_correction（内存版缺失）──
+      {
+        id: "ocr-correction-hospital-name",
+        kind: "ocr_correction",
+        title: "医院名称OCR纠错",
+        content: "医院名称常见OCR错误映射：人民医皖→人民医院；肿瘸医院→肿瘤医院；协和医胱→协和医院；匠科大学→医科大学；附属医胱→附属医院。",
+        keywords: ["医院", "医皖", "医胱", "肿瘤", "肿瘸", "人民", "协和", "OCR", "纠错", "医院名称"],
+        fieldKeys: ["hospitalName"]
+      },
+
+      // ── 补充 field-description（内存版缺少的条目）──
+      {
+        id: "field-description-clinical-diagnosis",
+        kind: "field-description",
+        title: "临床诊断说明",
+        content: "临床诊断（clinicalDiagnosis）：医生给出的诊断描述，如'左肺上叶腺癌'、'右肺下叶鳞状细胞癌'。可能包含部位、病理类型、分期等信息。",
+        keywords: ["临床诊断", "clinicalDiagnosis", "诊断", "病理", "分期"],
+        fieldKeys: ["clinicalDiagnosis"]
+      },
+      {
+        id: "field-description-patient-age",
+        kind: "field-description",
+        title: "年龄字段说明",
+        content: "年龄（patientAge）：通常以数字+岁表示，如'55岁'。应归一化为数字。注意手写体可能将5识别为S。",
+        keywords: ["年龄", "patientAge", "岁"],
+        fieldKeys: ["patientAge"]
+      },
+      {
+        id: "field-description-pathological-diagnosis-extract",
+        kind: "field-description",
+        title: "pathologicalDiagnosis提取规则",
+        content: "【绝对规则】pathologicalDiagnosis（病理诊断）字段必须从病理报告中提取，绝对不能为空。即使病理报告内容不完整或OCR质量差，也必须尝试提取可识别的病理诊断信息。",
+        keywords: ["pathologicalDiagnosis", "病理诊断", "提取规则", "不能为空"],
+        fieldKeys: ["pathologicalDiagnosis"]
+      },
+      {
+        id: "field-description-tumor-type-extract-rule",
+        kind: "field-description",
+        title: "肿瘤类型提取规则",
+        content: "tumorType字段提取规则：从病理诊断中提取简化的癌种名称，而非完整的病理描述。例如：'膀胱高级别尿路上皮癌'→tumorType='膀胱癌'。病理详情应放入pathologicalDiagnosis字段。",
+        keywords: ["tumorType", "肿瘤类型", "癌种", "提取规则", "简化"],
+        fieldKeys: ["tumorType"]
+      },
+
+      // ── 补充 cancer_tag（内存版缺少多癌具体化规则）──
+      {
+        id: "cancer-tag-multi-cancer-specific",
+        kind: "cancer_tag",
+        title: "多癌cancerTag具体化规则",
+        content: "【重要规则】当cancerTag为'多癌'时，应输出具体的癌种组合名称，而不是泛化的'多癌'。格式：'癌种1,癌种2'（用逗号分隔）。多癌的cancerTag应反映具体的癌种组合，便于后续数据分析和统计。",
+        keywords: ["多癌", "cancerTag", "具体化", "癌种组合"],
+        fieldKeys: ["cancerTag"]
+      },
+
+      // ── 补充 cancer-alias（内存版缺少的 13 个癌种）──
+      {
+        id: "cancer-alias-prostate",
+        kind: "cancer-alias",
+        title: "前列腺癌别名",
+        content: "前列腺癌、前列腺腺癌、prostate cancer、PCa。病理报告中常写为'前列腺腺癌'、'Gleason评分'相关描述，tumorType应统一提取为'前列腺癌'。",
+        keywords: ["前列腺癌", "前列腺腺癌", "prostate cancer", "PCa", "前列腺", "Gleason"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-ovarian",
+        kind: "cancer-alias",
+        title: "卵巢癌别名",
+        content: "卵巢癌、卵巢上皮癌、ovarian cancer、OC。常见检测基因为BRCA1/2、HRD。",
+        keywords: ["卵巢癌", "卵巢上皮癌", "ovarian cancer", "OC", "卵巢"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-cervical",
+        kind: "cancer-alias",
+        title: "宫颈癌别名",
+        content: "宫颈癌、宫颈鳞癌、宫颈腺癌、cervical cancer。常见检测靶点包括HPV、PD-L1。",
+        keywords: ["宫颈癌", "宫颈鳞癌", "宫颈腺癌", "cervical cancer", "宫颈"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-nasopharyngeal",
+        kind: "cancer-alias",
+        title: "鼻咽癌别名",
+        content: "鼻咽癌、nasopharyngeal carcinoma、NPC。常见检测靶点包括EBV、PD-L1。",
+        keywords: ["鼻咽癌", "nasopharyngeal carcinoma", "NPC", "鼻咽"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-laryngeal",
+        kind: "cancer-alias",
+        title: "喉癌别名",
+        content: "喉癌、喉鳞癌、laryngeal cancer。常见检测靶点包括HPV、PD-L1。",
+        keywords: ["喉癌", "喉鳞癌", "laryngeal cancer", "喉"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-cholangiocarcinoma",
+        kind: "cancer-alias",
+        title: "胆管癌别名",
+        content: "胆管癌、胆管细胞癌、cholangiocarcinoma。常见检测靶点包括FGFR2融合、IDH1。",
+        keywords: ["胆管癌", "胆管细胞癌", "cholangiocarcinoma", "胆管"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-gallbladder",
+        kind: "cancer-alias",
+        title: "胆囊癌别名",
+        content: "胆囊癌、gallbladder cancer。常见检测靶点包括HER2、PD-L1。",
+        keywords: ["胆囊癌", "gallbladder cancer", "胆囊"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-sarcoma",
+        kind: "cancer-alias",
+        title: "肉瘤别名",
+        content: "肉瘤、软组织肉瘤、骨肉瘤、sarcoma。常见检测靶点包括MDM2、CDK4、PD-L1。",
+        keywords: ["肉瘤", "软组织肉瘤", "骨肉瘤", "sarcoma"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-neuroendocrine",
+        kind: "cancer-alias",
+        title: "神经内分泌癌别名",
+        content: "神经内分泌癌、神经内分泌瘤、NET、neuroendocrine tumor。常见检测靶点包括mTOR、SSTR。",
+        keywords: ["神经内分泌癌", "神经内分泌瘤", "NET", "neuroendocrine"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-mesothelioma",
+        kind: "cancer-alias",
+        title: "间皮瘤别名",
+        content: "间皮瘤、胸膜间皮瘤、腹膜间皮瘤、mesothelioma。常见检测靶点包括BAP1、PD-L1。",
+        keywords: ["间皮瘤", "胸膜间皮瘤", "mesothelioma", "间皮"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-leukemia",
+        kind: "cancer-alias",
+        title: "白血病别名",
+        content: "白血病、急性白血病、慢性白血病、leukemia。常见检测靶点包括BCR-ABL、FLT3、IDH1/2。",
+        keywords: ["白血病", "急性白血病", "慢性白血病", "leukemia", "AML", "ALL"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
+      },
+      {
+        id: "cancer-alias-myeloma",
+        kind: "cancer-alias",
+        title: "骨髓瘤别名",
+        content: "骨髓瘤、多发性骨髓瘤、multiple myeloma。常见检测靶点包括BCMA、CD38。",
+        keywords: ["骨髓瘤", "多发性骨髓瘤", "multiple myeloma", "myeloma"],
+        fieldKeys: ["tumorType", "tumorCategory", "clinicalDiagnosis"]
       }
     ]
   };
