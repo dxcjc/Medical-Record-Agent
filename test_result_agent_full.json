@@ -1,0 +1,851 @@
+{
+  "timestamp": "2026-06-22 00:33:44",
+  "schema": "medical-record-evaluation-v2",
+  "summary": {
+    "total_samples": 45,
+    "completed": 5,
+    "timed_out": 29,
+    "failed": 7,
+    "errored": 4,
+    "total_fields": 29,
+    "correct_fields": 22,
+    "accuracy": 75.86,
+    "total_elapsed_seconds": 10371.5,
+    "target_met": false
+  },
+  "field_stats": {
+    "pathologicalDiagnosis": {
+      "correct": 5,
+      "total": 5,
+      "missed": 0,
+      "wrong": 0,
+      "accuracy": 100.0
+    },
+    "interpretationMatch": {
+      "correct": 5,
+      "total": 5,
+      "missed": 0,
+      "wrong": 0,
+      "accuracy": 100.0
+    },
+    "cancerTag": {
+      "correct": 4,
+      "total": 5,
+      "missed": 0,
+      "wrong": 1,
+      "accuracy": 80.0
+    },
+    "cancerCategory": {
+      "correct": 3,
+      "total": 5,
+      "missed": 0,
+      "wrong": 2,
+      "accuracy": 60.0
+    },
+    "surgery": {
+      "correct": 1,
+      "total": 2,
+      "missed": 1,
+      "wrong": 0,
+      "accuracy": 50.0
+    },
+    "medication": {
+      "correct": 1,
+      "total": 2,
+      "missed": 0,
+      "wrong": 1,
+      "accuracy": 50.0
+    },
+    "radiotherapy": {
+      "correct": 1,
+      "total": 2,
+      "missed": 0,
+      "wrong": 1,
+      "accuracy": 50.0
+    },
+    "geneMutations": {
+      "correct": 2,
+      "total": 2,
+      "missed": 0,
+      "wrong": 0,
+      "accuracy": 100.0
+    },
+    "familyHistory": {
+      "correct": 0,
+      "total": 1,
+      "missed": 1,
+      "wrong": 0,
+      "accuracy": 0.0
+    }
+  },
+  "per_sample_accuracy": [
+    {
+      "tcId": "TC001",
+      "correct": 2,
+      "total": 5,
+      "accuracy": 40.0,
+      "elapsed": 295.3
+    },
+    {
+      "tcId": "TC002",
+      "correct": 4,
+      "total": 4,
+      "accuracy": 100.0,
+      "elapsed": 195.3
+    },
+    {
+      "tcId": "TC035",
+      "correct": 5,
+      "total": 8,
+      "accuracy": 62.5,
+      "elapsed": 248.5
+    },
+    {
+      "tcId": "TC037",
+      "correct": 6,
+      "total": 7,
+      "accuracy": 85.7,
+      "elapsed": 210.3
+    },
+    {
+      "tcId": "TC038",
+      "correct": 5,
+      "total": 5,
+      "accuracy": 100.0,
+      "elapsed": 295.3
+    }
+  ],
+  "errors": [
+    "TC003: 超时(300s)",
+    "TC004: 超时(300s)",
+    "TC005: 超时(300s)",
+    "TC006: 超时(300s)",
+    "TC007: 超时(300s)",
+    "TC008: 超时(300s)",
+    "TC009: 超时(300s)",
+    "TC010: 超时(300s)",
+    "TC011: 超时(300s)",
+    "TC012: 任务失败",
+    "TC013: 超时(300s)",
+    "TC014: 超时(300s)",
+    "TC015: 超时(300s)",
+    "TC016: 超时(300s)",
+    "TC017: 超时(300s)",
+    "TC018: 超时(300s)",
+    "TC019: 任务失败",
+    "TC020: 超时(300s)",
+    "TC021: 超时(300s)",
+    "TC022: 任务失败",
+    "TC023: 任务失败",
+    "TC024: 超时(300s)",
+    "TC025: 任务失败",
+    "TC026: 超时(300s)",
+    "TC027: 超时(300s)",
+    "TC028: 无有效文件",
+    "TC029: 无有效文件",
+    "TC030: 无有效文件",
+    "TC031: 无有效文件",
+    "TC032: 超时(300s)",
+    "TC033: 任务失败",
+    "TC034: 任务失败",
+    "TC036: 超时(300s)",
+    "TC039: 超时(300s)",
+    "TC040: 超时(300s)",
+    "TC041: 超时(300s)",
+    "TC042: 超时(300s)",
+    "TC043: 超时(300s)",
+    "TC044: 超时(300s)",
+    "TC045: 超时(300s)"
+  ],
+  "results": [
+    {
+      "tcId": "TC001",
+      "status": "ok",
+      "correct": 2,
+      "total": 5,
+      "mismatches": [
+        "cancerTag:错识'膀胱癌,前列腺癌'",
+        "cancerCategory:错识'泌尿系统肿瘤'",
+        "surgery:漏识"
+      ],
+      "field_details": {
+        "pathologicalDiagnosis": {
+          "match": true,
+          "expected": "(膀胱)高级别尿路上皮癌伴局部鳞状分化",
+          "actual": "（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；精囊腺、双侧输精管及输尿管未见肿瘤细胞。"
+        },
+        "interpretationMatch": {
+          "match": true,
+          "expected": "尿路上皮癌",
+          "actual": "尿路上皮癌"
+        },
+        "cancerTag": {
+          "match": false,
+          "type": "wrong",
+          "expected": "多癌",
+          "actual": "膀胱癌,前列腺癌"
+        },
+        "cancerCategory": {
+          "match": false,
+          "type": "wrong",
+          "expected": "膀胱/尿路/膀胱尿路上皮癌",
+          "actual": "泌尿系统肿瘤"
+        },
+        "surgery": {
+          "match": false,
+          "type": "missed",
+          "expected": "膀胱、前列腺、精囊全切术",
+          "actual": ""
+        }
+      },
+      "actual_values": {
+        "tumorType": "膀胱癌,前列腺癌",
+        "patientGender": "male",
+        "sampleType": "膀胱,前列腺,精囊",
+        "detectionItems": "免疫组化",
+        "pathologicalDiagnosis": "（膀胱）高级别尿路上皮癌伴局部鳞状分化，周围粘膜广泛糜烂、坏死伴肉芽组织增生，总面积5*2.5cm，肿瘤侵及前列腺并累及局部膀胱剥离面，查见神经侵犯，未见明确脉管瘤栓；前列腺腺癌，镜测约0.3cm，Gleason评分：3+3=6分，1级别组；精囊腺、双侧输精管及输尿管未见肿瘤细胞。",
+        "notes": "免疫组化编号202400899-A2：CK7（-）、CK20（-）、GATA3（-）、S-100P（-）、P53（散在+）、Ki-67（约5%）、CK8/18（+）、CDX-2（-）、Catenin-b（膜+）、PAS（-）、CK5/6（-）、P40（-）、MUC-5AC（灶+）",
+        "interpretationMatch": "尿路上皮癌",
+        "cancerTag": "膀胱癌,前列腺癌",
+        "cancerCategory": "泌尿系统肿瘤"
+      },
+      "elapsed_seconds": 295.3,
+      "job_id": "cmqnhtjxv00m7wmx3cayxldrl"
+    },
+    {
+      "tcId": "TC002",
+      "status": "ok",
+      "correct": 4,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {
+        "pathologicalDiagnosis": {
+          "match": true,
+          "expected": "直肠中分化腺癌",
+          "actual": "（距肛缘15cm处）中分化腺癌"
+        },
+        "interpretationMatch": {
+          "match": true,
+          "expected": "结直肠癌",
+          "actual": "结直肠癌"
+        },
+        "cancerTag": {
+          "match": true,
+          "expected": "单癌",
+          "actual": "单癌"
+        },
+        "cancerCategory": {
+          "match": true,
+          "expected": "肠道/结直肠腺癌/直肠腺癌",
+          "actual": "肠道/结直肠腺癌/直肠腺癌"
+        }
+      },
+      "actual_values": {
+        "hospitalName": "南京市江宁医院（南京医科大学附属江宁医院）",
+        "patientName": "马爱香",
+        "patientGender": "女",
+        "reportDate": "2026-04-09",
+        "sampleType": "距肛缘15cm处",
+        "pathologicalDiagnosis": "（距肛缘15cm处）中分化腺癌",
+        "tumorType": "直肠癌",
+        "interpretationMatch": "结直肠癌",
+        "cancerCategory": "肠道/结直肠腺癌/直肠腺癌",
+        "cancerTag": "单癌"
+      },
+      "elapsed_seconds": 195.3,
+      "job_id": "cmqni6fee0005wmbdgrrbt663"
+    },
+    {
+      "tcId": "TC003",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC004",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC005",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC006",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC007",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC008",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC009",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 7,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC010",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 6,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC011",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC012",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC013",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC014",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC015",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 6,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC016",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 6,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC017",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC018",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC019",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 3,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC020",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC021",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC022",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC023",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC024",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC025",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC026",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 3,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC027",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 6,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC028",
+      "status": "error",
+      "error": "无有效文件",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC029",
+      "status": "error",
+      "error": "无有效文件",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC030",
+      "status": "error",
+      "error": "无有效文件",
+      "correct": 0,
+      "total": 3,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC031",
+      "status": "error",
+      "error": "无有效文件",
+      "correct": 0,
+      "total": 7,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC032",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 6,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC033",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 8,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC034",
+      "status": "failed",
+      "error": "任务失败",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC035",
+      "status": "ok",
+      "correct": 5,
+      "total": 8,
+      "mismatches": [
+        "medication:错识'阿帕替尼、吉非替尼、安罗替尼、奥西替尼'",
+        "radiotherapy:错识'2017年11月行射波刀治疗3次'",
+        "familyHistory:漏识"
+      ],
+      "field_details": {
+        "pathologicalDiagnosis": {
+          "match": true,
+          "expected": "(左肺上叶)腺癌，骨、脑、胸膜转移",
+          "actual": "左肺中分化浸润性腺癌伴乳头状及微乳头状结构，侵透肺膜"
+        },
+        "interpretationMatch": {
+          "match": true,
+          "expected": "非小细胞肺癌",
+          "actual": "非小细胞肺癌"
+        },
+        "cancerTag": {
+          "match": true,
+          "expected": "单癌",
+          "actual": "单癌"
+        },
+        "cancerCategory": {
+          "match": true,
+          "expected": "肺/非小细胞肺癌/肺腺癌",
+          "actual": "肺癌"
+        },
+        "surgery": {
+          "match": true,
+          "expected": "2017-07-03全麻下行电视胸腔镜下左肺上叶癌楔形切除+胸壁结节活检术",
+          "actual": "2017年7月3日在全麻下行电视胸腔镜下左肺上叶癌楔形切除+胸壁结节活检术"
+        },
+        "medication": {
+          "match": false,
+          "type": "wrong",
+          "expected": "白蛋白紫杉醇+信迪利单抗；阿帕替尼、吉非替尼、洛铂；培美曲塞+安罗替尼；白蛋白紫杉醇+顺铂；奥希替尼；卡铂+白蛋白紫杉醇；贝伐珠单抗+吉西他滨+顺铂；替雷利珠单抗+白蛋白紫杉醇+安罗替尼；卡铂+培美曲塞+艾帕洛利托沃瑞利单抗；依沃西单抗+顺铂+白蛋白紫杉醇",
+          "actual": "阿帕替尼、吉非替尼、安罗替尼、奥西替尼"
+        },
+        "radiotherapy": {
+          "match": false,
+          "type": "wrong",
+          "expected": "2017-11射波刀3次；2022-06肋骨转移部位放疗；2022-09放射性粒子植入治疗；2024-07 T11/12椎体放疗",
+          "actual": "2017年11月行射波刀治疗3次"
+        },
+        "familyHistory": {
+          "match": false,
+          "type": "missed",
+          "expected": "妹妹，肺腺癌；姑妈，乳腺癌",
+          "actual": ""
+        }
+      },
+      "actual_values": {
+        "patientName": "张勇（64岁）",
+        "tumorType": "肺癌",
+        "patientGender": "male",
+        "sampleType": "左肺上叶",
+        "detectionItems": "骨显像,基因检测,PET-CT",
+        "treatmentHistory": "2017年7月3日电视胸腔镜下左肺上叶癌楔形切除+胸壁结节活检术，术中洛铂100mg冲洗胸腔；2017年7月15日口服阿帕替尼，2017年7月27日改为口服吉非替尼至进展；2017年11月射波刀治疗3次；期间口服羟考酮、吗啡缓释片止痛；2019年6月12日、2019年7月3日培美曲塞联合安罗替尼治疗2周期；2019年10月9日白蛋白结合型紫杉醇500mg+顺铂150mg化疗3周期；2019年12月10日奥西替尼治疗5个月；2021年卡铂0.8g d1联合白蛋白紫杉醇747mgd1化疗2周期",
+        "pathologicalDiagnosis": "左肺中分化浸润性腺癌伴乳头状及微乳头状结构，侵透肺膜",
+        "notes": "病案号:827402;病区:肿瘤科血液内科病区;床号:19;出生地:山东省泰安市东平县;职业:退(离)休人员;民族:汉族;婚姻:已婚;病史陈述者:患者本人;入院时间:2026-01-12 08:07;记录时间:2026-01-12 08:11",
+        "interpretationMatch": "非小细胞肺癌",
+        "cancerTag": "单癌",
+        "cancerCategory": "肺癌",
+        "surgery": "2017年7月3日在全麻下行电视胸腔镜下左肺上叶癌楔形切除+胸壁结节活检术",
+        "radiotherapy": "2017年11月行射波刀治疗3次",
+        "medication": "阿帕替尼、吉非替尼、安罗替尼、奥西替尼"
+      },
+      "elapsed_seconds": 248.5,
+      "job_id": "cmqnvoeyh000zwmxi5gkmkbys"
+    },
+    {
+      "tcId": "TC036",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC037",
+      "status": "ok",
+      "correct": 6,
+      "total": 7,
+      "mismatches": [
+        "cancerCategory:错识'肺癌'"
+      ],
+      "field_details": {
+        "pathologicalDiagnosis": {
+          "match": true,
+          "expected": "右上肺腺癌",
+          "actual": "肺腺癌"
+        },
+        "interpretationMatch": {
+          "match": true,
+          "expected": "非小细胞肺癌",
+          "actual": "非小细胞肺癌"
+        },
+        "cancerTag": {
+          "match": true,
+          "expected": "单癌",
+          "actual": "单癌"
+        },
+        "cancerCategory": {
+          "match": false,
+          "type": "wrong",
+          "expected": "肺/肺腺癌",
+          "actual": "肺癌"
+        },
+        "geneMutations": {
+          "match": true,
+          "expected": "ALK基因exon3-exon20融合突变",
+          "actual": "ALK exon3-exon20融合突变"
+        },
+        "medication": {
+          "match": true,
+          "expected": "2025.09-2026.03，阿来替尼",
+          "actual": "阿来替尼（2025.09口服至今）"
+        },
+        "radiotherapy": {
+          "match": true,
+          "expected": "2025.12：肺及淋巴结瘤床放疗",
+          "actual": "2025.12行肺及淋巴结瘤床放疗"
+        }
+      },
+      "actual_values": {
+        "patientName": "卢波（53岁）",
+        "tumorType": "肺癌",
+        "hospitalName": "湖南省第二人民医院（湖南省脑科医院）",
+        "patientGender": "male",
+        "detectionItems": "ALK融合检测",
+        "reportDate": "2026-03-16",
+        "treatmentHistory": "2025.09口服阿来替尼至今；2025.12行肺及淋巴结瘤床放疗",
+        "pathologicalDiagnosis": "肺腺癌",
+        "clinicalStage": "IV期",
+        "geneMutations": "ALK exon3-exon20融合突变",
+        "notes": "门诊号：2026030300862；就诊科室：杨农名医门诊；体格检查：神志清楚，双肺呼吸音清，未闻及干湿性啰音，心率70次/分，律齐，各瓣膜听诊区未闻及病理性杂音，腹平坦，全腹无压痛、无反跳痛，双下肢无水肿；处理意见：继续阿来替尼靶向治疗，每3月复查影像及MRD监测",
+        "interpretationMatch": "非小细胞肺癌",
+        "cancerTag": "单癌",
+        "cancerCategory": "肺癌",
+        "radiotherapy": "2025.12行肺及淋巴结瘤床放疗",
+        "medication": "阿来替尼（2025.09口服至今）"
+      },
+      "elapsed_seconds": 210.3,
+      "job_id": "cmqnw9ntn000vwmdkk1vt0s6q"
+    },
+    {
+      "tcId": "TC038",
+      "status": "ok",
+      "correct": 5,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {
+        "pathologicalDiagnosis": {
+          "match": true,
+          "expected": "（右肺下叶）肺浸润性腺癌",
+          "actual": "肺浸润性腺癌"
+        },
+        "interpretationMatch": {
+          "match": true,
+          "expected": "非小细胞肺癌",
+          "actual": "非小细胞肺癌"
+        },
+        "cancerTag": {
+          "match": true,
+          "expected": "单癌",
+          "actual": "单癌"
+        },
+        "cancerCategory": {
+          "match": true,
+          "expected": "肺/肺腺癌",
+          "actual": "肺/非小细胞肺癌/肺腺癌"
+        },
+        "geneMutations": {
+          "match": true,
+          "expected": "NTRK3基因融合",
+          "actual": "NTRK3基因融合阳性"
+        }
+      },
+      "actual_values": {
+        "hospitalName": "北京大学人民医院",
+        "patientName": "文庆波（58岁）",
+        "patientGender": "male",
+        "sampleType": "右肺下叶楔形标本,右肺下叶补充肺叶标本,2R,4R,7,10,11,12",
+        "detectionItems": "人类肺癌多基因联合检测",
+        "reportDate": "20",
+        "tumorType": "肺腺癌",
+        "pathologicalDiagnosis": "肺浸润性腺癌",
+        "interpretationMatch": "非小细胞肺癌",
+        "cancerTag": "单癌",
+        "cancerCategory": "肺/非小细胞肺癌/肺腺癌",
+        "geneMutations": "NTRK3基因融合阳性",
+        "notes": "分子病理号：N20009404；原病理号：TS0028923；住院号/门诊号：8052597；病区：胸外科病房（通州）A病区；床号：025；收到日期：2025-05-08 17:22；检测方法：荧光PCR法；未检出ALK融合基因；未检出ROS1融合基因；未检出EGFR基因19外显子缺失、21外显子L858R/L861Q突变、20外显子S768I/20插入/T790M突变、18外显子G719A/G719S/G719C突变；未检出KRAS基因2外显子G12D/G12S/G12C/G12A/G12V/G12R/G13C突变；未检出BRAF基因15外显子V600D/V600E突变；未检出MET基因14外显子跳跃突变；未检出HER2基因突变；未检出RET基因融合；未检出NTRK1/2基因融合"
+      },
+      "elapsed_seconds": 295.3,
+      "job_id": "cmqnwe61q0017wmdkspapvjgu"
+    },
+    {
+      "tcId": "TC039",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC040",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC041",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 7,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC042",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC043",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 5,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC044",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    },
+    {
+      "tcId": "TC045",
+      "status": "timeout",
+      "error": "超时(300s)",
+      "correct": 0,
+      "total": 4,
+      "mismatches": [],
+      "field_details": {},
+      "actual_values": {}
+    }
+  ]
+}

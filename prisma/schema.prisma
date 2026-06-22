@@ -459,6 +459,9 @@ enum KnowledgeEntryKind {
   ocr_correction
   sample_type_mapping
   gender_inference
+  interpretation_match
+  cancer_tag
+  cancer_category
 }
 
 model KnowledgeEntry {

@@ -1212,6 +1212,7 @@ async function buildSavedModelProvider(input: {
         ...(apiKey ? { apiKey } : {}),
         headers: readStringRecord(input.config.headers),
         ...(input.runtimeOptions.providerRuntimeFetch ? { fetchFn: input.runtimeOptions.providerRuntimeFetch } : {}),
+        supportsJsonMode: input.config.supportsJsonMode === true,
         timeoutMs: readNumber(input.config.timeoutMs, 30_000)
       }
     });

@@ -73,7 +73,7 @@ function scoreEntry(entry: KnowledgeEntry, request: KnowledgeRetrieveRequest): n
 export function createInMemoryKnowledgeRetriever(base: KnowledgeBase): KnowledgeRetriever {
   return {
     async retrieve(request) {
-      const limit = request.limit ?? 5;
+      const limit = request.limit ?? 15;
       
       // L1: field_description entries — guaranteed injection, filtered by field overlap
       const fieldRules = base.entries.filter((entry) =>

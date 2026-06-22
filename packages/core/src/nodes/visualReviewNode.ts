@@ -160,7 +160,7 @@ function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string, image
     '      "value": "图片上看到的值（如果图片上没有该信息则为null）",',
     '      "rawValue": "图片位置:页面左上角;存在:是;描述:简要说明",',
     '      "confidence": 0.9,',
-    '      "reason": "识别依据说明"',
+    '      "evidence": [{"snippet": "识别依据说明", "startOffset": 0, "endOffset": 0}]',
     "    }",
     "  ]",
     "}",
@@ -170,7 +170,7 @@ function buildVisualReviewPrompt(schema: CoreSchemaDraft, ocrText: string, image
     "- value 字段填写图片上显示的实际值，如果图片上完全没有该信息则填 null",
     "- rawValue 格式为：图片位置:xxx;存在:是/否;描述:xxx",
     "- confidence 范围 0-1：0.9+=明确清晰，0.7-0.9=较明确需少量推断，0.5-0.7=部分可见/不确定，<0.5=缺失或高度不确定",
-    "- reason 字段说明你的识别依据（如'勾选框男被勾选'、'页眉处看到南京鼓楼医院'）",
+    "- evidence 字段提供识别依据数组，每项含 snippet（说明）、startOffset、endOffset",
     "- 对于 enum 类型字段，value 必须是枚举值之一"
   ].join("\n");
 }

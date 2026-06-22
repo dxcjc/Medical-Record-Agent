@@ -93,9 +93,9 @@ export function buildExtractionPrompt(input: BuildExtractionPromptInput): string
     ? input.fieldRuleContext.map((item, index) => `${index + 1}. ${item}`).join("\n")
     : "无字段提取规则。";
   
-  // L2: RAG context — other knowledge entries
+  // L2: RAG context — other knowledge entries (truncate to avoid API timeout with large prompts + images)
   const ragContext = input.ragContext?.length
-    ? input.ragContext.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    ? input.ragContext.slice(0, 10).map((item, index) => `${index + 1}. ${item.slice(0, 200)}`).join("\n")
     : "无补充知识。";
   const evidenceRequirements = input.evidenceRequirements?.length
     ? input.evidenceRequirements.map((item, index) => `${index + 1}. ${item}`).join("\n")
@@ -128,7 +128,7 @@ export function buildExtractionPrompt(input: BuildExtractionPromptInput): string
     JSON.stringify(extractionOutputSchema, null, 2),
     "",
     "OCR 文本：",
-    input.ocrText,
+    input.ocrText.slice(0, 3000),
     ...(input.imageBase64 ? [
       "",
       "【视觉增强说明】",
@@ -376,8 +376,15 @@ export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDr
 
 function parseJsonObject(text: string): unknown {
   try {
+    // 先尝试直接解析
     return JSON.parse(text) as unknown;
   } catch {
-    return null;
+    // 尝试去除 markdown 代码块包装
+    const cleaned = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    try {
+      return JSON.parse(cleaned) as unknown;
+    } catch {
+      return null;
+    }
   }
 }

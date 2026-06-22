@@ -4,6 +4,7 @@ import {
   type HttpLlmProviderConfig,
   type ModelProvider
 } from "./providerTypes";
+import { fetch as undiciFetch } from "undici";
 
 function createMalformedModelOutputError(providerName: string): ProviderError {
   return new ProviderError(`模型结构化输出无效：${providerName} 返回内容不符合字段抽取 schema`, {
@@ -74,7 +75,8 @@ function collectImages(request: { images?: string[]; imageBase64?: string }): st
 
 export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvider {
   const providerName = config.providerName ?? "http-llm";
-  const fetchFn = config.fetchFn ?? fetch;
+  const fetchFn = config.fetchFn ?? undiciFetch;
+  const supportsJsonMode = config.supportsJsonMode ?? false;
   const maxRetries = config.maxRetries ?? 3;
   const retryDelayMs = config.retryDelayMs ?? 1000;
   return {
@@ -84,8 +86,9 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
       const images = collectImages(request);
       const hasImage = images !== null;
       const timeoutMs = hasImage
-        ? Math.max(300_000, images!.length * 120_000)
+        ? Math.max(600_000, images!.length * 120_000)
         : (config.timeoutMs ?? 120_000);
+      console.log(`[extractFields] 开始调用 ${providerName}, hasImage=${hasImage}, timeout=${timeoutMs}ms`);
 
       let lastError: unknown;
 
@@ -94,6 +97,40 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
+          const bodySize = JSON.stringify({
+            model: config.model,
+            messages: [{ role: "user", content: hasImage ? "[image+text]" : request.prompt.slice(0, 100) }]
+          }).length;
+          const bodyObj = {
+            model: config.model,
+            messages: [
+              {
+                role: "system",
+                content: hasImage
+                  ? "你是病历字段结构化抽取模型，只能返回 JSON 对象。你会仔细查看文档图片，准确识别勾选框状态和手写内容。"
+                  : "你是病历字段结构化抽取模型，只能返回 JSON 对象。"
+              },
+              {
+                role: "user",
+                content: hasImage
+                  ? [
+                      { type: "text", text: request.prompt },
+                      ...images!.map((img) => ({
+                        type: "image_url",
+                        image_url: {
+                          url: `data:image/jpeg;base64,${img}`
+                          // detail: "high" removed to reduce request body size
+                        }
+                      }))
+                    ]
+                  : request.prompt
+              }
+            ],
+            // response_format: 只在模型支持时启用（doubao支持，kimi-k26不支持）
+            ...(supportsJsonMode ? { response_format: { type: "json_object" } } : {}),
+          };
+          const bodyStr = JSON.stringify(bodyObj);
+          console.log(`[extractFields] 实际请求体大小: ${(bodyStr.length / 1024).toFixed(1)}KB, prompt长度=${request.prompt.length}`);
           const response = await fetchFn(config.endpoint, {
             method: "POST",
             headers: {
@@ -101,35 +138,10 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
               ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
               ...config.headers
             },
-            body: JSON.stringify({
-              model: config.model,
-              messages: [
-                {
-                  role: "system",
-                  content: hasImage
-                    ? "你是病历字段结构化抽取模型，只能返回 JSON 对象。你会仔细查看文档图片，准确识别勾选框状态和手写内容。"
-                    : "你是病历字段结构化抽取模型，只能返回 JSON 对象。"
-                },
-                {
-                  role: "user",
-                  content: hasImage
-                    ? [
-                        { type: "text", text: request.prompt },
-                        ...images!.map((img) => ({
-                          type: "image_url",
-                          image_url: {
-                            url: `data:image/jpeg;base64,${img}`,
-                            detail: "high"
-                          }
-                        }))
-                      ]
-                    : request.prompt
-                }
-              ],
-              response_format: { type: "json_object" }
-            }),
+            body: bodyStr,
             signal: controller.signal
           });
+          console.log(`[extractFields] 收到响应: status=${response.status}, ok=${response.ok}`);
 
           if (!response.ok) {
             if (isRetryableStatus(response.status) && attempt < maxRetries) {
@@ -162,6 +174,7 @@ export function createHttpLlmProvider(config: HttpLlmProviderConfig): ModelProvi
           };
         } catch (error) {
           clearTimeout(timeout);
+          console.log(`[extractFields] 错误: attempt=${attempt}, error=${error instanceof Error ? error.message : String(error)}`);
           lastError = error;
 
           if (error instanceof ProviderError && !error.retryable) {

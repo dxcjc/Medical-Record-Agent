@@ -71,7 +71,7 @@ export function createDatabaseKnowledgeRetriever(repository: KnowledgeRepository
 
   return {
     async retrieve(request: KnowledgeRetrieveRequest): Promise<KnowledgeRetrieveResult> {
-      const limit = request.limit ?? 5;
+      const limit = request.limit ?? 15;
       const allEntries = await getEntriesWithCache();
 
       // L1: field_description entries — guaranteed injection

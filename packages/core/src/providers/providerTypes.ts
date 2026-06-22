@@ -206,6 +206,7 @@ export interface HttpLlmProviderConfig {
   maxRetries?: number;
   retryDelayMs?: number;
   fetchFn?: FetchLike;
+  supportsJsonMode?: boolean;
 }
 
 export interface OpenAiResponsesClientLike {

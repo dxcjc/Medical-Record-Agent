@@ -298,7 +298,8 @@ const recognitionDocumentRouteInputSchema = z
 const recognitionProviderConfigRouteInputSchema = z
   .object({
     ocrProviderKey: optionalNonEmptyString,
-    providerKey: optionalNonEmptyString
+    providerKey: optionalNonEmptyString,
+    visualProviderKey: optionalNonEmptyString
   })
   .strip();
 

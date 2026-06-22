@@ -407,6 +407,72 @@ export function createDefaultMedicalKnowledgeBase(): KnowledgeBase {
         content: "文件编号（documentNo）和文件版本（documentVersion）通常印在表格底部或侧边栏。示例：文件编号GeneTA5-002，文件版本V2.1。这些是检测公司的内部编号。",
         keywords: ["文件编号", "文件版本", "documentNo", "documentVersion", "GeneTA", "V2"],
         fieldKeys: ["documentNo", "documentVersion"]
+      },
+
+      // ========== interpretationMatch 解读匹配 ==========
+      {
+        id: "interpretation-match-duodenal",
+        kind: "interpretation_match",
+        title: "十二指肠癌解读匹配规则",
+        content: "十二指肠（duodenum）属于小肠的一部分，不是结直肠。十二指肠癌/十二指肠腺癌的interpretationMatch应为'小肠腺癌'，而不是'结直肠癌'。同理，空肠癌、回肠癌也应匹配为'小肠腺癌'。只有结肠癌和直肠癌才匹配'结直肠癌'。",
+        keywords: ["十二指肠", "小肠", "duodenum", "空肠", "回肠", "小肠腺癌", "interpretationMatch"],
+        fieldKeys: ["interpretationMatch"]
+      },
+      {
+        id: "interpretation-match-unknown-primary",
+        kind: "interpretation_match",
+        title: "原发灶不明解读匹配规则",
+        content: "当cancerTag为'原发灶不明'时，interpretationMatch应为'实体瘤'。原发灶不明的恶性肿瘤无法确定具体癌种，因此用'实体瘤'作为泛化匹配。常见表述包括：'原发灶待查'、'原发灶不明'、'倾向XX癌，原发灶待查'等。",
+        keywords: ["原发灶不明", "原发灶待查", "实体瘤", "unknown primary", "interpretationMatch"],
+        fieldKeys: ["interpretationMatch"]
+      },
+      {
+        id: "interpretation-match-small-bowel",
+        kind: "interpretation_match",
+        title: "小肠癌解读匹配规则",
+        content: "小肠腺癌的interpretationMatch为'小肠腺癌'。小肠包括十二指肠、空肠、回肠。当病理诊断涉及十二指肠时，应归类为小肠腺癌而非结直肠癌。消化道肿瘤分类：食管癌→食管癌；胃癌→胃或胃食管交界处肿瘤；小肠癌→小肠腺癌；结直肠癌→结直肠癌。",
+        keywords: ["小肠", "十二指肠", "空肠", "回肠", "小肠腺癌", "结直肠", "消化道", "interpretationMatch"],
+        fieldKeys: ["interpretationMatch"]
+      },
+
+      // ========== cancerTag 癌症标签 ==========
+      {
+        id: "cancer-tag-metastasis-single",
+        kind: "cancer_tag",
+        title: "单癌与多癌判断规则",
+        content: "cancerTag判断规则：1）单癌：同一器官或相邻器官的同一肿瘤，即使有转移灶（如肝转移、淋巴结转移）仍为单癌；2）多癌：同时存在两个不同器官的原发癌（如肺癌+乳腺癌），或同一器官不同病理类型的独立原发癌；3）原发灶不明：病理报告明确写'原发灶不明/待查'，或仅见转移灶无法确定原发。重要：胃-十二指肠腺癌是一处连续肿瘤，属于单癌；转移性癌（如肝转移）不改变单癌判断。",
+        keywords: ["单癌", "多癌", "原发灶不明", "转移", "肝转移", "淋巴结转移", "cancerTag", "多原发"],
+        fieldKeys: ["cancerTag"]
+      },
+
+      // ========== sampleType 样本类型 ==========
+      {
+        id: "field-description-sample-type-body-vs-type",
+        kind: "field_description",
+        title: "样本类型与取材部位区分",
+        content: "sampleType字段应填写样本类型（如'组织'、'血液'、'胸水'、'腹水'、'骨髓'等），而非取材部位。取材部位（如'左乳'、'右肺'、'肝脏'）不是样本类型。当病理报告中写'手术标本'、'穿刺标本'、'活检组织'时，sampleType应为'组织'。",
+        keywords: ["样本类型", "sampleType", "取材部位", "组织", "手术标本", "穿刺标本", "活检"],
+        fieldKeys: ["sampleType"]
+      },
+
+      // ========== medication 用药 ==========
+      {
+        id: "field-description-medication-extraction",
+        kind: "field_description",
+        title: "用药信息提取规则",
+        content: "用药（medication）字段应提取靶向药物和免疫治疗药物名称。提取规则：1）忠实原文，不要添加原文中没有的词语（如原文写'具体不详'不要改为'具体方案不详'）；2）化疗方案归入chemotherapy字段，不归入medication；3）仅提及但未使用的药物（如'可考虑使用XX'）不提取。",
+        keywords: ["用药", "medication", "靶向", "免疫治疗", "化疗", "药物", "提取规则"],
+        fieldKeys: ["medication"]
+      },
+
+      // ========== radiotherapy 放疗 ==========
+      {
+        id: "field-description-radiotherapy-format",
+        kind: "field_description",
+        title: "放疗信息提取规则",
+        content: "放疗（radiotherapy）字段提取放疗相关信息。提取规则：1）保留放疗部位、剂量、次数等关键信息；2）忠实原文表述，不要改变标点符号格式；3）多程放疗用分号（；）分隔；4）如果报告明确写'无放疗'或'未行放疗'，返回'无'。",
+        keywords: ["放疗", "radiotherapy", "放射治疗", "剂量", "次数", "提取规则"],
+        fieldKeys: ["radiotherapy"]
       }
     ]
   };

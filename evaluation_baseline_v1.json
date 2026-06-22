@@ -1,0 +1,311 @@
+{
+  "TC001": {
+    "pathologicalDiagnosis": "(膀胱)高级别尿路上皮癌伴局部鳞状分化",
+    "interpretationMatch": "尿路上皮癌",
+    "cancerTag": "多癌",
+    "cancerCategory": "膀胱/尿路/膀胱尿路上皮癌",
+    "surgery": "膀胱、前列腺、精囊全切术"
+  },
+  "TC002": {
+    "pathologicalDiagnosis": "直肠中分化腺癌",
+    "interpretationMatch": "结直肠癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肠道/结直肠腺癌/直肠腺癌"
+  },
+  "TC003": {
+    "pathologicalDiagnosis": "(左侧上颌骨肿物)梭形细胞肿瘤，符合横纹肌肉瘤",
+    "interpretationMatch": "软组织肉瘤",
+    "cancerTag": "单癌",
+    "cancerCategory": "软组织/横纹肌肉瘤"
+  },
+  "TC004": {
+    "pathologicalDiagnosis": "左颈部弥漫性大B细胞淋巴瘤（非特指型）",
+    "interpretationMatch": "弥漫性大B细胞淋巴瘤",
+    "cancerTag": "单癌",
+    "cancerCategory": "淋巴/非霍奇金淋巴瘤/弥漫性大B细胞淋巴瘤"
+  },
+  "TC005": {
+    "pathologicalDiagnosis": "（右肾）FH缺陷型肾细胞癌",
+    "interpretationMatch": "肾细胞癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肾/肾细胞癌"
+  },
+  "TC006": {
+    "pathologicalDiagnosis": "(左侧丘脑占位)弥漫性胶质瘤",
+    "interpretationMatch": "胶质瘤",
+    "cancerTag": "单癌",
+    "cancerCategory": "中枢神经系统/脑/弥漫性胶质瘤"
+  },
+  "TC007": {
+    "pathologicalDiagnosis": "(食管26-28cm)鳞状细胞癌，分化较差",
+    "interpretationMatch": "食管癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "食管/食管鳞状细胞癌"
+  },
+  "TC008": {
+    "pathologicalDiagnosis": "胃肠道间质瘤",
+    "interpretationMatch": "胃肠道间质瘤",
+    "cancerTag": "单癌",
+    "cancerCategory": "软组织/胃肠道间质瘤"
+  },
+  "TC009": {
+    "pathologicalDiagnosis": "(胰体尾)中分化导管腺癌，淋巴结转移",
+    "interpretationMatch": "胰腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "胰腺/胰腺腺癌",
+    "surgery": "胰体尾+脾脏+肾上腺切除术",
+    "clinicalStage": "ypT1cN1Mx",
+    "medication": "新辅助化疗，具体不详"
+  },
+  "TC010": {
+    "pathologicalDiagnosis": "(胃小弯)中-低分化腺癌，淋巴结转移",
+    "interpretationMatch": "胃或胃食管交界处肿瘤",
+    "cancerTag": "单癌",
+    "cancerCategory": "胃/胃腺癌",
+    "surgery": "胃+上切缘+第8组淋巴结切除术",
+    "clinicalStage": "pT3N2Mx"
+  },
+  "TC011": {
+    "pathologicalDiagnosis": "（直肠）中-低分化腺癌",
+    "interpretationMatch": "结直肠癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肠道/结直肠腺癌/直肠中-低分化腺癌"
+  },
+  "TC012": {
+    "pathologicalDiagnosis": "肺低分化非小细胞癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌/低分化非小细胞癌"
+  },
+  "TC013": {
+    "pathologicalDiagnosis": "（右肺上叶）浸润性非黏液性腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/肺腺癌"
+  },
+  "TC014": {
+    "pathologicalDiagnosis": "右乳浸润性导管癌",
+    "interpretationMatch": "乳腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺浸润性导管癌",
+    "surgery": "2015-4-16右腋窝淋巴结清扫术+右乳区段切除术"
+  },
+  "TC015": {
+    "pathologicalDiagnosis": "（距上切缘6.2cm）高-中分化腺癌，局灶粘液腺癌",
+    "interpretationMatch": "结直肠癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肠道/结肠/结肠腺癌",
+    "surgery": "右半结肠根治切除术",
+    "clinicalStage": "pT3N0Mx"
+  },
+  "TC016": {
+    "pathologicalDiagnosis": "(左乳)浸润性导管癌伴原位癌",
+    "interpretationMatch": "乳腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺浸润性导管癌",
+    "surgery": "乳腺癌改良根治术",
+    "clinicalStage": "pT1b(m)N0"
+  },
+  "TC017": {
+    "pathologicalDiagnosis": "（肝脏肿物（右前叶））肝脏穿刺组织内见浸润性癌，结合临床病史，影像学、免疫组化结果符合转移性肠癌，低分化腺癌",
+    "interpretationMatch": "结直肠癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肠道/结直肠/结直肠腺癌"
+  },
+  "TC018": {
+    "pathologicalDiagnosis": "（肝脏）转移性腺癌，支持乳腺来源",
+    "interpretationMatch": "乳腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺癌"
+  },
+  "TC019": {
+    "pathologicalDiagnosis": "(腹水)查见恶性肿瘤细胞（腺癌），结合细胞块免疫组化结果，考虑女性生殖系统来源",
+    "interpretationMatch": "实体瘤",
+    "cancerTag": "原发灶不明"
+  },
+  "TC020": {
+    "pathologicalDiagnosis": "（左乳）浸润性导管癌，非特殊类型，II级（中分化）",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺癌",
+    "sampleType": "组织"
+  },
+  "TC021": {
+    "pathologicalDiagnosis": "乳腺癌",
+    "interpretationMatch": "乳腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺癌",
+    "familyHistory": "父亲，肺癌"
+  },
+  "TC022": {
+    "pathologicalDiagnosis": "子宫内膜癌",
+    "interpretationMatch": "子宫内膜癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "子宫内膜/子宫内膜癌",
+    "surgery": "手术，具体不详，手术日期2026.3.9"
+  },
+  "TC023": {
+    "pathologicalDiagnosis": "浸润性肺腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌/肺腺癌",
+    "sampleType": "左上肺叶"
+  },
+  "TC024": {
+    "pathologicalDiagnosis": "直肠恶性肿瘤",
+    "interpretationMatch": "结直肠癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肠道/结直肠腺癌/直肠腺癌"
+  },
+  "TC025": {
+    "pathologicalDiagnosis": "腺癌",
+    "interpretationMatch": "乳腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺癌",
+    "medication": "阿贝西利、阿那曲唑"
+  },
+  "TC026": {
+    "pathologicalDiagnosis": "（C4椎体右旁）转移性上皮性肿瘤，倾向低分化鳞癌，原发灶待查",
+    "cancerTag": "原发灶不明",
+    "cancerCategory": "其他/其他/原发灶不明"
+  },
+  "TC027": {
+    "pathologicalDiagnosis": "右肺中叶腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/肺腺癌",
+    "medication": "阿美替尼",
+    "radiotherapy": "右腿髋骨放疗，10次"
+  },
+  "TC028": {
+    "pathologicalDiagnosis": "乳腺非浸润性癌",
+    "interpretationMatch": "乳腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺癌"
+  },
+  "TC029": {
+    "pathologicalDiagnosis": "非小细胞肺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌"
+  },
+  "TC030": {
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌"
+  },
+  "TC031": {
+    "pathologicalDiagnosis": "十二指肠中分化腺癌",
+    "interpretationMatch": "小肠腺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "小肠/小肠腺癌/十二指肠中分化腺癌",
+    "surgery": "经机器人辅助肝部分切除+胆管空肠吻合+胃空肠吻合+肠肠吻合术",
+    "radiotherapy": "放疗25次",
+    "clinicalStage": "IVB期"
+  },
+  "TC032": {
+    "pathologicalDiagnosis": "（远端胃）胃-十二指肠腺癌（中-低分化），淋巴结、肝转移",
+    "interpretationMatch": "胃或胃食管交界处肿瘤",
+    "cancerTag": "单癌",
+    "cancerCategory": "胃/胃腺癌",
+    "medication": "卡瑞利珠单抗、信迪利单抗、卡度尼利单抗、阿帕替尼、YL217",
+    "radiotherapy": "2025-04行胰腺旁淋巴结外部束放射治疗（50Gy，10次）；2025-12至2026-01行肝转移灶放疗（6000cGy，10次）"
+  },
+  "TC033": {
+    "pathologicalDiagnosis": "（右上肺）原位腺癌伴微浸润",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌/肺腺癌",
+    "surgery": "右上肺楔形切除术；右下肺消融手术",
+    "medication": "地舒单抗；埃克替尼；贝福替尼；培美曲塞；奥希替尼；厄洛替尼；佐利替尼；培美曲塞+顺铂",
+    "radiotherapy": "无",
+    "clinicalStage": "T1N3M1 IV期"
+  },
+  "TC034": {
+    "pathologicalDiagnosis": "（右肺）中分化腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌/肺腺癌"
+  },
+  "TC035": {
+    "pathologicalDiagnosis": "(左肺上叶)腺癌，骨、脑、胸膜转移",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌/肺腺癌",
+    "surgery": "2017-07-03全麻下行电视胸腔镜下左肺上叶癌楔形切除+胸壁结节活检术",
+    "medication": "白蛋白紫杉醇+信迪利单抗；阿帕替尼、吉非替尼、洛铂；培美曲塞+安罗替尼；白蛋白紫杉醇+顺铂；奥希替尼；卡铂+白蛋白紫杉醇；贝伐珠单抗+吉西他滨+顺铂；替雷利珠单抗+白蛋白紫杉醇+安罗替尼；卡铂+培美曲塞+艾帕洛利托沃瑞利单抗；依沃西单抗+顺铂+白蛋白紫杉醇",
+    "radiotherapy": "2017-11射波刀3次；2022-06肋骨转移部位放疗；2022-09放射性粒子植入治疗；2024-07 T11/12椎体放疗",
+    "familyHistory": "妹妹，肺腺癌；姑妈，乳腺癌"
+  },
+  "TC036": {
+    "pathologicalDiagnosis": "左下肺腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/肺腺癌",
+    "geneMutations": "EGFR基因L858R突变"
+  },
+  "TC037": {
+    "pathologicalDiagnosis": "右上肺腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/肺腺癌",
+    "geneMutations": "ALK基因exon3-exon20融合突变",
+    "medication": "2025.09-2026.03，阿来替尼",
+    "radiotherapy": "2025.12：肺及淋巴结瘤床放疗"
+  },
+  "TC038": {
+    "pathologicalDiagnosis": "（右肺下叶）肺浸润性腺癌",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/肺腺癌",
+    "geneMutations": "NTRK3基因融合"
+  },
+  "TC039": {
+    "pathologicalDiagnosis": "（左肺上叶）浸润性癌，倾向鳞癌",
+    "interpretationMatch": "肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/非小细胞肺癌/肺鳞癌",
+    "clinicalStage": "pT2N1Mx"
+  },
+  "TC040": {
+    "pathologicalDiagnosis": "(右半结肠)粘液腺癌，侵透肌壁至浆膜外脂肪",
+    "interpretationMatch": "结直肠癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肠道/结直肠腺癌/结肠粘液腺癌",
+    "clinicalStage": "pT3N0Mx"
+  },
+  "TC041": {
+    "pathologicalDiagnosis": "（右腋窝淋巴结清扫）淋巴结见癌转移（7/27）",
+    "interpretationMatch": "实体瘤",
+    "cancerTag": "原发灶不明",
+    "cancerCategory": "其他/其他/原发灶不明",
+    "clinicalStage": "pN2a",
+    "surgery": "右腋窝淋巴结清扫术",
+    "sampleType": "右腋窝淋巴结"
+  },
+  "TC042": {
+    "pathologicalDiagnosis": "(左上肺结节)浸润性腺癌，低分化",
+    "interpretationMatch": "非小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/肺腺癌",
+    "clinicalStage": "pT1c"
+  },
+  "TC043": {
+    "pathologicalDiagnosis": "（横结肠、小肠）中-低分化腺癌",
+    "interpretationMatch": "结直肠癌, 小肠癌",
+    "cancerTag": "结肠癌,小肠癌",
+    "cancerCategory": "肠道/结直肠腺癌/中~低分化腺癌",
+    "clinicalStage": "ypT4aN0M1"
+  },
+  "TC044": {
+    "pathologicalDiagnosis": "（右乳肿物穿刺1）乳腺高级别导管原位癌，伴浸润；（右乳肿物穿刺2）乳腺浸润性癌，非特殊类型，Ⅲ级",
+    "interpretationMatch": "乳腺癌；",
+    "cancerTag": "单癌",
+    "cancerCategory": "乳腺/乳腺癌"
+  },
+  "TC045": {
+    "pathologicalDiagnosis": "（左上叶开口）小细胞神经内分泌癌；（左下叶开口）小细胞神经内分泌癌",
+    "interpretationMatch": "小细胞肺癌",
+    "cancerTag": "单癌",
+    "cancerCategory": "肺/小细胞肺癌"
+  }
+}

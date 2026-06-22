@@ -373,7 +373,11 @@ export function parseModelExtractionOutput(output: unknown, schema: CoreSchemaDr
 
 function parseJsonObject(text: string): unknown {
   try { return JSON.parse(text) as unknown; }
-  catch { return null; }
+  catch {
+    const cleaned = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    try { return JSON.parse(cleaned) as unknown; }
+    catch { return null; }
+  }
 }
 
 // ── Multi-round extraction (P1) ──
