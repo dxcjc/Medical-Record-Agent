@@ -46,7 +46,7 @@ from urllib.request import Request, urlopen
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TEST_CASES_PATH = PROJECT_ROOT / "docs" / "test-cases.json"
 BASELINE_PATH = PROJECT_ROOT / "docs" / "baseline.json"
-DEFAULT_SCHEMA_KEY = "general-medical-record"
+DEFAULT_SCHEMA_KEY = "medical-record-core"
 DEFAULT_RESULTS_DIR = PROJECT_ROOT / "docs" / "evaluations"
 
 # 字段优先级：与 schema-medical-record-core.json 对齐
@@ -85,6 +85,8 @@ class EvalConfig:
     filter_priority: Optional[str] = None
     concurrency: int = 3
     dry_run: bool = False
+    # providerConfig 覆盖(供 ROI 测试按模式控制 workflow)。None 时由 supervisor 自动决策。
+    provider_config: Optional[dict] = None
 
 
 @dataclass
@@ -261,13 +263,26 @@ def upload_file(client: ApiClient, file_path: Path) -> str:
     return file_id
 
 
-def create_job(client: ApiClient, file_ids: list[str], schema_key: str) -> str:
-    """创建识别任务，返回 jobId。"""
+def create_job(
+    client: ApiClient,
+    file_ids: list[str],
+    schema_key: str,
+    provider_config: Optional[dict] = None,
+) -> str:
+    """创建识别任务，返回 jobId。
+
+    provider_config 可选,用于覆盖 supervisor 决策(供 ROI 测试按模式控制 workflow):
+    - extractionMode: "single" | "multiSource"
+    - enableVisualReview: bool
+    - maxRetryRounds: int
+    """
     body: dict[str, Any] = {"schemaKey": schema_key}
     if len(file_ids) == 1:
         body["sourceFileId"] = file_ids[0]
     else:
         body["sourceFileIds"] = file_ids
+    if provider_config:
+        body["providerConfig"] = provider_config
     resp = client.post("/jobs", body)
     job_id = resp.get("id")
     if not job_id:
@@ -788,7 +803,7 @@ def run_evaluation(config: EvalConfig) -> dict:
                 print(f"  📤 已上传: {Path(fp).name} → {fid[:8]}...")
 
             # 2. 创建任务
-            job_id = create_job(client, file_ids, config.schema_key)
+            job_id = create_job(client, file_ids, config.schema_key, config.provider_config)
             sr.job_id = job_id
             print(f"  🔧 任务已创建: {job_id[:8]}...")
 
