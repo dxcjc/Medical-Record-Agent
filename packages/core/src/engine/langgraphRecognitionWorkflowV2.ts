@@ -166,11 +166,38 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
         ocrText: result.ocrText
       };
     } catch (error) {
-      return {
-        ...trace("ocr", "failed", "OCR provider 调用失败。"),
-        status: "failed" as const,
-        error: mapUnknownError(error)
-      };
+      // P1#6：OCR 失败时重试一次（httpOcrProvider 已有 2 次重试,workflow 层面再加一次兜底）。
+      // 瞬时 OCR 故障(如网络闪断)不应直接阻塞整个流程。
+      console.warn("[ocr] OCR 首次失败，准备重试...", {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      try {
+        const multiDoc = state.documents;
+        const hasMultipleDocuments = multiDoc !== undefined && multiDoc.length > 0;
+        const result = hasMultipleDocuments
+          ? await runMultiDocumentPipeline({
+              provider: config.ocrProvider,
+              documents: multiDoc
+            })
+          : await runDocumentPipeline({
+              provider: config.ocrProvider,
+              document: state.document
+            });
+        return {
+          ...trace("ocr", "completed", hasMultipleDocuments ? `OCR 重试成功（${multiDoc.length} 个文件）。` : "OCR 重试成功。"),
+          ocr: result.ocrResult,
+          ocrText: result.ocrText
+        };
+      } catch (retryError) {
+        console.warn("[ocr] OCR 重试仍然失败，阻断流程", {
+          error: retryError instanceof Error ? retryError.message : String(retryError)
+        });
+        return {
+          ...trace("ocr", "failed", "OCR provider 调用失败（已重试一次）。"),
+          status: "failed" as const,
+          error: mapUnknownError(retryError)
+        };
+      }
     }
   };
 
