@@ -31,7 +31,7 @@ from datetime import datetime
 # ============================================================
 API = "http://127.0.0.1:3000"
 TESTCASES_FILE = "docs/test-cases.json"
-IMAGE_DIR = "../固定测试集共45个样本"
+IMAGE_DIR = "../test-data/固定测试集共45个样本"
 EXPECTATIONS_FILE = "docs/evaluation_baseline_v1.json"
 SCHEMA_KEY = "medical-record-evaluation-v3"
 TIMEOUT_PER_SAMPLE = 600  # 10分钟（视觉审查+冲突重提取需要更多时间）

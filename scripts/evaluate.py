@@ -229,10 +229,14 @@ def find_image_file(relative_path: str) -> Path:
     full = PROJECT_ROOT / relative_path
     if full.exists():
         return full
-    # 尝试在固定测试集目录下查找
-    alt = PROJECT_ROOT / "data" / relative_path
+    # 尝试在 test-data 目录下查找
+    alt = PROJECT_ROOT / "test-data" / relative_path
     if alt.exists():
         return alt
+    # 兼容旧路径(历史引用)
+    old = PROJECT_ROOT / "data" / relative_path
+    if old.exists():
+        return old
     raise FileNotFoundError(f"找不到文件: {relative_path}")
 
 
