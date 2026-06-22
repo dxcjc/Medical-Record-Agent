@@ -20,10 +20,10 @@ corepack enable && corepack pnpm install
 
 # 启动开发服务
 corepack pnpm --filter @medical-record-agent/api dev          # 后端 :3000
-corepack pnpm --filter medical-ui dev                         # 前端 :5173
+corepack pnpm --filter @medical-record-agent/web dev            # 前端 :5173
 
 # 构建
-corepack pnpm --filter medical-ui build
+corepack pnpm --filter @medical-record-agent/web build
 ```
 
 ## 测试
@@ -32,8 +32,8 @@ corepack pnpm --filter medical-ui build
 corepack pnpm exec prisma generate                                 # 首次安装或 schema 变化后生成 Prisma Client
 corepack pnpm typecheck                                             # 类型检查
 corepack pnpm test                                                   # 单元测试；真实 E2E 需要先启动本地 API
-corepack pnpm --filter medical-ui test                               # 前端组件/工具测试
-corepack pnpm --filter medical-ui build                              # 前端构建
+corepack pnpm --filter @medical-record-agent/web test                # 前端组件/工具测试
+corepack pnpm --filter @medical-record-agent/web build               # 前端构建
 corepack pnpm readiness:deployment                                   # 部署就绪检查
 corepack pnpm e2e:web:browser                                        # 浏览器 E2E 测试（browserE2E=passed / blocked）
 ```
@@ -44,7 +44,7 @@ corepack pnpm e2e:web:browser                                        # 浏览器
 Medical-Record-Agent/
 ├── apps/
 │   ├── api/          # Fastify 后端服务
-├── medical-ui/       # React 前端
+│   ├── web/          # React 前端
 ├── packages/
 │   ├── core/         # 识别工作流与 provider 抽象
 │   └── shared/       # 共享类型与 fixtures

@@ -211,7 +211,7 @@ function startDevServer(baseUrl: string) {
   const parsed = new URL(baseUrl);
   const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
 
-  return spawn("corepack", ["pnpm", "--dir", "medical-ui", "exec", "vite", "--host", parsed.hostname, "--port", port, "--strictPort"], {
+  return spawn("corepack", ["pnpm", "--dir", "apps/web", "exec", "vite", "--host", parsed.hostname, "--port", port, "--strictPort"], {
     cwd: process.cwd(),
     env: process.env,
     detached: true,

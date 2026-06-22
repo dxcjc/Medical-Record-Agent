@@ -10,7 +10,7 @@
     "typecheck": "pnpm typecheck:prepare && pnpm -r --if-present typecheck && tsc -p tsconfig.scripts.json",
     "typecheck:prepare": "tsc -b packages/shared packages/core --force",
     "dev:api": "pnpm --filter @medical-record-agent/api dev",
-    "dev:web": "pnpm --filter medical-ui dev",
+    "dev:web": "pnpm --filter @medical-record-agent/web dev",
     "eval:manifest": "tsx scripts/evaluation-manifest.ts",
     "eval:run": "tsx scripts/evaluation-runner-smoke.ts",
     "smoke:web": "tsx scripts/demo-web-basic-e2e.ts",

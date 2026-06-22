@@ -15,9 +15,9 @@ describe("deployment readiness gate", () => {
     expect(plan.map((check) => check.id)).toEqual([
       "typecheck",
       "unit-tests",
-      "medical-ui-typecheck",
-      "medical-ui-tests",
-      "medical-ui-build",
+      "web-typecheck",
+      "web-tests",
+      "web-build",
       "served-app-readiness",
       "web-smoke",
       "web-browser-e2e",

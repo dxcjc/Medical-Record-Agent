@@ -88,43 +88,43 @@ export function buildDeploymentReadinessCommandPlan(): DeploymentReadinessCheckP
       requiredForLocalReadiness: true
     },
     {
-      id: "medical-ui-typecheck",
-      label: "medical-ui TypeScript typecheck",
+      id: "web-typecheck",
+      label: "web TypeScript typecheck",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "--filter", "medical-ui", "typecheck"],
+      command: ["corepack", "pnpm", "--filter", "@medical-record-agent/web", "typecheck"],
       requiredForLocalReadiness: true
     },
     {
-      id: "medical-ui-tests",
-      label: "medical-ui unit tests",
+      id: "web-tests",
+      label: "web unit tests",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "--filter", "medical-ui", "test"],
+      command: ["corepack", "pnpm", "--filter", "@medical-record-agent/web", "test"],
       requiredForLocalReadiness: true
     },
     {
-      id: "medical-ui-build",
-      label: "medical-ui production build",
+      id: "web-build",
+      label: "web production build",
       phase: "local-readiness",
-      command: ["corepack", "pnpm", "--filter", "medical-ui", "build"],
+      command: ["corepack", "pnpm", "--filter", "@medical-record-agent/web", "build"],
       requiredForLocalReadiness: true
     },
     {
       id: "served-app-readiness",
-      label: "medical-ui served app and dist bundle readiness",
+      label: "web served app and dist bundle readiness",
       phase: "local-readiness",
       command: ["corepack", "pnpm", "readiness:served-app"],
       requiredForLocalReadiness: true
     },
     {
       id: "web-smoke",
-      label: "medical-ui local runtime smoke",
+      label: "web local runtime smoke",
       phase: "local-readiness",
       command: ["corepack", "pnpm", "smoke:web"],
       requiredForLocalReadiness: true
     },
     {
       id: "web-browser-e2e",
-      label: "medical-ui browser E2E",
+      label: "web browser E2E",
       phase: "browser-e2e",
       command: ["corepack", "pnpm", "e2e:web:browser"],
       requiredForLocalReadiness: false

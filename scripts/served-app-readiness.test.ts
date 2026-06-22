@@ -33,7 +33,7 @@ describe("served app readiness script", () => {
     ]);
   });
 
-  it("passes local served artifact readiness when the medical-ui dev server, health and dist bundles match", async () => {
+  it("passes local served artifact readiness when the web dev server, health and dist bundles match", async () => {
     const servedHtml = htmlWithBundles("/assets/index-CURRENT.js", "/assets/vendor-react-CURRENT.js");
     const fetchImpl = async (input: URL | RequestInfo) => {
       const url = String(input);
@@ -73,7 +73,7 @@ describe("served app readiness script", () => {
     expect(formatServedAppReadinessSummary(summary)).toContain("finalProduct=not-evaluated");
   });
 
-  it("returns blocked with exit code 2 when the medical-ui served app is not reachable", async () => {
+  it("returns blocked with exit code 2 when the web served app is not reachable", async () => {
     const summary = await runServedAppReadiness({
       now: () => new Date("2026-06-10T01:00:00.000Z"),
       fetchImpl: async () => {
@@ -101,7 +101,7 @@ describe("served app readiness script", () => {
     expect(formatServedAppReadinessSummary(summary)).toContain("BLOCKED_DETAIL served-app served-home SERVED_APP_HOME_UNREACHABLE");
   });
 
-  it("fails when the served medical-ui bundle does not match medical-ui/dist/index.html", async () => {
+  it("fails when the served web bundle does not match apps/web/dist/index.html", async () => {
     const summary = await runServedAppReadiness({
       now: () => new Date("2026-06-10T01:00:00.000Z"),
       fetchImpl: async (input: URL | RequestInfo) => {
