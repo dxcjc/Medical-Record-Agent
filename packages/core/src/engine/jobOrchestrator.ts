@@ -91,6 +91,17 @@ export interface JobOrchestratorInput {
      * 通常配置为支持多图的多模态模型；未指定则回退到 providerKey 的模型。
      */
     visualProviderKey?: string;
+    /**
+     * 提取模式覆盖（任务3,供 ROI 测试用）。指定后覆盖 supervisor 决策：
+     * - "single"：单次提取,跳过视觉审查和重试
+     * - "multiSource"：多源验证,完整拓扑
+     * 未指定时由 supervisor 按文档数自动决策。
+     */
+    extractionMode?: "single" | "multiSource";
+    /** 强制覆盖视觉审查开关(供 ROI 测试)。未指定时由 supervisor 决策。 */
+    enableVisualReview?: boolean;
+    /** 强制覆盖最大重试轮数(供 ROI 测试)。未指定时由 supervisor 决策。 */
+    maxRetryRounds?: number;
   };
 }
 

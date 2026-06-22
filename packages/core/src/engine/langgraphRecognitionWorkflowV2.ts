@@ -109,16 +109,38 @@ export function createLangGraphRecognitionWorkflowV2(config: JobOrchestratorConf
 
     const docType = state.document.documentId.includes("table") ? "table" : undefined;
 
+    // 任务3：传文档数量,供 supervisor 决策 extractionMode(多文档→multiSource)
+    const documentCount = state.documents?.length ?? 1;
+
     const decision = supervisorNode.decide({
       schema: config.schema,
       ...(docType ? { documentType: docType } : {}),
-      hasImage
+      hasImage,
+      documentCount
     });
+
+    // 任务3：providerConfig 覆盖(供 ROI 测试按模式控制开关)。
+    // 显式指定的参数优先于 supervisor 自动决策。
+    const overrides = state.providerConfig;
+    if (overrides) {
+      if (overrides.extractionMode) {
+        decision.extractionMode = overrides.extractionMode;
+        decision.reasons.push(`providerConfig 覆盖提取模式: ${overrides.extractionMode}`);
+      }
+      if (overrides.enableVisualReview !== undefined) {
+        decision.enableVisualReview = overrides.enableVisualReview;
+        decision.reasons.push(`providerConfig 覆盖视觉审查: ${overrides.enableVisualReview ? "开" : "关"}`);
+      }
+      if (overrides.maxRetryRounds !== undefined) {
+        decision.maxRetryRounds = overrides.maxRetryRounds;
+        decision.reasons.push(`providerConfig 覆盖最大重试: ${overrides.maxRetryRounds}`);
+      }
+    }
 
     console.log("[supervisor] 执行策略已决策", decision);
 
     return {
-      ...trace("preprocess", "completed", `视觉评审: ${decision.enableVisualReview ? "开" : "关"}；RAG: ${decision.enableRAG ? "开" : "关"}；最大重试: ${decision.maxRetryRounds}。${decision.reasons.length ? " " + decision.reasons.join("; ") : ""}`),
+      ...trace("preprocess", "completed", `提取模式: ${decision.extractionMode}；视觉评审: ${decision.enableVisualReview ? "开" : "关"}；RAG: ${decision.enableRAG ? "开" : "关"}；最大重试: ${decision.maxRetryRounds}。${decision.reasons.length ? " " + decision.reasons.join("; ") : ""}`),
       supervisorDecision: decision
     };
   };
